@@ -1,0 +1,46 @@
+#!/usr/bin/guile-2.0 \
+-e main -s
+!#
+
+(use-modules (ice-9 receive))
+(use-modules (ice-9 rdelim))
+(use-modules (web client))
+(use-modules (web uri))
+(use-modules (web request))
+(use-modules (web response))
+(use-modules (json))
+
+(use-modules (bb-cayw))
+
+
+;; input
+(define DATA_COMMAND #\016)
+(define DATA_ESCAPE #\027)
+;; output
+(define DATA_BEGIN #\002)
+(define DATA_END #\005)
+
+
+(define (verbatim-data-begin)
+  (display DATA_BEGIN)
+  (display "verbatim:"))
+
+(define (command-data-begin)
+  (display DATA_BEGIN)
+  (display "command:"))
+
+(define (scheme-data-begin)
+  (display DATA_BEGIN)
+  (display "scheme:"))
+
+(define (data-end)
+  (display DATA_END))
+
+
+
+(define (main args)
+  )
+
+# Local Variables:
+# mode: guile-scheme
+# End:
