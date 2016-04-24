@@ -108,7 +108,7 @@
                (current-error-port))
       (begin
         ;;(display (string-append res-str "\n"))
-        (display (string-append res-str "\n") bbl)))))
+        (display (string-append res-str) bbl)))))
 
 
 ;;;
@@ -129,5 +129,6 @@
 ;;; "{\"id\" : 666,\"jsonrpc\" : \"2.0\",\"params\" : [[\"galloway_jr_basic_1989\", \"galloway_jr_basic_1992\", \"_addington_1979\", \"_douglas_1963\"], {\"style\" : \"http://juris-m.github.io/styles/jm-babyblue\"}],\"method\" : \"tmbibliography\"}"
 
 ;;; Local Variables:
-;;; mode: guile-scheme
+;;; mode: scheme
+;;; geiser-scheme-implementation: guile
 ;;; End:
