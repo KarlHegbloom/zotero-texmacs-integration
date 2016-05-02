@@ -2,7 +2,7 @@
 ;;
 ;; MODULE      : init-zotero.scm
 ;; DESCRIPTION : Initialize Zotero Connector Plugin
-;; COPYRIGHT   : (C) 2016 Free Software Foundation
+;; COPYRIGHT   : (C) 2016  Karl M. Hegbloom <karl.hegbloom@gmail.com>
 ;;
 ;; This software falls under the GNU general public license version 3 or
 ;; later. It comes WITHOUT ANY WARRANTY WHATSOEVER. For details, see the file
@@ -10,9 +10,9 @@
 ;;
 ;;;
 
-;; (plugin-configure zotero
-;;   (:require (url-exists-in-path? "tm_zotero")
-;;             ))
+(plugin-configure zotero
+  (:require #t)
+  (:initialize noop))
 
 ;; (when (supports-zotero?)
 ;;   (import-from (zotero-menus))
