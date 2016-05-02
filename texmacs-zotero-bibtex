@@ -57,16 +57,19 @@
 
 (hash-set! ht "params" 
            (list (list "placeholder")
-                 (json (object ("style" "jm-babyblue")))))
+                 (json (object ("style" "jm-indigobook")))))
+
 
 (define (bibliographybbl-style-set! style)
   (hash-set! (cadr (hash-ref ht "params")) "style" style))
+
 
 (define (make-bibliographybbl-post-data citekeys)
   (set! id (+ 1 id))
   (hash-set! ht "id" id)
   (set-car! (hash-ref ht "params") citekeys)
   (scm->json-string ht))
+
 
 (define (get-bibliographybbl citekeys)
   (receive (result port)
@@ -75,6 +78,7 @@
        #:body (make-bibliographybbl-post-data citekeys)
        #:streaming? #t)
     (json->scm port)))
+
 
 (define (parse-citekeys aux)
   (let loop ((citekeys '())
@@ -103,11 +107,11 @@
          (res-err (hash-ref res-ht "error" #f))
          (res-str (hash-ref res-ht "result" "")))
     (if res-err
-      (display (string-append "Error:" (number->string (hash-ref res-err "code"))
-                              ":" (hash-ref res-err "message") "\n")
-               (current-error-port))
+        (let ((err-str (string-append "Error:" (number->string (hash-ref res-err "code"))
+                                      ":" (hash-ref res-err "message") "\n")))
+          (display err-str (current-error-port))
+          (display err-str bbl))
       (begin
-        ;;(display (string-append res-str "\n"))
         (display (string-append res-str) bbl)))))
 
 
