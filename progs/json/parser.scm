@@ -254,7 +254,6 @@
   (let ((c (parser-read-char parser)))
     (case c
       ((#\" #\\ #\/) (string c))
-      (#\011 #\013 #\012 #\015 #\040)
       ((#\010) (string #\010))
       ((#\014) (string #\014))
       ((#\012) (string #\012))
