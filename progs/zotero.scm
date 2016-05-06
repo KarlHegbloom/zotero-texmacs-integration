@@ -112,6 +112,9 @@
 
 (define zotero-active? #f)
 
+;;; This does not work right. It's stuck in the loop and I can not type.
+;;; How do I do this right?
+;;;
 (tm-define (zotero-listen)
   (set! zotero-active? #t)
   (with wait 1
