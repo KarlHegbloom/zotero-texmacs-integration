@@ -2,7 +2,10 @@ Zotero - TeXmacs integration plugin and citation styles.
 ========================================================
 
 This is a work in progress. The README is not up to date. I'll fix it
-later.
+later... Some of the notes are very naive. I'm leaving them there for
+now.
+
+-------------------------------------------------------------------------------
 
 This package contains a drop-in for `bibtex` that performs a `jsonrpc`
 call to a running **Juris-M** or **Zotero** with the **Better BibTeX
@@ -14,16 +17,13 @@ for `bibtex` to anyone using **LaTeX**. It parses a `.aux` file, uses
 Zotero** (extended to have a `.bbl` output form), and writes the
 `.bbl` file for **TeXmacs** or **LaTeX** to include.
 
-There is also a style file for citation macros that calls on the
-**Better BibTeX for Zotero** plugin's `cayw` (*cite as you write*)
-`jsonrpc` interface to pop-up the citation chooser, the way it does
-when writing using `libreoffice` and it's `zotero` integration plugin,
-or when using the `markdown` support for the **Atom**
-editor. Initially, there is only, for sure, support for the
-`jm-babyblue` CSL style, but while writing it, I'll keep in mind the
-potential for use with and and all CSL styles supported by **Juris-M**
-and **Zotero**. As I am in sort-of a hurry to get this working due to
-court deadlines, the next iteration may not happen for several months.
+I think that in order to support in-text citation styles and create
+the actual in-text citations, that it will need to be able to print
+out **BibLaTeX** bbl files and be used with a **BibLaTeX** style, or
+else it will need to print out the stuff that **lexitex** needs. I
+have not studied that system. I'm working more with **TeXmacs** and so
+I will be focused on that more than on a drop-in for `bibtex`.
+
 
 Requirements
 ------------
