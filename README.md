@@ -2,11 +2,7 @@ Zotero - TeXmacs integration plugin and citation styles.
 ========================================================
 
 This is a work in progress. The README is not up to date. I'll fix it
-later. I need to take about a week or two off from work on this
-because I need to prepare for a child custody trial. When that's done
-I'll be getting back to this while he's in school. I need the citation
-support for the document I'll be working on after the trial is
-over... so don't worry, I will finish what I started.
+later.
 
 This package contains a drop-in for `bibtex` that performs a `jsonrpc`
 call to a running **Juris-M** or **Zotero** with the **Better BibTeX
