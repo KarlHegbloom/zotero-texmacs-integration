@@ -26,6 +26,16 @@
 
 (sigaction SIGPIPE (lambda (sig) #t))
 
+(define orig-json-string->scm json-string->scm)
+(define (json-string->scm str)
+  (catch 'json-invalid
+    (lambda ()
+      (orig-json-string->scm str))
+    (lambda args
+      (throw 'json-invalid "Invalid JSON" "Invalid JSON" #f))))
+
+
+
 ;;;; Protocol between tm_zotero and ZoteroTeXmacsIntegration.js
 ;;
 ;; https://www.zotero.org/support/dev/client_coding/libreoffice_plugin_wire_protocol
@@ -47,19 +57,29 @@
 (define (get-zotero-socket-port!)
   (catch 'system-error
     (lambda ()
-      (or zotero-socket-port
+      (if (and (port? zotero-socket-port)
+               (not (port-closed? zotero-socket-port)))
+          zotero-socket-port
           (begin
             (set! zotero-socket-port (socket PF_INET SOCK_STREAM 0))
             (setsockopt zotero-socket-port SOL_SOCKET SO_REUSEADDR 1)
             ;; (setsockopt zotero-socket-port IPPROTO_TCP TCP_NODELAY 1)
             (setvbuf zotero-socket-port _IOFBF)
-            (bind zotero-socket-port AF_INET INADDR_LOOPBACK 23117)
+            (bind    zotero-socket-port AF_INET INADDR_LOOPBACK 23117)
             (connect zotero-socket-port AF_INET INADDR_LOOPBACK 23116)
             zotero-socket-port)))
     (lambda args
-      (close zotero-socket-port)
+      (close-port zotero-socket-port)
       (set! zotero-socket-port #f)
       (apply throw args))))
+
+
+(define (close-zotero-socket-port!)
+  (if (and (port? zotero-socket-port)
+           (not (port-closed? zotero-socket-port)))
+      (begin
+        (close-port zotero-socket-port)
+        (set! zotero-socket-port #f))))
 
 
 (define (write-network-u32 value port)
@@ -105,34 +125,63 @@
 
 (tm-define (zotero-select-then-read)
   (let ((zp (get-zotero-socket-port!)))
-    (with (r w e) (select (list zp) '() '() 0 500000) ;; 0.5 sec
+    (with (r w e) (select (list zp) '() '() 10);; 10 sec
       (if (not (null? r))
           (zotero-read)
           (list 0 0 "")))))
 
+
 (define zotero-active? #f)
 
-;;; This does not work right. It's stuck in the loop and I can not type.
-;;; How do I do this right?
+;; see: (generic widgets):wait-for-toolbar in
+;; progs/generic/generic-widgets.scm at 366 for how to implement a timeout
+;; using delayed.
+
+;;; State machine; protocol is essentially synchronous, and user expects to
+;;; wait while it finishes before doing anything else anyhow.
+;;;
+;;; When this is entered, one of the Integration commands has just been sent to
+;;; Juris-M / Zotero. It is expected to call back and begin a word processing
+;;; command sequence, culminating with Document_complete.
 ;;;
 (tm-define (zotero-listen)
   (set! zotero-active? #t)
-  (with wait 1
-    (delayed
-      (:while zotero-active?)
-      (:pause ((lambda () (inexact->exact (round wait)))))
-      (:do (set! wait (min (* 1.01 wait) 2500)))
-      (with (tid len cmdstr) (zotero-select-then-read)
-        (when (> 0 len)
-          (with (editCommand args) (json-string->scm cmdstr)
-            (cond
-              ((string-equal? editCommand "Document_complete")
-               (write-zotero tid (scm->json-string '()))
-               (set! zotero-active? #f)
-               (set! wait 1))
-              (#t (with result (apply (string-append "zotero-" editCommand) args)
-                    (write-zotero tid (scm->json-string result))
-                    (set! wait 1))))))))))
+  (while zotero-active?
+    (with (tid len cmdstr) (zotero-select-then-read)
+      (when (> 0 len)
+        (with (editCommand args) (json-string->scm cmdstr)
+          (cond
+            ((string=? editCommand "Document_complete")
+             (zotero-write tid (scm->json-string '()))
+             (set! zotero-active? #f)
+             (close-zotero-socket-port!))
+            (#t (with result (apply (string-append "zotero-" editCommand)
+                                    args)
+                  (zotero-write tid (scm->json-string result))))))))))
+
+
+
+
+;; (tm-define (zotero-listen)
+;;   (set! zotero-active? #t)
+;;   (with wait 1
+;;     (delayed
+;;       (:while zotero-active?)
+;;       (:pause ((lambda () (inexact->exact (round wait)))))
+;;       (:do (set! wait (min (* 1.01 wait) 2500)))
+;;       (when (char-ready? zotero-socket-port)
+;;         (with (tid len cmdstr) (zotero-read)
+;;           (when (> 0 len)
+;;             (with (editCommand args) (json-string->scm cmdstr)
+;;               (cond
+;;                 ((string-equal? editCommand "Document_complete")
+;;                  (write-zotero tid (scm->json-string '()))
+;;                  (set! zotero-active? #f)
+;;                  (set! wait 1))
+;;                 (#t (with result (apply (string-append "zotero-"
+;;                                                        editCommand) args)
+;;                       (write-zotero tid (scm->json-string result))
+;;                       (set! wait 1)))))))))))
 
 
 
@@ -338,6 +387,7 @@
   ;; stub
   (display* "zotero-Document_complete: " documentID "\n")
   (set! zotero-active? #f)
+  (close-zotero-socket-port!)
   '())
 
 
