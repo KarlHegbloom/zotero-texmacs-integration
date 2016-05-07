@@ -180,6 +180,36 @@
 ;;       system.
 ;;
 
+(use-modules (ice-9 hash-table))
+
+(define (locator sh-loc)
+  (let ((sh-loc-to-locator-h
+         (alist->hash-table
+          '(("art." . "article")
+            ("ch." . "chapter")
+            ("subch." . "subchapter")
+            ("col." . "column")
+            ("fig." . "figure")
+            ("l." . "line")
+            ("n." . "note")
+            ("no." . "issue")
+            ("op." . "opus")
+            ("p." . "page")
+            ("para." . "paragraph")
+            ("subpara." . "subparagraph")
+            ("pt." . "part")
+            ("r." . "rule")
+            ("sec." . "section")
+            ("subsec." . "subsection")
+            ("Sec." . "Section")
+            ("sv." . "sub verso")
+            ("sch." . "schedule")
+            ("tit." . "title")
+            ("vrs." . "verse")
+            ("vol." . "volume")))))
+    (hash-ref sh-loc-to-locator-h sh-loc "page")))
+
+
 (define (cayw-get-latex-cite)
   (cadadr
    (tree->stree
