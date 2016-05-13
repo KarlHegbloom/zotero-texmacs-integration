@@ -26,11 +26,11 @@
 
 (sigaction SIGPIPE (lambda (sig) #t))
 
-(define orig-json-string->scm json-string->scm)
-(define (json-string->scm str)
+;; this just restructures the error object to match what TeXmacs is expecting.
+(define (safe-json-string->scm str)
   (catch 'json-invalid
     (lambda ()
-      (orig-json-string->scm str))
+      (json-string->scm str))
     (lambda args
       (throw 'json-invalid "Invalid JSON" "Invalid JSON" #f))))
 
@@ -144,44 +144,55 @@
 ;;; Juris-M / Zotero. It is expected to call back and begin a word processing
 ;;; command sequence, culminating with Document_complete.
 ;;;
-(tm-define (zotero-listen)
-  (set! zotero-active? #t)
-  (while zotero-active?
-    (with (tid len cmdstr) (zotero-select-then-read)
-      (when (> 0 len)
-        (with (editCommand args) (json-string->scm cmdstr)
-          (cond
-            ((string=? editCommand "Document_complete")
-             (zotero-write tid (scm->json-string '()))
-             (set! zotero-active? #f)
-             (close-zotero-socket-port!))
-            (#t (with result (apply (string-append "zotero-" editCommand)
-                                    args)
-                  (zotero-write tid (scm->json-string result))))))))))
-
-
-
-
 ;; (tm-define (zotero-listen)
 ;;   (set! zotero-active? #t)
-;;   (with wait 1
-;;     (delayed
-;;       (:while zotero-active?)
-;;       (:pause ((lambda () (inexact->exact (round wait)))))
-;;       (:do (set! wait (min (* 1.01 wait) 2500)))
-;;       (when (char-ready? zotero-socket-port)
-;;         (with (tid len cmdstr) (zotero-read)
-;;           (when (> 0 len)
-;;             (with (editCommand args) (json-string->scm cmdstr)
-;;               (cond
-;;                 ((string-equal? editCommand "Document_complete")
-;;                  (write-zotero tid (scm->json-string '()))
-;;                  (set! zotero-active? #f)
-;;                  (set! wait 1))
-;;                 (#t (with result (apply (string-append "zotero-"
-;;                                                        editCommand) args)
-;;                       (write-zotero tid (scm->json-string result))
-;;                       (set! wait 1)))))))))))
+;;   (while zotero-active?
+;;     (with (tid len cmdstr) (zotero-select-then-read)
+;;       (display* "tid:" tid " len:" len "cmdstr:" cmdstr "\n")
+;;       (when (> len 0)
+;;         (with (editCommand args) (safe-json-string->scm cmdstr)
+;;           (cond
+;;             ((string=? editCommand "Document_complete")
+;;              (zotero-write tid (scm->json-string '()))
+;;              (set! zotero-active? #f)
+;;              (close-zotero-socket-port!))
+;;             (#t (with result (apply (eval 
+;;                                      (string->symbol 
+;;                                       (string-append "zotero-" editCommand)))
+;;                                     args)
+;;                   (zotero-write tid (scm->json-string result))))))))))
+
+
+(tm-define (zotero-listen)
+  (set! zotero-active? #t)
+  (with wait 1
+    (delayed
+      (:while zotero-active?)
+      (:pause ((lambda () (inexact->exact (round wait)))))
+      (:do (set! wait (min (* 1.01 wait) 2500)))
+      (with (tid len cmdstr) (zotero-select-then-read)
+        (write (list 'tid: tid 'len: len 'cmdstr: cmdstr))
+        (newline)
+        (when (> len 0)
+          (with (editCommand args) (safe-json-string->scm cmdstr)
+            (cond
+              ((string=? editCommand "Document_complete")
+               (zotero-write tid (scm->json-string '()))
+               (set! zotero-active? #f)
+               (close-zotero-socket-port!)
+               (set! wait 1))
+              (#t (with result (apply (eval 
+                                       (string->symbol 
+                                        (string-append "zotero-"
+                                                       editCommand)))
+                                      args)
+                    (write result)
+                    (newline)
+                    (write (scm->json-string result))
+                    (newline)
+                    (display "--------------------\n\n")
+                    (zotero-write tid (scm->json-string result))
+                    (set! wait 1))))))))))
 
 
 
@@ -218,26 +229,6 @@
 
 
 
-(define-public DIALOG_ICON_STOP 0)
-(define-public DIALOG_ICON_NOTICE 1)
-(define-public DIALOG_ICON_CAUTION 2)
-
-(define-public DIALOG_BUTTONS_OK 0)
-(define-public DIALOG_BUTTONS_OK_OK_PRESSED 1)
-
-(define-public DIALOG_BUTTONS_OK_CANCEL 1)
-(define-public DIALOG_BUTTONS_OK_CANCEL_CANCEL_PRESSED 0)
-(define-public DIALOG_BUTTONS_OK_CANCEL_OK_PRESSED 1)
-
-(define-public DIALOG_BUTTONS_YES_NO 2)
-(define-public DIALOG_BUTTONS_YES_NO_NO_PRESSED 0)
-(define-public DIALOG_BUTTONS_YES_NO_YES_PRESSED 1)
-
-(define-public DIALOG_BUTTONS_YES_NO_CANCEL 3)
-(define-public DIALOG_BUTTONS_YES_NO_CANCEL_CANCEL_PRESSED 0)
-(define-public DIALOG_BUTTONS_YES_NO_CANCEL_NO_PRESSED 1)
-(define-public DIALOG_BUTTONS_YES_NO_CANCEL_YES_PRESSED 2)
-
 ;;
 ;; Word Processor commands: Zotero -> TeXmacs
 ;;
@@ -246,7 +237,6 @@
 ;; The response is expected to be a JSON encoded payload, or the unquoted and
 ;; unescaped string: ERR: Error string goes here
 ;;
-
 ;; Gets information about the client and the currently active
 ;; document. documentID can be an integer or a string.
 ;;
@@ -256,18 +246,70 @@
   (car (buffer-path)))
 
 (tm-define (zotero-Application_getActiveDocument pv)
-  (display* "zotero-Application_getActiveDocument: " pv "\n")
+  ;; stub
+  (write (list "zotero-Application_getActiveDocument" pv))
+  (newline)
   (list pv (zotero-getDocId)))
+
+
+
+;; (define DIALOG_ICON_STOP 0)
+;; (define DIALOG_ICON_NOTICE 1)
+;; (define DIALOG_ICON_CAUTION 2)
+
+;; (define DIALOG_BUTTONS_OK 0)
+;; (define DIALOG_BUTTONS_OK_OK_PRESSED 1)
+
+;; (define DIALOG_BUTTONS_OK_CANCEL 1)
+;; (define DIALOG_BUTTONS_OK_CANCEL_CANCEL_PRESSED 0)
+;; (define DIALOG_BUTTONS_OK_CANCEL_OK_PRESSED 1)
+
+;; (define DIALOG_BUTTONS_YES_NO 2)
+;; (define DIALOG_BUTTONS_YES_NO_NO_PRESSED 0)
+;; (define DIALOG_BUTTONS_YES_NO_YES_PRESSED 1)
+
+;; (define DIALOG_BUTTONS_YES_NO_CANCEL 3)
+;; (define DIALOG_BUTTONS_YES_NO_CANCEL_CANCEL_PRESSED 0)
+;; (define DIALOG_BUTTONS_YES_NO_CANCEL_NO_PRESSED 1)
+;; (define DIALOG_BUTTONS_YES_NO_CANCEL_YES_PRESSED 2)
+
+
+(tm-widget ((zotero-display-alert str_Text int_Icon int_Buttons) cmd)
+  (hlist ((icon (list-ref (map %search-load-path
+                               '("icon-stop.png"
+                                 "icon-notice.png"
+                                 "icon-caution.png"))
+                          int_Icon)) (noop))
+         >> (text str_Text))
+  (bottom-buttons >>> (cond
+                        ((= int_Buttons 0)
+                         ("Ok"     (cmd 1)))
+                        ((= int_Buttons 1)
+                         ("Ok"     (cmd 1))
+                         ("Cancel" (cmd 0)))
+                        ((= int_Buttons 2)
+                         ("Yes"    (cmd 1))
+                         ("No"     (cmd 0)))
+                        ((= int_Buttons 3)
+                         ("Yes"    (cmd 2))
+                         ("No"     (cmd 1))
+                         ("Cancel" (cmd 0))))))
+
 
 ;; Shows an alert.
 ;;
 ;; ["Document_displayAlert", [documentID, str_dialogText, int_icon, int_buttons]] -> int_button_pressed
 ;;
 (tm-define (zotero-Document_displayAlert documentID str_dialogText int_icon int_buttons)
-  ;; stub
-  (display* "zotero-Document_displayAlert: " documentID " " str_dialogText " "
-            int_icon " " int_buttons "\n")
-  0)
+  ;; (write (list "zotero-Document_displayAlert" documentID str_dialogText
+  ;;              int_icon int_buttons))
+  ;; (newline)
+  (let ((ret 0))
+    (dialogue-window (zotero-display-alert str_dialogText int_icon int_buttons)
+                     (lambda (val)
+                       (set! ret val))
+                     "Zotero Alert!")
+    ret))
 
 
 ;; Brings the document to the foreground. (For OpenOffice, this is a no-op on non-Mac systems.)
@@ -275,17 +317,19 @@
 ;; ["Document_activate", [documentID]] -> null
 ;;
 (tm-define (zotero-Document_activate documentID)
-  ;; stub?
-  (display* "zotero-Document_activate: " documentID "\n")
+  ;; stub
+  (write (list "zotero-Document_activate" documentID))
+  (newline)
   '())
 
 
 ;; Indicates whether a field can be inserted at the current cursor position.
 ;;
-;; ["Document_canInsertField", [documentID]] -> boolean
-(tm-define (zotero-Document_canInsertField documentID)
+;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
+(tm-define (zotero-Document_canInsertField documentID str_fieldType)
   ;; stub
-  (display* "zotero-Document_canInsertField: " documentID "\n")
+  (write (list "zotero-Document_canInsertField" documentID str_fieldType))
+  (newline)
   #t)
 
 
@@ -298,7 +342,8 @@
 
 (tm-define (zotero-Document_setDocumentData documentID str_dataString)
   ;; stub
-  (display* "zotero-Document_setDocumentData: " documentID " " str_dataString "\n")
+  (write (list "zotero-Document_setDocumentData" documentID str_dataString))
+  (newline)
   (ahash-set! zotero-document-data documentID str_dataString)
   '())
 
@@ -309,7 +354,8 @@
 ;;
 (tm-define (zotero-Document_getDocumentData documentID)
   ;; stub: Todo: get from document aux
-  (display* "zotero-Document_getDocumentData: " documentID "\n")
+  (write (list "zotero-Document_getDocumentData" documentID))
+  (newline)
   (ahash-ref zotero-document-data documentID ""))
 
 
@@ -326,13 +372,20 @@
 ;;
 (tm-define (zotero-Document_cursorInField documentID str_fieldType)
   ;; stub
-  (display* "zotero-Document_cursorInField: " documentID " " str_fieldType "\n")
+  (write (list "zotero-Document_cursorInField" documentID str_fieldType))
+  (newline)
   '())
 
 
 (define NOTE_IN_TEXT 0)
 (define NOTE_FOOTNOTE 1)
 (define NOTE_ENDNOTE 2)
+
+(define zotero-fields (make-ahash-table))
+
+(define (zotero-get-noteindex id)
+  ;; stub
+  1)
 
 ;; Inserts a new field at the current cursor position.
 ;;
@@ -343,8 +396,13 @@
 ;;
 (tm-define (zotero-Document_insertField documentID str_fieldType int_noteType)
   ;; stub
-  (display* "zotero-Document_insertField: " documentID " " str_fieldType " " int_noteType "\n")
-  (list 0 "ReferenceMark" 0))
+  ;; (write (list "zotero-Document_insertField" documentID str_fieldType int_noteType))
+  ;; (newline)
+  (let* ((id (string-concat (format "~s" documentID #f) (create-unique-id)))
+         (ni (if (= int_noteType 0) 0
+                 (zotero-get-noteindex id))))
+    (ahash-set! zotero-fields id (list "" 0))
+    (list 0 "ReferenceMark" 0))
 
 
 ;; Get all fields present in the document, in document order.
@@ -355,7 +413,8 @@
 ;;
 (tm-define (zotero-Document_getFields documentID str_fieldType)
   ;; stub
-  (display* "zotero-Document_getFields: " documentID " " str_fieldType "\n")
+  (write (list "zotero-Document_getFields" documentID str_fieldType))
+  (newline)
   (list (list 0) (list "ReferenceMark") (list 0)))
 
 
@@ -363,7 +422,8 @@
 ;;
 (tm-define (zotero-Document_convert . args)
   ;; stub
-  (display* "zotero-Document_convert: " args "\n")
+  (write (list "zotero-Document_convert" args))
+  (newline)
   '())
 
 
@@ -371,7 +431,8 @@
 ;;
 (tm-define (zotero-Document_setBibliographyStyle . args)
   ;; stub
-  (display* "zotero-Document_setBibliographyStyle: " args "\n")
+  (write (list "zotero-Document_setBibliographyStyle" args))
+  (newline)
   '())
 
 
@@ -385,7 +446,8 @@
 ;;
 (tm-define (zotero-Document_complete documentID)
   ;; stub
-  (display* "zotero-Document_complete: " documentID "\n")
+  (write (list "zotero-Document_complete" documentID))
+  (newline)
   (set! zotero-active? #f)
   (close-zotero-socket-port!)
   '())
@@ -400,7 +462,8 @@
 ;;
 (tm-define (zotero-Field_delete documentID fieldID)
   ;; stub
-  (display* "zotero-Field_delete: " documentID " " fieldID "\n")
+  (write (list "zotero-Field_delete" documentID fieldID))
+  (newline)
   '())
 
 
@@ -410,7 +473,8 @@
 ;;
 (tm-define (zotero-Field_select documentID fieldID)
   ;; stub
-  (display* "zotero-Field_select: " documentID " " fieldID "\n")
+  (write (list "zotero-Field_select" documentID fieldID))
+  (newline)
   '())
 
 
@@ -420,7 +484,8 @@
 ;;
 (tm-define (zotero-Field_removeCode documentID fieldID)
   ;; stub
-  (display* "zotero-Field_removeCode: " documentID " " fieldID "\n")
+  (write (list "zotero-Field_removeCode" documentID fieldID))
+  (newline)
   '())
 
 
@@ -430,8 +495,8 @@
 ;;
 (tm-define (zotero-Field_setText documentID fieldID str_text isRich)
   ;; stub
-  (display* "zotero-Field_setText: " documentID " " fieldID " " str_text " "
-            isRich "\n")
+  (write (list "zotero-Field_setText" documentID fieldID str_text isRich))
+  (newline)
   '())
 
 
@@ -441,7 +506,8 @@
 ;;
 (tm-define (zotero-Field_getText documentID fieldID)
   ;; stub
-  (display* "zotero-Field_getText: " documentID " " fieldID "\n")
+  (write (list "zotero-Field_getText" documentID fieldID))
+  (newline)
   "STUB Field Text STUB")
 
 
@@ -451,7 +517,8 @@
 ;;
 (tm-define (zotero-Field_setCode documentID fieldID str_code)
   ;; stub
-  (display* "zotero-Field_setCode: " documentID " " fieldID " " str_code "\n")
+  (write (list "zotero-Field_setCode" documentID fieldID str_code))
+  (newline)
   '())
 
 
@@ -462,6 +529,7 @@
 ;;
 (tm-define (zotero-Field_convert documentID fieldID str_fieldType int_noteType)
   ;; stub
-  (display* "zotero-Field_convert: " documentID " " fieldID " " str_fieldType
-            " " int_noteType "\n")
+  (write (list "zotero-Field_convert" documentID fieldID str_fieldType
+               int_noteType))
+  (newline)
   '())
