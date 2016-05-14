@@ -38,33 +38,29 @@
 
   \;
 
-  <assign|fieldAdd|<macro|fieldID|>>
+  <assign|zcite*|<macro|fieldID|fieldCode|<write|<value|bib-prefix>|<arg|fieldID>><set-binding|<merge|<value|bib-prefix>|-fields>|<merge|<get-binding|<merge|<value|bib-prefix>|-fields>>|<tuple|<arg|fieldID>>>><set-binding|<merge|<value|bib-prefix>|-|<arg|fieldID>|-code>|<arg|fieldCode>><extern|zotero-set-fields-list!|<get-binding|<merge|<value|bib-prefix>|-fields>>>>>
 
-  <assign|set-fieldText|<macro|fieldID|fieldText|>>
-
-  <assign|set-fieldCode|<macro|fieldID|fieldCode|>>
+  <assign|zcite|<macro|fieldID|fieldCode|<zcite*|<arg|fieldID>|<arg|fieldCode>><reference|<merge|<value|bib-prefix>|-|<arg|fieldID>|-code>>>>
 
   \;
 
-  <assign|get-fieldText|<macro|fieldID|>>
+  <assign|zcite-get-fields|<macro|<get-binding|<merge|<value|bib-prefix>|-fields>>>>
 
-  <assign|get-fieldCode|<macro|fieldID|>>
+  <assign|zcite-get-fieldCode|<macro|fieldID|<get-binding|<merge|<value|bib-prefix>|-|<arg|fieldID>|-code>>>>
 
-  \;
-
-  \;
-
-  <assign|cite|<macro|>>
+  <assign|zcite-get-fieldText|<macro|fieldID|<get-binding|<merge|<value|bib-prefix>|-|<arg|fieldID>|-|>>>>
 
   \;
-
-  \;
-
-  <assign|cite-add|<macro|key|<write|<value|bib-prefix>|<arg|key>>>>
-
-  <assign|cite-data|<macro|key|<get-binding|<merge|<value|bib-prefix>|-|<arg|key>>>>>
 
   <assign|cite-link|<macro|key|text|<style-with|src-compact|none|<locus|<id|<hard-id|<arg|key>>>|<link|hyperlink|<id|<hard-id|<arg|key>>>|<url|<merge|#|<value|bib-prefix>|-|<arg|key>>>>|<arg|text>>>>>
+
+  <assign|transform-bibitem|<macro|body|<arg|body>>>
+
+  <assign|render-bibitem|<macro|text|<style-with|src-compact|none|<with|par-first|<minus|1tmpt|<value|bibitem-width>>|<yes-indent>><resize|<arg|text>|||<maximum|1r|<value|bibitem-width>>|>>>>
+
+  <assign|bibitem-with-key|<macro|text|key|<style-with|src-compact|none|<bibitem*|<arg|text>><label|<merge|<value|bib-prefix>|-|<arg|key>>>>>>
+
+  <assign|bibitem*|<macro|text|<style-with|src-compact|none|<render-bibitem|<transform-bibitem|<arg|text>>><set-binding|<arg|text>>>>>
 
   <\active*>
     <\src-comment>
@@ -72,14 +68,9 @@
     </src-comment>
   </active*>
 
-  <assign|render-cite|<macro|x|(<arg|x>)>>
-
-  <assign|cite-sep|<macro|; >>
+  <assign|render-cite|<macro|x|<arg|x>>>
 
   \;
-
-  <assign|bibitem*|<macro|text|<style-with|src-compact|none|<assign|bibitem-nr|<plus|<value|bibitem-nr>|1>><render-natbibitem|<transform-natbibitem|<natbib-author*|<arg|text>>,
-  <natbib-year|<arg|text>>>><set-binding|<arg|text>>>>>
 
   \;
 </body>

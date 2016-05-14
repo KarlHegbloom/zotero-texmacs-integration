@@ -26,7 +26,7 @@
 
 (sigaction SIGPIPE (lambda (sig) #t))
 
-;; this just restructures the error object to match what TeXmacs is expecting.
+;; this just restructures the error object to match what TeXmacs is expecting inside the scheme session.
 (define (safe-json-string->scm str)
   (catch 'json-invalid
     (lambda ()
@@ -53,7 +53,6 @@
 ;; socket family   style        proto
 ;;        PF_INET  SOCK_STREAM  0
 (define zotero-socket-port #f)
-
 (define (get-zotero-socket-port!)
   (catch 'system-error
     (lambda ()
@@ -175,6 +174,8 @@
         (newline)
         (when (> len 0)
           (with (editCommand args) (safe-json-string->scm cmdstr)
+            (write (list editCommand args))
+            (newline)
             (cond
               ((string=? editCommand "Document_complete")
                (zotero-write tid (scm->json-string '()))
@@ -200,34 +201,60 @@
 ;; Editor commands.
 ;;
 (tm-define (zotero-addCitation)
+  (:secure #t)
   (zotero-write 0 (scm->json-string "addCitation"))
   (zotero-listen))
 
 (tm-define (zotero-editCitation)
+  (:secure #t)
   (zotero-write 0 (scm->json-string "editCitation"))
   (zotero-listen))
 
 (tm-define (zotero-addBibliography)
+  (:secure #t)
   (zotero-write 0 (scm->json-string "addBibliography"))
   (zotero-listen))
 
 (tm-define (zotero-editBibliography)
+  (:secure #t)
   (zotero-write 0 (scm->json-string "editBibliography"))
   (zotero-listen))
 
 (tm-define (zotero-refresh)
+  (:secure #t)
   (zotero-write 0 (scm->json-string "refresh"))
   (zotero-listen))
 
 (tm-define (zotero-removeCodes)
+  (:secure #t)
   (zotero-write 0 (scm->json-string "removeCodes"))
   (zotero-listen))
 
 (tm-define (zotero-setDocPrefs)
+  (:secure #t)
   (zotero-write 0 (scm->json-string "setDocPrefs"))
   (zotero-listen))
 
 
+
+(menu-bind zotero-menu
+  ("Add Citation" (zotero-addCitation))
+  ("Edit Citation" (zotero-editCitation))
+  ---
+  ("Add Bibliography" (zotero-addBibliography))
+  ("Edit Bibliography" (zotero-editBibliography))
+  ---
+  ("Refresh" (zotero-refresh))
+  ("Remove Codes" (zotero-removeCodes))
+  ---
+  ("Set Document Prefs" (zotero-setDocPrefs)))
+
+(menu-bind texmacs-extra-menu
+  (former)
+  (if (style-has? "tm-zotero-dtd")
+      (=> "Zotero"
+          (link zotero-menu))))
+      
 
 ;;
 ;; Word Processor commands: Zotero -> TeXmacs
@@ -280,6 +307,7 @@
                                  "icon-notice.png"
                                  "icon-caution.png"))
                           int_Icon)) (noop))
+         ;;; This does not work right with newline characters in the string.
          >> (text str_Text))
   (bottom-buttons >>> (cond
                         ((= int_Buttons 0)
@@ -301,9 +329,8 @@
 ;; ["Document_displayAlert", [documentID, str_dialogText, int_icon, int_buttons]] -> int_button_pressed
 ;;
 (tm-define (zotero-Document_displayAlert documentID str_dialogText int_icon int_buttons)
-  ;; (write (list "zotero-Document_displayAlert" documentID str_dialogText
-  ;;              int_icon int_buttons))
-  ;; (newline)
+  (write (list "zotero-Document_displayAlert" documentID str_dialogText int_icon int_buttons))
+  (newline)
   (let ((ret 0))
     (dialogue-window (zotero-display-alert str_dialogText int_icon int_buttons)
                      (lambda (val)
@@ -396,15 +423,22 @@
 ;;
 (tm-define (zotero-Document_insertField documentID str_fieldType int_noteType)
   ;; stub
-  ;; (write (list "zotero-Document_insertField" documentID str_fieldType int_noteType))
-  ;; (newline)
-  (let* ((id (string-concat (format "~s" documentID #f) (create-unique-id)))
+  (write (list "zotero-Document_insertField" documentID str_fieldType int_noteType))
+  (newline)
+  (let* ((id (string-append (format "~s" documentID #f) (create-unique-id)))
          (ni (if (= int_noteType 0) 0
                  (zotero-get-noteindex id))))
-    (ahash-set! zotero-fields id (list "" 0))
-    (list 0 "ReferenceMark" 0))
+    (ahash-set! zotero-fields id (list "TEMP" 0))
+    (insert `(zcite ,id "TEMP"))
+    (list id "TEMP" ni)))
 
 
+(define zotero-fields-list '())
+
+(tm-define (zotero-set-fields-list! tuple)
+  (:secure #t)
+  (set! zotero-fields-list (cdr (tree->stree tuple))))
+  
 ;; Get all fields present in the document, in document order.
 ;;
 ;; str_fieldType is the type of field used by the document, either ReferenceMark or Bookmark
@@ -415,6 +449,7 @@
   ;; stub
   (write (list "zotero-Document_getFields" documentID str_fieldType))
   (newline)
+  
   (list (list 0) (list "ReferenceMark") (list 0)))
 
 
