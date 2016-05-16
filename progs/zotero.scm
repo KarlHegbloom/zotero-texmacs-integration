@@ -19,12 +19,16 @@
 ;;; TeXmacs client scheme code, but do the socket read/write myself. I hope
 ;;; this works.
 
-(texmacs-module (zotero))
+(texmacs-module (zotero)
+  (:use (kernel texmacs tm-modes)
+        (kernel library content)
+        (convert tools sxml)))
 
 (use-modules (ice-9 format))
 (use-modules (json)) ;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 
-(sigaction SIGPIPE (lambda (sig) #t))
+;;; The normal client-base mechanism will probably deal with this:
+;; (sigaction SIGPIPE (lambda (sig) #t))
 
 ;; this just restructures the error object to match what TeXmacs is expecting inside the scheme session.
 (define (safe-json-string->scm str)
@@ -50,9 +54,10 @@
 ;;
 
 
-;; socket family   style        proto
-;;        PF_INET  SOCK_STREAM  0
 (define zotero-socket-port #f)
+(define zotero-socket-inet-texmacs-port-number 23117)
+(define zotero-socket-inet-zotero-port-number 23116)
+  
 (define (get-zotero-socket-port!)
   (catch 'system-error
     (lambda ()
@@ -64,8 +69,10 @@
             (setsockopt zotero-socket-port SOL_SOCKET SO_REUSEADDR 1)
             ;; (setsockopt zotero-socket-port IPPROTO_TCP TCP_NODELAY 1)
             (setvbuf zotero-socket-port _IOFBF)
-            (bind    zotero-socket-port AF_INET INADDR_LOOPBACK 23117)
-            (connect zotero-socket-port AF_INET INADDR_LOOPBACK 23116)
+            (bind    zotero-socket-port AF_INET INADDR_LOOPBACK 
+                     zotero-socket-inet-texmacs-port-number)
+            (connect zotero-socket-port AF_INET INADDR_LOOPBACK
+                     zotero-socket-inet-zotero-port-number)
             zotero-socket-port)))
     (lambda args
       (close-port zotero-socket-port)
@@ -92,9 +99,10 @@
     (ntohl (u32vector-ref v 0))))
 
 
-(tm-define (zotero-write tid cmd)
+(define (zotero-write tid cmd)
   (let ((zp (get-zotero-socket-port!)))
     (catch 'system-error
+      ;;; This writes raw bytes. The string can be UTF-8.
       (lambda ()
         (let* ((cmdv (list->u8vector (map char->integer
                                           (string->list cmd))))
@@ -108,9 +116,10 @@
         (apply throw args)))))
 
 
-(tm-define (zotero-read)
+(define (zotero-read)
   (let ((zp (get-zotero-socket-port!)))
     (catch 'system-error
+      ;; This reads raw bytes. The string can be UTF-8.
       (lambda ()
         (let* ((tid (read-network-u32 zp))
                (len (read-network-u32 zp))
@@ -122,47 +131,29 @@
         (write args)
         (apply throw args)))))
 
-(tm-define (zotero-select-then-read)
+(define (zotero-select-then-read)
   (let ((zp (get-zotero-socket-port!)))
-    (with (r w e) (select (list zp) '() '() 10);; 10 sec
+    (with (r w e) (select (list zp) '() '() 2);; 2 sec
       (if (not (null? r))
           (zotero-read)
           (list 0 0 "")))))
 
 
-(define zotero-active? #f)
-
 ;; see: (generic widgets):wait-for-toolbar in
 ;; progs/generic/generic-widgets.scm at 366 for how to implement a timeout
 ;; using delayed.
 
-;;; State machine; protocol is essentially synchronous, and user expects to
-;;; wait while it finishes before doing anything else anyhow.
+(define zotero-active? #f)
+;;;
+;;; It's sort of a state machine; protocol is essentially synchronous, and user
+;;; expects to wait while it finishes before doing anything else anyhow.
 ;;;
 ;;; When this is entered, one of the Integration commands has just been sent to
-;;; Juris-M / Zotero. It is expected to call back and begin a word processing
-;;; command sequence, culminating with Document_complete.
+;;; Juris-M / Zotero. Zotero will call back and begin a word processing command
+;;; sequence, culminating with Document_complete.
 ;;;
-;; (tm-define (zotero-listen)
-;;   (set! zotero-active? #t)
-;;   (while zotero-active?
-;;     (with (tid len cmdstr) (zotero-select-then-read)
-;;       (display* "tid:" tid " len:" len "cmdstr:" cmdstr "\n")
-;;       (when (> len 0)
-;;         (with (editCommand args) (safe-json-string->scm cmdstr)
-;;           (cond
-;;             ((string=? editCommand "Document_complete")
-;;              (zotero-write tid (scm->json-string '()))
-;;              (set! zotero-active? #f)
-;;              (close-zotero-socket-port!))
-;;             (#t (with result (apply (eval 
-;;                                      (string->symbol 
-;;                                       (string-append "zotero-" editCommand)))
-;;                                     args)
-;;                   (zotero-write tid (scm->json-string result))))))))))
-
-
-(tm-define (zotero-listen)
+;;;
+(define (zotero-listen)
   (set! zotero-active? #t)
   (with wait 1
     (delayed
@@ -182,7 +173,7 @@
                (set! zotero-active? #f)
                (close-zotero-socket-port!)
                (set! wait 1))
-              (#t (with result (apply (eval 
+              (#t (with result (apply (eval ;; to get the function itself
                                        (string->symbol 
                                         (string-append "zotero-"
                                                        editCommand)))
@@ -249,12 +240,14 @@
   ---
   ("Set Document Prefs" (zotero-setDocPrefs)))
 
+
 (menu-bind texmacs-extra-menu
   (former)
   (if (style-has? "tm-zotero-dtd")
       (=> "Zotero"
           (link zotero-menu))))
       
+
 
 ;;
 ;; Word Processor commands: Zotero -> TeXmacs
@@ -269,7 +262,7 @@
 ;;
 ;; ["Application_getActiveDocument", [int_protocolVersion]] -> [int_protocolVersion, documentID]
 ;;
-(define-public (zotero-getDocId)
+(define (zotero-getDocId)
   (car (buffer-path)))
 
 (tm-define (zotero-Application_getActiveDocument pv)
@@ -357,23 +350,113 @@
   ;; stub
   (write (list "zotero-Document_canInsertField" documentID str_fieldType))
   (newline)
-  #t)
+  (and (in-text?)
+       (not (in-math?))
+       (not (inside-which '(zcite* zcite)))))
 
 
-;; Stores a document-specific persistent data string. This data
-;; contains the style ID and other user preferences.
+
+;; AFAIK the only pref that this program needs access to is noteType, and that
+;; access is read-only. The noteType is a document-wide setting.
 ;;
-;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
+;; enum noteType
 ;;
-(define zotero-document-data (make-ahash-table)) ;;; todo: store it in aux
+(define-public zotero-NOTE_IN_TEXT  0)
+(define-public zotero-NOTE_FOOTNOTE 1)
+(define-public zotero-NOTE_ENDNOTE  2)
+;;
+;; The rest of the DocumentData settings are "opaque" from the viewpoint of
+;; this interface. They control Zotero, not this connector.
+;;
+;; All of them are set via the zotero controlled dialog. That dialog is
+;; displayed automatically when the document does not yet have
+;; zoteroDocumentData set, because at the start of the transaction, Zotero will
+;; call zotero-Document_getDocumentData, which returns null to Zotero unless
+;; it's been set. After setting it, the next thing Zotero sends is a
+;; zotero-Document_setDocumentData message. It can also be invoked by sending a
+;; zotero-setDocPrefs message, which will call zotero-Document_getDocumentData,
+;; then let you edit that in Zotero's dialog, and send it back with
+;; zotero-Document_setDocumentData. So from here, we never need to write the
+;; prefs by any means other than having Zotero set it.
+;;
+;; Perhaps a future iteration could provide initial hints based on the language
+;; of the document being editted? But that's sort of a global thing anyway, and
+;; setting the language takes only a few clicks.
+;;
+;; Access it from Guile with: (get-env "zotero-pref-noteType")
+;; Access it from TeXmacs with: <value|zotero-pref-noteType>
 
-(tm-define (zotero-Document_setDocumentData documentID str_dataString)
-  ;; stub
-  (write (list "zotero-Document_setDocumentData" documentID str_dataString))
-  (newline)
-  (ahash-set! zotero-document-data documentID str_dataString)
-  '())
 
+;; Here's what the typical DocumentData looks like, parsed to sxml:
+;;
+;; (define zotero-sample-DocumentData-sxml
+;;   '(*TOP*
+;;     (data (@ (data-version "3") (zotero-version "4.0.29.9m75"))
+;;      (session (@ (id "gk3doRA9")))
+;;      (style (@ (id "http://juris-m.github.io/styles/jm-indigobook-in-text")
+;;                (locale "en-US")
+;;                (hasBibliography "1")
+;;                (bibliographyStyleHasBeenSet "0")))
+;;      (prefs
+;;       (pref (@ (name "citationTransliteration")       (value "en")))
+;;       (pref (@ (name "citationTranslation")           (value "en")))
+;;       (pref (@ (name "citationSort")                  (value "en")))
+;;       (pref (@ (name "citationLangPrefsPersons")      (value "orig")))
+;;       (pref (@ (name "citationLangPrefsInstitutions") (value "orig")))
+;;       (pref (@ (name "citationLangPrefsTitles")       (value "orig")))
+;;       (pref (@ (name "citationLangPrefsJournals")     (value "orig")))
+;;       (pref (@ (name "citationLangPrefsPublishers")   (value "orig")))
+;;       (pref (@ (name "citationLangPrefsPlaces")       (value "orig")))
+;;       (pref (@ (name "citationAffixes")               (value "|||||||||||||||||||||||||||||||||||||||||||||||")))
+;;       (pref (@ (name "projectName")                   (value "Project:TeXmacsTesting")))
+;;       (pref (@ (name "extractingLibraryID")           (value "0")))
+;;       (pref (@ (name "extractingLibraryName")         (value "No group selected")))
+;;       (pref (@ (name "fieldType")                     (value "ReferenceMark")))
+;;       (pref (@ (name "storeReferences")               (value "true")))
+;;       (pref (@ (name "automaticJournalAbbreviations") (value "true")))
+;;       (pref (@ (name "noteType")                      (value "0")))
+;;       (pref (@ (name "suppressTrailingPunctuation")   (value "true")))))))
+
+
+(define (zotero-get-DocumentData)
+  (get-env "zoteroDocumentData"))
+
+(define (zotero-set-DocumentData str_dataString)
+  (init-env "zoteroDocumentData" str_dataString)
+  (zotero-init-env-zotero-prefs))
+
+(define (zotero-init-env-zotero-prefs)
+  (let ((zotero-init-env-zotero-prefs-sub
+         (lambda (prefix attr-list)
+           (let loop ((attr-list attr-list))
+                (cond
+                  ((null? attr-list) #t)
+                  (#t (init-env (string-append prefix (symbol->string
+                                                       (caar attr-list)))
+                                (cadar attr-list))
+                   (loop (cdr attr-list))))))))
+    (let loop ((sxml (cdr (parse-xml (zotero-get-DocumentData)))))
+         (cond
+           ((null? sxml) #t)
+           ((eq? 'data (sxml-name (car sxml)))
+            (zotero-init-env-zotero-prefs-sub "zotero-data-" (sxml-attr-list
+                                                              (car sxml)))
+            (loop (sxml-content (car sxml))))
+           ((eq? 'session (sxml-name (car sxml)))
+            (zotero-init-env-zotero-prefs-sub "zotero-session-" (sxml-attr-list
+                                                                 (car sxml)))
+            (loop (cdr sxml)))
+           ((eq? 'style (sxml-name (car sxml)))
+            (zotero-init-env-zotero-prefs-sub "zotero-style-" (sxml-attr-list
+                                                               (car sxml)))
+            (loop (cdr sxml)))
+           ((eq? 'prefs (sxml-name (car sxml)))
+            (loop (sxml-content (car sxml))))
+           ((eq? 'pref (sxml-name (car sxml)))
+            (init-env (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
+                      (sxml-attr (car sxml) 'value))
+            (loop (cdr sxml)))))))
+          
 
 ;; Retrieves data string set by setDocumentData.
 ;;
@@ -383,7 +466,21 @@
   ;; stub: Todo: get from document aux
   (write (list "zotero-Document_getDocumentData" documentID))
   (newline)
-  (ahash-ref zotero-document-data documentID ""))
+  (zotero-get-DocumentData))
+
+
+;; Stores a document-specific persistent data string. This data
+;; contains the style ID and other user preferences.
+;;
+;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
+;;
+(tm-define (zotero-Document_setDocumentData documentID str_dataString)
+  ;; stub
+  (write (list "zotero-Document_setDocumentData" documentID str_dataString))
+  (newline)
+  (zotero-set-DocumentData str_dataString)
+  '())
+
 
 
 ;; Indicates whether the cursor is in a given field. If it is, returns
@@ -401,18 +498,23 @@
   ;; stub
   (write (list "zotero-Document_cursorInField" documentID str_fieldType))
   (newline)
-  '())
+  (with t (inside-which '(zcite* zcite))
+    (if t
+        ;; <zcite*|fieldID|fieldCode>
+        ;; For now noteIndex returned as zero. How will I get that?
+        ;; I need to read the code that handles footnotes.
+        (let ((tl (cdr (tree->list t))))
+          (append tl (list (get-env "footnote-nr"))))
+        '())))
 
 
-(define NOTE_IN_TEXT 0)
-(define NOTE_FOOTNOTE 1)
-(define NOTE_ENDNOTE 2)
 
-(define zotero-fields (make-ahash-table))
-
+;;; This does not work the way I expect.
 (define (zotero-get-noteindex id)
-  ;; stub
-  1)
+  (with t (inside-which 'footnote)
+    (if t
+        (string->number (get-env "footnote-nr"))
+        0)))
 
 ;; Inserts a new field at the current cursor position.
 ;;
@@ -568,3 +670,7 @@
                int_noteType))
   (newline)
   '())
+
+;;; Local Variables:
+;;; fill-column: 120
+;;; End:

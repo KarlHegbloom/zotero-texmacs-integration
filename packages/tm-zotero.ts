@@ -26,21 +26,27 @@
 
   <use-module|(zotero)>
 
+  <assign|zoteroDocumentData|<macro|DocumentData|>>
+
   <\active*>
     <\src-comment>
       Helper macros
     </src-comment>
   </active*>
 
-  <assign|bib-prefix|bib>
+  \;
 
-  <assign|with-bib|<macro|bib|body|<with|bib-prefix|<arg|bib>|<arg|body>>>>
+  <assign|zbib-prefix|zbib>
+
+  <assign|with-zbib|<macro|zbib|body|<with|zbib-prefix|<arg|zbib>|<arg|body>>>>
 
   \;
 
-  <assign|zcite*|<macro|fieldID|fieldCode|<write|<value|bib-prefix>|<arg|fieldID>><set-binding|<merge|<value|bib-prefix>|-fields>|<merge|<get-binding|<merge|<value|bib-prefix>|-fields>>|<tuple|<arg|fieldID>>>><set-binding|<merge|<value|bib-prefix>|-|<arg|fieldID>|-code>|<arg|fieldCode>><extern|zotero-set-fields-list!|<get-binding|<merge|<value|bib-prefix>|-fields>>>>>
+  <assign|zcite*|<macro|fieldText|fieldID|fieldCode|<flag||>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|<zcite*|<arg|fieldID>|<arg|fieldCode>><reference|<merge|<value|bib-prefix>|-|<arg|fieldID>|-code>>>>
+  <assign|zcite|<macro|fieldText|fieldID|fieldCode|<arg|fieldText>>>
+
+  \;
 
   \;
 
