@@ -11,9 +11,13 @@
 ;;;
 
 (plugin-configure zotero
-  (:require #t)
-  (:initialize noop))
+  (:require #t))
 
+
+;; ( (init-tm-zotero)
+;;   (noop))
+
+;;; lazy menu defines and etc?
 ;; (when (supports-zotero?)
-;;   (import-from (zotero-menus))
-;;   )
+  
+;;    )

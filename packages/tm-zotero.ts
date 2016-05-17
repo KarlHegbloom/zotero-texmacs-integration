@@ -45,9 +45,13 @@
 
   <assign|zt-orig-footnote|<value|footnote>>
 
-  <assign|zt-footnote|<macro|body|<with|zt-hlink-as-footnote|false|<zt-orig-footnote|<arg|body>>>>>
+  <assign|zt-footnote|<macro|body|<with|zt-pref-hlinks-as-footnotes?|false|zt-pref-this-cite-in-text?|true|<zt-orig-footnote|<arg|body>>>>>
 
   <if|<unequal|<value|zt-footnote>|<value|footnote>>|<assign|footnote|<value|zt-footnote>>>
+
+  \;
+
+  <assign|zt-endnote|<macro|body|<todo|TODO: Endnotes>>>
 
   <\active*>
     <\src-comment>
@@ -55,17 +59,17 @@
     </src-comment>
   </active*>
 
-  <assign|zt-hlink-as-footnote|true>
+  <assign|zt-pref-hlinks-as-footnotes?|on>
 
-  <assign|zt-hlink-as-tt|true>
+  <assign|zt-pref-hlinks-as-tt?|on>
 
-  <assign|zt-hlink-as-smaller|true>
+  <assign|zt-pref-hlinks-as-smaller?|on>
 
   \;
 
-  <assign|zt-maybe-tt|<macro|linktext|<if|<value|zt-hlink-as-tt>|<with|font-family|tt|<arg|linktext>>|<arg|linktext>>>>
+  <assign|zt-maybe-tt|<macro|linktext|<if|<equal|<value|zt-pref-hlinks-as-tt?>|on>|<with|font-family|tt|<arg|linktext>>|<arg|linktext>>>>
 
-  <assign|zt-maybe-smaller|<macro|linktext|<if|<value|zt-hlink-as-smaller>|<smaller|<arg|linktext>>|<arg|linktext>>>>
+  <assign|zt-maybe-smaller|<macro|linktext|<if|<equal|<value|zt-pref-hlinks-as-smaller?>|on>|<smaller|<arg|linktext>>|<arg|linktext>>>>
 
   <assign|zt-render-linktext|<macro|linktext|<zt-maybe-smaller|<zt-maybe-tt|<arg|linktext>>>>>
 
@@ -91,23 +95,26 @@
 
   \;
 
-  <assign|zt-maybe-hlink-as-footnote|<macro|citebody|<if|<value|zt-hlink-as-footnote>|<with|hlink|<value|zt-hlink-as-footnote>|href|<value|zt-href-as-footnote>|<arg|citebody>>|<with|hlink|<value|zt-hlink>|href|<value|zt-href>|<arg|citebody>>>>>
+  <assign|zt-maybe-hlink-as-footnote|<macro|citebody|<if|<equal|<value|zt-pref-hlinks-as-footnotes?>|on>|<with|hlink|<value|zt-hlink-as-footnote>|href|<value|zt-href-as-footnote>|<arg|citebody>>|<with|hlink|<value|zt-hlink>|href|<value|zt-href>|<arg|citebody>>>>>
 
   <\active*>
     <\src-comment>
       Citation display depending on CSL noteType: 0
       \<rightarrow\><compound|text|<compound|math|>><compound|math|><compound|math|>
-      in-text, 1 \<rightarrow\> footnote, 2 \<rightarrow\> end-note.
+      in-text, 1 \<rightarrow\> footnote, 2 \<rightarrow\> end-note, plus
+      override per zcite.
     </src-comment>
   </active*>
+
+  <assign|zt-option-this-cite-in-text?|off>
 
   <assign|zt-zcite-in-text|<macro|citebody|<zt-maybe-hlink-as-footnote|<arg|citebody>>>>
 
   <assign|zt-zcite-as-footnote|<macro|citebody|<zt-footnote|<arg|citebody>>>>
 
-  <assign|zt-zcite-as-endnote|<macro|citebody|>>
+  <assign|zt-zcite-as-endnote|<macro|citebody|<zt-endnote|<arg|citebody>>>>
 
-  <assign|render-zcite|<macro|citebody|<case|<equal|<value|zotero-pref-noteType>|0>|<zt-zcite-in-text|<arg|citebody>>|<equal|<value|zotero-pref-noteType>|1>|<zt-zcite-as-footnote|<arg|citebody>>|<equal|<value|zotero-pref-noteType>|2>|<zt-zcite-as-endnote|<arg|citebody>>>>>
+  <assign|render-zcite|<macro|citebody|<case|<or|<equal|<value|zotero-pref-noteType>|0>|<equal|<value|zt-option-this-cite-in-text?>|on>>|<zt-zcite-in-text|<arg|citebody>>|<equal|<value|zotero-pref-noteType>|1>|<zt-zcite-as-footnote|<arg|citebody>>|<equal|<value|zotero-pref-noteType>|2>|<zt-zcite-as-endnote|<arg|citebody>>>>>
 
   <\active*>
     <\src-comment>
@@ -115,9 +122,10 @@
     </src-comment>
   </active*>
 
-  <assign|zcite*|<macro|fieldText|fieldID|fieldCode|<flag||>>>
+  <assign|zcite*|<macro|fieldID|fieldCode|fieldNoteIndex|fieldText|<flag|Hiddent
+  zcite|>>>
 
-  <assign|zcite|<macro|fieldText|fieldID|fieldCode|<arg|fieldText>|<case|<equal|<value|zotero-pref-noteType>|0>|<with|orig-hlink|<value|hlink>|hlink|<macro|body|dest|<footnote|<orig-hlink|<with|font-family|tt|<arg|body>>|<arg|dest>>>>|orig-href|<value|href>|href|<macro|url|<footnote|<orig-href|<with|font-family|tt|<arg|url>>>>>|<arg|fieldText>>|<equal|<value|zotero-pref-noteType>|1>|<compound|footnote|>|<equal|<value|zotero-pref-noteType>|2>|>>>
+  <assign|zcite|<macro|fieldID|fieldCode|fieldNoteIndex|fieldText|<render-zcite|<arg|fieldText>>>>
 
   \;
 

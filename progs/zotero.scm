@@ -251,9 +251,49 @@
   (if (style-has? "tm-zotero-dtd")
       (=> "Zotero"
           (link zotero-menu))))
-      
+
+;;; Preferences and Settings
+;;;
+;;; Todo:
+;;;
+;;; Setting: Zotero zcite and bibliograph by default in all new documents?
+;;;
+
+(define-preferences
+  ("tm-zotero:hlinks-as-footnotes" "on" init-env)
+  ("tm-zotero:hlinks-as-tt"        "on" init-env)
+  ("tm-zotero:hlinks-as-smaller"   "on" init-env))
+
+(tm-define (focus-parameter-menu-item l)
+  (:require (and (tree-label-parameter? (string->symbol l))
+
+(tm-define (customizable-parameters t)
+  (:require (tree-in? t '(zcite)))
+  (list (list "zt-pref-this-cite-in-text?" "This zcite in-text?")))
+
+(tm-define (parameter-choice-list var)
+  (:require (and (tree-in? t '(zcite))
+                 (in? var '("zt-pref-this-cite-in-text?"
+                            "zt-pref-hlinks-as-footnotes?"
+                            "zt-pref-hlinks-as-tt?"
+                            "zt-pref-hlinks-as-smaller?"))))
+  (list "true" "false"))
 
 
+;;; Todo: See  update-document  at generic/document-edit.scm:341
+;; (tm-define (update-document what)
+;;   (:require (style-has? "tm-zotero-dtd"))
+;;   (for (.. 0 doc-update-times)
+;;     (delayed ; allow typesetting/magic to happen before next update
+;;       (:idle 1)
+;;       (cursor-after
+;;        (cond ((== what "all") 
+;;               (generate-all-aux) (inclusions-gc) (wait-update-current-buffer))
+;;              ((== what "bibliography")
+;;               (generate-all-aux) (wait-update-current-buffer))
+;;              ((== what "buffer") 
+;;               (wait-update-current-buffer))
+;;              (else (generate-aux what)))))))
 ;;
 ;; Word Processor commands: Zotero -> TeXmacs
 ;;
@@ -528,23 +568,19 @@
 ;;
 ;; ["Document_insertField", [documentID, str_fieldType, int_noteType]] -> [fieldID, fieldCode, int_noteIndex]
 ;;
+;; Ignore: str_fieldType
+;;
 (tm-define (zotero-Document_insertField documentID str_fieldType int_noteType)
   ;; stub
-  (write (list "zotero-Document_insertField" documentID str_fieldType int_noteType))
-  (newline)
+  ;; (write (list "zotero-Document_insertField" documentID str_fieldType int_noteType))
+  ;; (newline)
   (let* ((id (string-append (format "~s" documentID #f) (create-unique-id)))
-         (ni (if (= int_noteType 0) 0
-                 (zotero-get-noteindex id))))
-    (ahash-set! zotero-fields id (list "TEMP" 0))
-    (insert `(zcite ,id "TEMP"))
-    (list id "TEMP" ni)))
+         (ni (format "~s" (if (= int_noteType 0) 0
+                              (zotero-get-noteindex id)) #f))
+    (insert `(zcite ,id "TEMP" ni ""))
+    (list id "TEMP" ni))))
 
 
-(define zotero-fields-list '())
-
-(tm-define (zotero-set-fields-list! tuple)
-  (:secure #t)
-  (set! zotero-fields-list (cdr (tree->stree tuple))))
   
 ;; Get all fields present in the document, in document order.
 ;;
@@ -552,13 +588,31 @@
 ;;
 ;; ["Document_getFields", [documentID, str_fieldType]] -> [[fieldID, ...], [fieldCode, ...], [noteIndex, ...]]
 ;;
-(tm-define (zotero-Document_getFields documentID str_fieldType)
-  ;; stub
-  (write (list "zotero-Document_getFields" documentID str_fieldType))
-  (newline)
-  
-  (list (list 0) (list "ReferenceMark") (list 0)))
 
+;; (<tree <zcite|id01|code|0|Text>> <tree <zcite|id02|code|0|Text2>> <tree
+;; <zcite|id03|code|0|Text3>>)
+;; ((zcite "id01" "code" "0" "Text") (zcite "id02" "code" "0" "Text2") (zcite "id03" "code" "0" "Text3"))
+
+(define zt-cite-tags '(zcite zcite*))
+
+(tm-define (zotero-Document_getFields documentID str_fieldType)
+  ;; (write (list "zotero-Document_getFields" documentID str_fieldType))
+  ;; (newline)
+  (let loop ((zcite-fields (map tree->stree
+                                (tm-search (buffer-tree)
+                                           (cut tm-in? <> zt-cite-tags))))
+             (ids '()) (codes '()) (indx '()))
+       (cond
+         ((null? zcite-fields) (list ids codes indx))
+         (#t
+          (let ((field (car zcite-fields)))
+            (loop (cdr zcite-fields)
+                  (cons (second field) ids)
+                  (cons (third  field) codes)
+                  (cons (fourth field) indx)))))))
+    
+
+;;; May need: go-to-id from link/link-navigate.scm:490
 
 ;; ["Document_convert" ??? (TODO in documentation.)
 ;;
@@ -615,8 +669,13 @@
 ;;
 (tm-define (zotero-Field_select documentID fieldID)
   ;; stub
-  (write (list "zotero-Field_select" documentID fieldID))
-  (newline)
+  ;; (write (list "zotero-Field_select" documentID fieldID))
+  ;; (newline)
+  (let ((field (tm-find (buffer-tree)
+                        (lambda (t)
+                          (and (tm-in? t zt-cite-tags)
+                               (string=? (second (tree->stree t) fieldID)))))))
+    ;; TODO: cafe is closing. You are HERE.
   '())
 
 

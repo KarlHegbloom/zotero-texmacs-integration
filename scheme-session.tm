@@ -474,31 +474,33 @@
       #t
     </unfolded-io>
 
+    <\input|Scheme] >
+      (init-env "zotero-pref-noteType" "1")
+    </input>
+
     <\unfolded-io|Scheme] >
       (get-env "zotero-pref-noteType")
     <|unfolded-io>
-      "0"
+      "1"
     </unfolded-io>
 
     \;
 
     <\unfolded-io|Scheme] >
-      (get-style-tree)
+      (get-style-list)
     <|unfolded-io>
-      <text|<tuple|article|tm-zotero>>
+      ("article" "tm-zotero")
     </unfolded-io>
 
     <\unfolded-io|Scheme] >
-      (style-)
+      (has-style-package? "tm-zotero")
     <|unfolded-io>
-      <errput|Unbound variable: tm-zotero?>
+      #t
     </unfolded-io>
 
-    <\unfolded-io|Scheme] >
-      (tm-zotero-style?)
-    <|unfolded-io>
-      <errput|Unbound variable: tm-zotero-style?>
-    </unfolded-io>
+    <\input|Scheme] >
+      (add-style-package "tm-zotero")
+    </input>
 
     <\unfolded-io|Scheme] >
       (acm-style?)
@@ -529,18 +531,35 @@
       "testingVal"
     </unfolded-io>
 
+    <\unfolded-io|Scheme] >
+      (let ((cite-fields (tm-search-tag (buffer-tree) 'zcite)))
+
+      \ \ 
+    <|unfolded-io>
+      (\<less\>tree \<less\>zcite\|id01\|code\|0\|Text\<gtr\>\<gtr\>
+      \<less\>tree \<less\>zcite\|id02\|code\|0\|Text2\<gtr\>\<gtr\>
+      \<less\>tree \<less\>zcite\|id03\|code\|0\|Text3\<gtr\>\<gtr\>)
+    </unfolded-io>
+
     <\input|Scheme] >
       \;
     </input>
 
     \;
   </session>
+
+  <zcite|id01|code|0|Text>
+
+  <zcite|id02|code|0|Text2>
+
+  <zcite|id03|code|0|Text3>
 </body>
 
 <\initial>
   <\collection>
-    <associate|font|concrete>
-    <associate|font-base-size|12>
+    <associate|font|roman>
+    <associate|font-base-size|10>
+    <associate|math-font|roman>
     <associate|page-even-footer|>
     <associate|page-even-header|>
     <associate|page-medium|paper>
@@ -566,7 +585,7 @@
     <associate|zotero-pref-extractingLibraryID|0>
     <associate|zotero-pref-extractingLibraryName|No group selected>
     <associate|zotero-pref-fieldType|ReferenceMark>
-    <associate|zotero-pref-noteType|0>
+    <associate|zotero-pref-noteType|1>
     <associate|zotero-pref-projectName|>
     <associate|zotero-pref-storeReferences|true>
     <associate|zotero-pref-suppressTrailingPunctuation|true>
@@ -597,3 +616,14 @@
     value="true"/\>\</prefs\>\</data\>>
   </collection>
 </initial>
+
+<\references>
+  <\collection>
+    <associate|footnote-1|<tuple|1|6>>
+    <associate|footnote-2|<tuple|2|6>>
+    <associate|footnote-3|<tuple|3|6>>
+    <associate|footnr-1|<tuple|1|6>>
+    <associate|footnr-2|<tuple|2|6>>
+    <associate|footnr-3|<tuple|3|6>>
+  </collection>
+</references>
