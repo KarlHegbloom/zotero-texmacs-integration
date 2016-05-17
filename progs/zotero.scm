@@ -187,42 +187,47 @@
                     (set! wait 1))))))))))
 
 
+;;; Ensure that the tm-zotero.ts is part of the document style.
+;;
+(define (ensure-tm-zotero-style!)
+  (add-style-package "tm-zotero"))
+
 
 ;; Integration commands: TeXmacs -> Zotero, no reply, Zotero connects back with
 ;; Editor commands.
 ;;
 (tm-define (zotero-addCitation)
-  (:secure #t)
   (zotero-write 0 (scm->json-string "addCitation"))
   (zotero-listen))
 
 (tm-define (zotero-editCitation)
-  (:secure #t)
   (zotero-write 0 (scm->json-string "editCitation"))
   (zotero-listen))
 
+;; ---------
+
 (tm-define (zotero-addBibliography)
-  (:secure #t)
   (zotero-write 0 (scm->json-string "addBibliography"))
   (zotero-listen))
 
 (tm-define (zotero-editBibliography)
-  (:secure #t)
   (zotero-write 0 (scm->json-string "editBibliography"))
   (zotero-listen))
 
+;; ---------
+
 (tm-define (zotero-refresh)
-  (:secure #t)
   (zotero-write 0 (scm->json-string "refresh"))
   (zotero-listen))
 
-(tm-define (zotero-removeCodes)
-  (:secure #t)
-  (zotero-write 0 (scm->json-string "removeCodes"))
-  (zotero-listen))
+;; (tm-define (zotero-removeCodes)
+;;   (:secure #t)
+;;   (zotero-write 0 (scm->json-string "removeCodes"))
+;;   (zotero-listen))
+
+;; ---------
 
 (tm-define (zotero-setDocPrefs)
-  (:secure #t)
   (zotero-write 0 (scm->json-string "setDocPrefs"))
   (zotero-listen))
 
@@ -236,7 +241,7 @@
   ("Edit Bibliography" (zotero-editBibliography))
   ---
   ("Refresh" (zotero-refresh))
-  ("Remove Codes" (zotero-removeCodes))
+;;  ("Remove Codes" (zotero-removeCodes))
   ---
   ("Set Document Prefs" (zotero-setDocPrefs)))
 
