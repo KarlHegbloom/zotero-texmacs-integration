@@ -47,21 +47,29 @@ References
 
   * <https://en.wikibooks.org/wiki/LaTeX/Bibliography_Management#Natbib>
 
+
+Todo
+----
+
+  * Setting: Zotero zcite and bibliograph by default in all new documents?
+  
+  * 
+
+
 Ideas
 -----
 
-What if the bibliography was an included tmfs:// subdocument? Can each
-and every citation in the document be a document subtree of that
-bibliography subdocument, sort of "showing through" at each location
-where a citation happens, and then the actual bibliography being
-another subtree? So there would be a tmfs handler where the document
-includes the bibliography... I think for the citations it's simpler to
-have them be stored in a hidden aux data section as tuples.
+*Haec verba* to case law citation in document tracking, so like when I
+reference a piece of caselaw, maybe highlight the citation and text
+around it, and execute a menu function, and have it put that as a note
+into zotero with this document's tag associated with it?
 
-Can there be a listener that watches a .bib file or for connections
-coming from the reference manager, to automatically keep them all
-updated? i think yes, but not until guile-2 is part of TeXmacs, for a
-separate thread and faster execution.
+In general, perhaps each document ought to have an entry in Zotero for
+the purpose of associating it with everything cited by it, for both
+semantic / searching and for reference / citation usage mapping?
+
+**Semantic Web** of documents? Explore: semantic mediawiki, org-mode,
+etc.
 
 For citations within a single document, I don't expect that there's
 ever going to be a need for more than one citation style per
@@ -71,4 +79,6 @@ caselaw, perhaps broken down by jurisdiction according to some
 configurable grouping, and then journal articles, then textbooks,
 etc. The McGill style already sorts the bibliography according to
 that. I don't know (as of this writing) if the CSL citeproc produces
-section headings or anything for that.
+sub-section headings or anything for that... So **support for multiple
+bibliographies or for classification-grouped ones**; per-chapter,
+per-document, footnote, endnote...

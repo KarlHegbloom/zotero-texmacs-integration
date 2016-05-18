@@ -38,64 +38,53 @@
 
   <\active*>
     <\src-comment>
+      hlink and href \ display rendering options.
+    </src-comment>
+  </active*>
+
+  <assign|zt-pref-hrefs-as-footnotes|on>
+
+  <assign|zt-pref-hlinks-with-href-footnotes?|on>
+
+  <assign|zt-option-this-cite-in-text?|off>
+
+  <\active*>
+    <\src-comment>
       Setup for special handling of in-text citations inside of footnotes and
-      endnotes.
+      endnotes; And for hlinks with extra href's displayed as footnotes, and
+      hrefs that display as footnotes rather than in-text.
     </src-comment>
   </active*>
 
   <assign|zt-orig-footnote|<value|footnote>>
 
-  <assign|zt-footnote|<macro|body|<with|zt-pref-hlinks-as-footnotes?|false|zt-pref-this-cite-in-text?|true|<zt-orig-footnote|<arg|body>>>>>
+  <assign|zt-footnote|<macro|body|<with|zt-pref-hrefs-as-footnotes?|off|zt-pref-hlinks-with-href-footnotes?|off|zt-option-this-zcite-in-text?|on|<zt-orig-footnote|<arg|body>>>>>
 
   <if|<unequal|<value|zt-footnote>|<value|footnote>>|<assign|footnote|<value|zt-footnote>>>
 
   \;
 
-  <assign|zt-endnote|<macro|body|<todo|TODO: Endnotes>>>
+  <assign|zt-orig-href|<value|href>>
 
-  <\active*>
-    <\src-comment>
-      hlink and href \ display rendering options
-    </src-comment>
-  </active*>
+  <assign|zt-href|<macro|dest|<if|<equal|<value|zt-pref-hrefs-as-footnotes?>|on>|<zt-footnote|<zt-orig-href|<arg|dest>>>|<zt-orig-href|<arg|dest>>>>>
 
-  <assign|zt-pref-hlinks-as-footnotes?|on>
-
-  <assign|zt-pref-hlinks-as-tt?|on>
-
-  <assign|zt-pref-hlinks-as-smaller?|on>
-
-  \;
-
-  <assign|zt-maybe-tt|<macro|linktext|<if|<equal|<value|zt-pref-hlinks-as-tt?>|on>|<with|font-family|tt|<arg|linktext>>|<arg|linktext>>>>
-
-  <assign|zt-maybe-smaller|<macro|linktext|<if|<equal|<value|zt-pref-hlinks-as-smaller?>|on>|<smaller|<arg|linktext>>|<arg|linktext>>>>
-
-  <assign|zt-render-linktext|<macro|linktext|<zt-maybe-smaller|<zt-maybe-tt|<arg|linktext>>>>>
+  <if|<unequal|<value|zt-href>|<value|href>>|<assign|href|<value|zt-href>>>
 
   \;
 
   <assign|zt-orig-hlink|<value|hlink>>
 
-  <assign|zt-hlink|<macro|linktext|dest|<zt-orig-hlink|<zt-render-linktext|<arg|linktext>>|<arg|dest>>>>
+  <assign|zt-hlink|<macro|linktext|dest|<if|<equal|<value|zt-pref-hlinks-with-href-footnotes?>|on>|<zt-orig-hlink|<arg|linktext>|<arg|dest>><zt-footnote|<zt-orig-href|<arg|dest>>|<zt-orig-hlink|<arg|linktext>|<arg|dest>>>>>>
 
   <if|<unequal|<value|zt-hlink>|<value|hlink>>|<assign|hlink|<value|zt-hlink>>>
 
-  <assign|zt-hlink-as-footnote|<macro|linktext|dest|<zt-footnote|<zt-hlink|<arg|linktext>|<arg|dest>>>>>
+  <\active*>
+    <\src-comment>
+      End-notes
+    </src-comment>
+  </active*>
 
-  \;
-
-  <assign|zt-orig-href|<value|href>>
-
-  <assign|zt-href|<macro|dest|<zt-render-linktext|<zt-orig-href|<arg|dest>>>>>
-
-  <if|<unequal|<value|zt-href>|<value|href>>|<assign|href|<value|zt-href>>>
-
-  <assign|zt-href-as-footnote|<macro|dest|<zt-footnote|<zt-href|<arg|dest>>>>>
-
-  \;
-
-  <assign|zt-maybe-hlink-as-footnote|<macro|citebody|<if|<equal|<value|zt-pref-hlinks-as-footnotes?>|on>|<with|hlink|<value|zt-hlink-as-footnote>|href|<value|zt-href-as-footnote>|<arg|citebody>>|<with|hlink|<value|zt-hlink>|href|<value|zt-href>|<arg|citebody>>>>>
+  <assign|zt-endnote|<macro|body|<todo|TODO: Endnotes>>>
 
   <\active*>
     <\src-comment>
@@ -106,15 +95,14 @@
     </src-comment>
   </active*>
 
-  <assign|zt-option-this-cite-in-text?|off>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|
+  <arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|0>>>
 
-  <assign|zt-zcite-in-text|<macro|citebody|<zt-maybe-hlink-as-footnote|<arg|citebody>>>>
+  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|<value|footnote-nr>>>>>
 
-  <assign|zt-zcite-as-footnote|<macro|citebody|<zt-footnote|<arg|citebody>>>>
+  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|<value|endnote-nr>>>>>
 
-  <assign|zt-zcite-as-endnote|<macro|citebody|<zt-endnote|<arg|citebody>>>>
-
-  <assign|render-zcite|<macro|citebody|<case|<or|<equal|<value|zotero-pref-noteType>|0>|<equal|<value|zt-option-this-cite-in-text?>|on>>|<zt-zcite-in-text|<arg|citebody>>|<equal|<value|zotero-pref-noteType>|1>|<zt-zcite-as-footnote|<arg|citebody>>|<equal|<value|zotero-pref-noteType>|2>|<zt-zcite-as-endnote|<arg|citebody>>>>>
+  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<equal|<value|zotero-pref-noteType>|0>|<equal|<value|zt-option-this-zcite-in-text?>|on>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<equal|<value|zotero-pref-noteType>|1>|<unequal|<value|zt-option-this-zcite-in-text?>|on>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<equal|<value|zotero-pref-noteType>|2>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>>>>
 
   <\active*>
     <\src-comment>
@@ -122,16 +110,10 @@
     </src-comment>
   </active*>
 
-  <assign|zcite*|<macro|fieldID|fieldCode|fieldNoteIndex|fieldText|<flag|Hiddent
+  <assign|zcite*|<macro|fieldID|fieldCode|fieldRawText|fieldText|<flag|Hidden
   zcite|>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldNoteIndex|fieldText|<render-zcite|<arg|fieldText>>>>
-
-  \;
-
-  \;
-
-  \;
+  <assign|zcite|<macro|fieldID|fieldCode|fieldRawText|fieldText|<compound|render-zcite|<arg|fieldID>|<arg|fieldText>>>>
 
   \;
 

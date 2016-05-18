@@ -252,6 +252,21 @@
       (=> "Zotero"
           (link zotero-menu))))
 
+
+(tm-define (notify-activated t)
+  (:require (and (style-has? "tm-zotero-dtd")
+                 (inside-which zt-cite-tags)))
+  ;; do something when activating a tag that's just like
+  ;; using the menus or toolbar.
+  (noop))
+                 
+(tm-define (notify-disactivated t)
+  (:require (and (style-has? "tm-zotero-dtd")
+                 (inside-which zt-cite-tags)))
+  ;; do something when activating a tag that's just like
+  ;; using the menus or toolbar.
+  (noop))
+
 ;;; Preferences and Settings
 ;;;
 ;;; Todo:
@@ -264,8 +279,9 @@
   ("tm-zotero:hlinks-as-tt"        "on" init-env)
   ("tm-zotero:hlinks-as-smaller"   "on" init-env))
 
-(tm-define (focus-parameter-menu-item l)
-  (:require (and (tree-label-parameter? (string->symbol l))
+;; (tm-define (focus-parameter-menu-item l)
+;;   (:require (and (tree-label-parameter? (string->symbol l))
+;;                  )))
 
 (tm-define (customizable-parameters t)
   (:require (tree-in? t '(zcite)))
@@ -311,9 +327,6 @@
   (car (buffer-path)))
 
 (tm-define (zotero-Application_getActiveDocument pv)
-  ;; stub
-  (write (list "zotero-Application_getActiveDocument" pv))
-  (newline)
   (list pv (zotero-getDocId)))
 
 
@@ -367,8 +380,6 @@
 ;; ["Document_displayAlert", [documentID, str_dialogText, int_icon, int_buttons]] -> int_button_pressed
 ;;
 (tm-define (zotero-Document_displayAlert documentID str_dialogText int_icon int_buttons)
-  (write (list "zotero-Document_displayAlert" documentID str_dialogText int_icon int_buttons))
-  (newline)
   (let ((ret 0))
     (dialogue-window (zotero-display-alert str_dialogText int_icon int_buttons)
                      (lambda (val)
@@ -383,21 +394,17 @@
 ;;
 (tm-define (zotero-Document_activate documentID)
   ;; stub
-  (write (list "zotero-Document_activate" documentID))
-  (newline)
   '())
 
 
 ;; Indicates whether a field can be inserted at the current cursor position.
 ;;
 ;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
+;;
 (tm-define (zotero-Document_canInsertField documentID str_fieldType)
-  ;; stub
-  (write (list "zotero-Document_canInsertField" documentID str_fieldType))
-  (newline)
   (and (in-text?)
        (not (in-math?))
-       (not (inside-which '(zcite* zcite)))))
+       (not (inside-which zt-cite-tags))))
 
 
 
@@ -471,6 +478,8 @@
   (zotero-init-env-zotero-prefs))
 
 (define (zotero-init-env-zotero-prefs)
+  (write (parse-xml (zotero-get-DocumentData)))
+  (newline)
   (let ((zotero-init-env-zotero-prefs-sub
          (lambda (prefix attr-list)
            (let loop ((attr-list attr-list))
@@ -508,9 +517,6 @@
 ;; ["Document_getDocumentData", [documentID]] -> str_dataString
 ;;
 (tm-define (zotero-Document_getDocumentData documentID)
-  ;; stub: Todo: get from document aux
-  (write (list "zotero-Document_getDocumentData" documentID))
-  (newline)
   (zotero-get-DocumentData))
 
 
@@ -520,9 +526,6 @@
 ;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
 ;;
 (tm-define (zotero-Document_setDocumentData documentID str_dataString)
-  ;; stub
-  (write (list "zotero-Document_setDocumentData" documentID str_dataString))
-  (newline)
   (zotero-set-DocumentData str_dataString)
   '())
 
@@ -540,26 +543,15 @@
 ;; ["Document_cursorInField", [documentID, str_fieldType]] -> null || [fieldID, fieldCode, int_noteIndex]
 ;;
 (tm-define (zotero-Document_cursorInField documentID str_fieldType)
-  ;; stub
-  (write (list "zotero-Document_cursorInField" documentID str_fieldType))
-  (newline)
   (with t (inside-which '(zcite* zcite))
     (if t
-        ;; <zcite*|fieldID|fieldCode>
-        ;; For now noteIndex returned as zero. How will I get that?
-        ;; I need to read the code that handles footnotes.
-        (let ((tl (cdr (tree->list t))))
-          (append tl (list (get-env "footnote-nr"))))
+        (begin
+          (list (tree->string (zotero-zcite-fieldID t))
+                (tree->string (zotero-zcite-filedCode t))
+                (tree->string (zotero-zcite-noteIndex t))))
         '())))
 
 
-
-;;; This does not work the way I expect.
-(define (zotero-get-noteindex id)
-  (with t (inside-which 'footnote)
-    (if t
-        (string->number (get-env "footnote-nr"))
-        0)))
 
 ;; Inserts a new field at the current cursor position.
 ;;
@@ -571,14 +563,13 @@
 ;; Ignore: str_fieldType
 ;;
 (tm-define (zotero-Document_insertField documentID str_fieldType int_noteType)
-  ;; stub
-  ;; (write (list "zotero-Document_insertField" documentID str_fieldType int_noteType))
-  ;; (newline)
-  (let* ((id (string-append (format "~s" documentID #f) (create-unique-id)))
-         (ni (format "~s" (if (= int_noteType 0) 0
-                              (zotero-get-noteindex id)) #f))
-    (insert `(zcite ,id "TEMP" ni ""))
-    (list id "TEMP" ni))))
+  (let* ((id (string-append (format "~s" documentID #f) (create-unique-id))))
+    (insert `(zcite ,id "TEMP" "TEMP" ""))
+    ;; Give the typesetter a second to update the noteIndex...
+    (delayed
+      (:delay 1)
+      (let ((field (zotero-find-zcite id)))
+        (list id "TEMP" (zotero-zcite-noteIndex field))))))
 
 
   
@@ -596,8 +587,6 @@
 (define zt-cite-tags '(zcite zcite*))
 
 (tm-define (zotero-Document_getFields documentID str_fieldType)
-  ;; (write (list "zotero-Document_getFields" documentID str_fieldType))
-  ;; (newline)
   (let loop ((zcite-fields (map tree->stree
                                 (tm-search (buffer-tree)
                                            (cut tm-in? <> zt-cite-tags))))
@@ -618,7 +607,7 @@
 ;;
 (tm-define (zotero-Document_convert . args)
   ;; stub
-  (write (list "zotero-Document_convert" args))
+  (write (list "STUB:zotero-Document_convert" args))
   (newline)
   '())
 
@@ -627,7 +616,7 @@
 ;;
 (tm-define (zotero-Document_setBibliographyStyle . args)
   ;; stub
-  (write (list "zotero-Document_setBibliographyStyle" args))
+  (write (list "STUB:zotero-Document_setBibliographyStyle" args))
   (newline)
   '())
 
@@ -641,12 +630,59 @@
 ;; here since I might need to use it during development, at least.
 ;;
 (tm-define (zotero-Document_complete documentID)
-  ;; stub
-  (write (list "zotero-Document_complete" documentID))
-  (newline)
   (set! zotero-active? #f)
   (close-zotero-socket-port!)
   '())
+
+
+
+;; Operations on zcite fields.
+;;
+;;
+(define (zotero-find-zcite fieldID)
+  "Returns the tree with the specified @fieldID string, or #f."
+  (tm-find (buffer-tree)
+           (lambda (t)
+             (and (tm-in? t zt-cite-tags)
+                  (string=? (tree->stree (zotero-zcite-fieldID t))
+                            fieldID)))))
+
+;; These must match the definitions in tm-zotero.ts; the fieldID
+;; is expected to come first in the code above.
+;;
+(define (zotero-zcite-fieldID t)
+  (tm-ref t 0))
+
+(define (zotero-zcite-fieldCode t)
+  (tm-ref t 1))
+
+(define (zotero-zcite-fieldRawText t)
+  (tm-ref t 2))
+
+;; Todo: how do I get a reference binding?
+(define (zotero-zcite-fieldNoteIndex t)
+  (get-reference-binding (string-append
+                          "zotero-"
+                          (tree->string (zotero-zcite-fieldID t))
+                          "-noteIndex")))
+
+;; This field is set automatically, below, with the result of:
+;;
+;;   (latex->texmacs (parse-latex fieldRawText))
+;;
+;; Todo: But what if I use drd-props to make it accessible so I can edit it,
+;;       and then do edit it? OpenOffice lets you edit them, but prompts you
+;;       that it's been editted before replacing it.
+;;
+;; Idea: When it's editted, perhaps a diff could be kept? Or some kind of
+;;       mechanism that finds out what is changed and sends it to Zotero?
+;;
+;;    A: I think that's not easy to do and more trouble than it's worth.
+;;       It's easier to just curate your reference collection to make it
+;;       produce what you want, right?
+;;
+(define (zotero-zcite-fieldText t)
+  (tm-ref t 3))
 
 
 ;; Deletes a field from the document (both its code and its contents).
@@ -657,9 +693,7 @@
 ;; ["Field_delete", [documentID, fieldID]] -> null
 ;;
 (tm-define (zotero-Field_delete documentID fieldID)
-  ;; stub
-  (write (list "zotero-Field_delete" documentID fieldID))
-  (newline)
+  (tree-assign! (zotero-find-zcite fieldID) "")
   '())
 
 
@@ -668,14 +702,7 @@
 ;; ["Field_select", [documentID, fieldID]] -> null
 ;;
 (tm-define (zotero-Field_select documentID fieldID)
-  ;; stub
-  ;; (write (list "zotero-Field_select" documentID fieldID))
-  ;; (newline)
-  (let ((field (tm-find (buffer-tree)
-                        (lambda (t)
-                          (and (tm-in? t zt-cite-tags)
-                               (string=? (second (tree->stree t) fieldID)))))))
-    ;; TODO: cafe is closing. You are HERE.
+  (tree-go-to (zotero-find-zcite fieldID) 0)
   '())
 
 
@@ -684,9 +711,9 @@
 ;; ["Field_removeCode", [documentID, fieldID]] -> null
 ;;
 (tm-define (zotero-Field_removeCode documentID fieldID)
-  ;; stub
-  (write (list "zotero-Field_removeCode" documentID fieldID))
-  (newline)
+  (let* ((field (zotero-find-zcite fieldID))
+         (text (zotero-zcite-text field)))
+    (tree-set-diff field text))
   '())
 
 
@@ -694,10 +721,11 @@
 ;;
 ;; ["Field_setText", [documentID, fieldID, str_text, isRich]] -> null
 ;;
+;; Let's assume that for this, it's always "isRich", so ignore that arg.
+;;
 (tm-define (zotero-Field_setText documentID fieldID str_text isRich)
-  ;; stub
-  (write (list "zotero-Field_setText" documentID fieldID str_text isRich))
-  (newline)
+  (tree-assign! (zotero-zcite-text (zotero-find-zcite fieldID))
+                (latex->texmacs (parse-latex str_text)))
   '())
 
 
@@ -706,9 +734,7 @@
 ;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;
 (tm-define (zotero-Field_getText documentID fieldID)
-  ;; stub
-  (write (list "zotero-Field_getText" documentID fieldID))
-  (newline)
+  
   "STUB Field Text STUB")
 
 
@@ -718,7 +744,7 @@
 ;;
 (tm-define (zotero-Field_setCode documentID fieldID str_code)
   ;; stub
-  (write (list "zotero-Field_setCode" documentID fieldID str_code))
+  (write (list "STUB:zotero-Field_setCode" documentID fieldID str_code))
   (newline)
   '())
 
@@ -730,7 +756,7 @@
 ;;
 (tm-define (zotero-Field_convert documentID fieldID str_fieldType int_noteType)
   ;; stub
-  (write (list "zotero-Field_convert" documentID fieldID str_fieldType
+  (write (list "STUB:zotero-Field_convert" documentID fieldID str_fieldType
                int_noteType))
   (newline)
   '())
