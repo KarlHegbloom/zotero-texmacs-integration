@@ -4,17 +4,19 @@
 
 <\body>
   <active*|<\src-title>
-    <src-package|tm-zotero|1.0>
+    <src-package|tm-zotero|0.007-UT-1-W>
 
     <\src-purpose>
       This package contains extended macros for citations and provides a
       <TeXmacs> bridge to the Juris-M or Zotero reference manager for
-      Firefox.
+      Firefox. It utilizes the same interface that is used by the Zotero
+      \<rightarrow\> OpenOffice.org connector, presently with a patch applied
+      to Juris-M/Zotero to allow switching the output format, and with Better
+      BibTeX for Zotero that is extended to create a ".bbl" output formatter.
+      (vs HTML or RTF).
     </src-purpose>
 
-    <src-copyright|2016|Karl Martin Hegbloom>
-
-    <src-copyright|2006|Joris van der Hoeven (cite-author-year.ts)>
+    <src-copyright|2016|Karl Martin Hegbloom, Esq.>
 
     <\src-license>
       This software falls under the <hlink|GNU general public license,
@@ -28,7 +30,8 @@
 
   <\active*>
     <\src-comment>
-      Helper macros
+      Helper macros (Not used presently.) <with|color|blue|Todo:>
+      <with|color|red|Support multiple bibliographies per document, etc.>
     </src-comment>
   </active*>
 
@@ -106,42 +109,14 @@
 
   <\active*>
     <\src-comment>
-      Juris-M / Zotero Citations
+      Juris-M / Zotero Citations (do not use zcite* yet. I don't know if it
+      will be part of the final thing.)
     </src-comment>
   </active*>
 
-  <assign|zcite*|<macro|fieldID|fieldCode|fieldRawText|fieldText|<flag|Hidden
-  zcite|>>>
+  <assign|zcite*|<macro|fieldID|fieldCode|fieldText|<flag|Hidden zcite|>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldRawText|fieldText|<compound|render-zcite|<arg|fieldID>|<arg|fieldText>>>>
-
-  \;
-
-  \;
-
-  <assign|XXXzcite-get-fields|<macro|<get-binding|<merge|<value|bib-prefix>|-fields>>>>
-
-  <assign|XXXzcite-get-fieldCode|<macro|fieldID|<get-binding|<merge|<value|bib-prefix>|-|<arg|fieldID>|-code>>>>
-
-  <assign|XXXzcite-get-fieldText|<macro|fieldID|<get-binding|<merge|<value|bib-prefix>|-|<arg|fieldID>|-|>>>>
-
-  \;
-
-  \;
-
-  <assign|XXXcite-link|<macro|key|text|<style-with|src-compact|none|<locus|<id|<hard-id|<arg|key>>>|<link|hyperlink|<id|<hard-id|<arg|key>>>|<url|<merge|#|<value|bib-prefix>|-|<arg|key>>>>|<arg|text>>>>>
-
-  <assign|XXXtransform-bibitem|<macro|body|<arg|body>>>
-
-  <assign|XXXrender-bibitem|<macro|text|<style-with|src-compact|none|<with|par-first|<minus|1tmpt|<value|bibitem-width>>|<yes-indent>><resize|<arg|text>|||<maximum|1r|<value|bibitem-width>>|>>>>
-
-  <assign|XXXbibitem-with-key|<macro|text|key|<style-with|src-compact|none|<bibitem*|<arg|text>><label|<merge|<value|bib-prefix>|-|<arg|key>>>>>>
-
-  <assign|XXXbibitem*|<macro|text|<style-with|src-compact|none|<render-bibitem|<transform-bibitem|<arg|text>>><set-binding|<arg|text>>>>>
-
-  \;
-
-  \;
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<compound|render-zcite|<arg|fieldID>|<arg|fieldText>>>>
 </body>
 
 <\initial>

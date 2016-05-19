@@ -28,8 +28,6 @@
 (use-modules (ice-9 format))
 (use-modules (json)) ;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 
-;;; The normal client-base mechanism will probably deal with this:
-;; (sigaction SIGPIPE (lambda (sig) #t))
 
 ;; this just restructures the error object to match what TeXmacs is expecting inside the scheme session.
 (define (safe-json-string->scm str)
@@ -78,7 +76,9 @@
     (lambda args
       (close-port zotero-socket-port)
       (set! zotero-socket-port #f)
-      (apply throw args))))
+      (set! zotero-active? #f)
+      ;; Todo: Improve error dialog.
+      (zotero-Document_displayAlert 0 "System Error: Is Zotero running? Also maybe restart Firefox or Zotero SA." 0 0))))
 
 
 (define (close-zotero-socket-port!)
@@ -87,6 +87,11 @@
       (begin
         (close-port zotero-socket-port)
         (set! zotero-socket-port #f))))
+
+
+(sigaction SIGPIPE (lambda (sig)
+                     (set! zotero-active? #f)
+                     (close-zotero-socket-port!)))
 
 
 (define (write-network-u32 value port)
@@ -145,7 +150,6 @@
 ;; using delayed.
 
 (define zotero-active? #f)
-(define zotero-Document_insert-result #f)
 
 ;;;
 ;;; It's sort of a state machine; protocol is essentially synchronous, and user
@@ -158,7 +162,7 @@
 ;;;
 (define (zotero-listen)
   (set! zotero-active? #t)
-  (with wait 1
+  (with wait 10
     (delayed
       (:while zotero-active?)
       (:pause ((lambda () (inexact->exact (round wait)))))
@@ -176,24 +180,13 @@
                (set! zotero-active? #f)
                (close-zotero-socket-port!)
                (set! wait 1))
-              ;; (zotero-Document_insert-result
-              ;;  => (lambda (result)
-              ;;       (set! zotero-Document_insert-result #f)
-              ;;       (zotero-write tid (scm->json-string result))))
-              ;; ((string=? editCommand "Document_insertField")
-              ;;  ((set! zotero-Document_insertField-state-run-bottom-half? #t)
-              ;;   (apply (eval ;; to get the function itself
-              ;;                       (string->symbol 
-              ;;                        (string-append "zotero-"
-              ;;                                       editCommand)))
-              ;;                      args)
-              ;;    (write result)
-              ;;    (newline)
-              ;;    (write (scm->json-string result))
-              ;;    (newline)
-              ;;    (display "--------------------\n\n")
-              ;;    (zotero-write tid (scm->json-string result))
-              ;;    (set! wait 1)))
+              ((string=? editCommand "Document_insertField") ;; handles sending result itself.
+               (apply (eval ;; to get the function itself
+                       (string->symbol 
+                        (string-append "zotero-"
+                                       editCommand)))
+                      (cons tid args))
+               (set! wait 10))
               (#t (with result (apply (eval ;; to get the function itself
                                        (string->symbol 
                                         (string-append "zotero-"
@@ -205,7 +198,7 @@
                     (newline)
                     (display "--------------------\n\n")
                     (zotero-write tid (scm->json-string result))
-                    (set! wait 1))))))))))
+                    (set! wait 10))))))))))
 
 
 ;;; Ensure that the tm-zotero.ts is part of the document style.
@@ -498,9 +491,10 @@
   (init-env "zoteroDocumentData" str_dataString)
   (zotero-init-env-zotero-prefs))
 
+
 (define (zotero-init-env-zotero-prefs)
-  (write (parse-xml (zotero-get-DocumentData)))
-  (newline)
+  ;; (write (parse-xml (zotero-get-DocumentData)))
+  ;; (newline)
   (let ((zotero-init-env-zotero-prefs-sub
          (lambda (prefix attr-list)
            (let loop ((attr-list attr-list))
@@ -568,9 +562,10 @@
     (if t
         (begin
           (list (tree->string (zotero-zcite-fieldID t))
-                (tree->string (zotero-zcite-filedCode t))
+                (tree->string (zotero-zcite-fieldCode t))
                 (tree->string (zotero-zcite-noteIndex t))))
         '())))
+
 
 
 ;; Inserts a new field at the current cursor position.
@@ -582,19 +577,16 @@
 ;;
 ;; Ignore: str_fieldType
 ;;
-(tm-define (zotero-Document_insertField documentID str_fieldType int_noteType)
+(tm-define (zotero-Document_insertField tid documentID str_fieldType int_noteType)
   (let* ((id (string-append (format "~s" documentID #f) (create-unique-id))))
     (insert `(zcite ,id "TEMP" "TEMP" ""))
-    ;; This does not work. The typesetter has to run! Need delayed somehow.
     (let ((field (zotero-find-zcite id)))
-      (list id "TEMP" (zotero-zcite-fieldNoteIndex field)))))
-    ;; ;; Give the typesetter a second to update the noteIndex...
-    ;; (delayed
-    ;;   (:delay 1)
-      
-    ;;   (let ((field (zotero-find-zcite id)))
-    ;;     (set! zotero-Document_insert-result
-    ;;       (list id "TEMP" (zotero-zcite-noteIndex field)))))))
+      (delayed
+        ;;(:do (update-path (tree->path field)))
+        (:pause 250)
+        (:refresh 1500);; 1.5 sec to allow the macro expansion to run
+        (zotero-write tid (scm->json-string
+                           (list id "TEMP" (zotero-zcite-fieldNoteIndex field))))))))
 
 
   
@@ -611,6 +603,14 @@
 
 (define zt-cite-tags '(zcite zcite*))
 
+;;; Todo: Use a hash table to memoize buffer positions for each field so that after this, access is more like O(1)
+;;; rather than O(n), assuming hash lookup is faster than short list traversal with string compare... but this is more
+;;; than list traversal; it's buffer-tree traversal; that's not the slow part though; typing is slow when the document
+;;; is complicated because of the O(n^2) box-tree to document-tree ip (inverse path) search algorithm. Finding these
+;;; fields in the source document is really just straightforward recursive DAG traversal, right?
+;;;
+;;; Lets get it working first, then option setting features next, then see if it needs this.
+;;;
 (tm-define (zotero-Document_getFields documentID str_fieldType)
   (let loop ((zcite-fields (map tree->stree
                                 (tm-search (buffer-tree)
@@ -621,14 +621,20 @@
          (#t
           (let ((field (car zcite-fields)))
             (loop (cdr zcite-fields)
-                  (cons (second field) ids)
-                  (cons (third  field) codes)
-                  (cons (fourth field) indx)))))))
+                  (cons (zotero-zcite-fieldID field) ids)
+                  (cons (zotero-zcite-fieldCode field) codes)
+                  (cons (zotero-zcite-fieldNoteIndex field) indx)))))))
     
+
 
 ;;; May need: go-to-id from link/link-navigate.scm:490
 
+
+
 ;; ["Document_convert" ??? (TODO in documentation.)
+;;
+;; I think this is for OpenOffice to convert a document from using ReferenceMark fields to Bookmark ones.
+;; Maybe we could repurpose this for TeXmacs?  Better to make a new flag; and just ignore this one.
 ;;
 (tm-define (zotero-Document_convert . args)
   ;; stub
@@ -651,15 +657,17 @@
 ;;
 ;; ["Document_complete", [documentID]] -> null
 ;;
-;; See: zotero-listen, where this is checked for inline... but also enable it
-;; here since I might need to use it during development, at least.
+;; See: zotero-listen, where this is checked for inline... but also enable it here since I might need to use it during
+;; development, at least. It's never called at all by zotero-listen, so can just be commented off here.
 ;;
-(tm-define (zotero-Document_complete documentID)
-  (set! zotero-active? #f)
-  (close-zotero-socket-port!)
-  '())
+;; (tm-define (zotero-Document_complete documentID)
+;;   (set! zotero-active? #f)
+;;   (close-zotero-socket-port!)
+;;   '())
 
 
+
+;;; This young code says that it wants to be a GOOPS object someday. I'm not sure if that's right for it yet.
 
 ;; Operations on zcite fields.
 ;;
@@ -672,22 +680,13 @@
                   (string=? (tree->stree (zotero-zcite-fieldID t))
                             fieldID)))))
 
-;; These must match the definitions in tm-zotero.ts; the fieldID
-;; is expected to come first in the code above.
+;; These must match the definitions in tm-zotero.ts;
 ;;
 (define (zotero-zcite-fieldID t)
   (tm-ref t 0))
 
 (define (zotero-zcite-fieldCode t)
   (tm-ref t 1))
-
-(define (zotero-zcite-fieldRawText t)
-  (tm-ref t 2))
-
-;; Todo: how do I get a reference binding? Is there an accessor for them?
-;;
-;; Hack: inside of a hidden*, write a tuple of them as the action of some
-;; observer...
 
 ;; The set-binding call happens inside of the macro that renders the
 ;; citation. I spent half a day figuring out how to write a glue-exported
@@ -699,13 +698,13 @@
 ;; For "note" styles, this reference binding links a citation field with
 ;; the footnote number that it appears in.
 ;;
-(define (zotero-zcite-fieldNoteIndex t)
+(define (zotero-zcite-fieldNoteIndex field)
   (get-reference-binding (string-append
                           "zotero-"
-                          (tree->string (zotero-zcite-fieldID t))
+                          (tree->string (zotero-zcite-fieldID field))
                           "-noteIndex")))
 
-;; This field is set automatically, below, with the result of:
+;; This next field is set automatically, below, with the result of:
 ;;
 ;;   (latex->texmacs (parse-latex fieldRawText))
 ;;
@@ -721,7 +720,7 @@
 ;;       produce what you want, right?
 ;;
 (define (zotero-zcite-fieldText t)
-  (tm-ref t 3))
+  (tm-ref t 2))
 
 
 ;; Deletes a field from the document (both its code and its contents).
@@ -739,6 +738,9 @@
 ;; Moves the current cursor position to encompass a field.
 ;;
 ;; ["Field_select", [documentID, fieldID]] -> null
+;;
+;; Whether or not this works as expected depends on settings made by the drd-props macro. I think that I want the cursor
+;; to be inside of it's light blue box, after it.... (writing this comment prior to testing. FLW.)
 ;;
 (tm-define (zotero-Field_select documentID fieldID)
   (tree-go-to (zotero-find-zcite fieldID) 0)
@@ -766,10 +768,6 @@
   (let* ((field (zotero-find-zcite fieldID))
          (rawText (zotero-zcite-fieldRawText field))
          (text (zotero-zcite-fieldText field)))
-    ;; There are two copies because it's planned to make it possible
-    ;; to edit one, but for now it only really uses the last one.
-    (tree-assign! rawText (latex->texmacs (parse-latex str_text)))
-    ;; newly consed, not eq? to rawText.
     (tree-assign! text (latex->texmacs (parse-latex str_text))))
   '())
 
