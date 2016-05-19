@@ -24,6 +24,7 @@
         (kernel library content)
         (convert tools sxml)))
 
+(use-modules (ice-9 popen))
 (use-modules (ice-9 format))
 (use-modules (json)) ;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 
@@ -144,6 +145,8 @@
 ;; using delayed.
 
 (define zotero-active? #f)
+(define zotero-Document_insert-result #f)
+
 ;;;
 ;;; It's sort of a state machine; protocol is essentially synchronous, and user
 ;;; expects to wait while it finishes before doing anything else anyhow.
@@ -173,6 +176,24 @@
                (set! zotero-active? #f)
                (close-zotero-socket-port!)
                (set! wait 1))
+              ;; (zotero-Document_insert-result
+              ;;  => (lambda (result)
+              ;;       (set! zotero-Document_insert-result #f)
+              ;;       (zotero-write tid (scm->json-string result))))
+              ;; ((string=? editCommand "Document_insertField")
+              ;;  ((set! zotero-Document_insertField-state-run-bottom-half? #t)
+              ;;   (apply (eval ;; to get the function itself
+              ;;                       (string->symbol 
+              ;;                        (string-append "zotero-"
+              ;;                                       editCommand)))
+              ;;                      args)
+              ;;    (write result)
+              ;;    (newline)
+              ;;    (write (scm->json-string result))
+              ;;    (newline)
+              ;;    (display "--------------------\n\n")
+              ;;    (zotero-write tid (scm->json-string result))
+              ;;    (set! wait 1)))
               (#t (with result (apply (eval ;; to get the function itself
                                        (string->symbol 
                                         (string-append "zotero-"
@@ -253,19 +274,19 @@
           (link zotero-menu))))
 
 
-(tm-define (notify-activated t)
-  (:require (and (style-has? "tm-zotero-dtd")
-                 (inside-which zt-cite-tags)))
-  ;; do something when activating a tag that's just like
-  ;; using the menus or toolbar.
-  (noop))
+;; (tm-define (notify-activated t)
+;;   (:require (and (style-has? "tm-zotero-dtd")
+;;                  (inside-which zt-cite-tags)))
+;;   ;; do something when activating a tag that's just like
+;;   ;; using the menus or toolbar.
+;;   (noop))
                  
-(tm-define (notify-disactivated t)
-  (:require (and (style-has? "tm-zotero-dtd")
-                 (inside-which zt-cite-tags)))
-  ;; do something when activating a tag that's just like
-  ;; using the menus or toolbar.
-  (noop))
+;; (tm-define (notify-disactivated t)
+;;   (:require (and (style-has? "tm-zotero-dtd")
+;;                  (inside-which zt-cite-tags)))
+;;   ;; do something when activating a tag that's just like
+;;   ;; using the menus or toolbar.
+;;   (noop))
 
 ;;; Preferences and Settings
 ;;;
@@ -274,26 +295,26 @@
 ;;; Setting: Zotero zcite and bibliograph by default in all new documents?
 ;;;
 
-(define-preferences
-  ("tm-zotero:hlinks-as-footnotes" "on" init-env)
-  ("tm-zotero:hlinks-as-tt"        "on" init-env)
-  ("tm-zotero:hlinks-as-smaller"   "on" init-env))
+;; (define-preferences
+;;   ("tm-zotero:hlinks-as-footnotes" "on" init-env)
+;;   ("tm-zotero:hlinks-as-tt"        "on" init-env)
+;;   ("tm-zotero:hlinks-as-smaller"   "on" init-env))
 
 ;; (tm-define (focus-parameter-menu-item l)
 ;;   (:require (and (tree-label-parameter? (string->symbol l))
 ;;                  )))
 
-(tm-define (customizable-parameters t)
-  (:require (tree-in? t '(zcite)))
-  (list (list "zt-pref-this-cite-in-text?" "This zcite in-text?")))
+;; (tm-define (customizable-parameters t)
+;;   (:require (tree-in? t '(zcite)))
+;;   (list (list "zt-pref-this-cite-in-text?" "This zcite in-text?")))
 
-(tm-define (parameter-choice-list var)
-  (:require (and (tree-in? t '(zcite))
-                 (in? var '("zt-pref-this-cite-in-text?"
-                            "zt-pref-hlinks-as-footnotes?"
-                            "zt-pref-hlinks-as-tt?"
-                            "zt-pref-hlinks-as-smaller?"))))
-  (list "true" "false"))
+;; (tm-define (parameter-choice-list var)
+;;   (:require (and (tree-in? t '(zcite))
+;;                  (in? var '("zt-pref-this-cite-in-text?"
+;;                             "zt-pref-hlinks-as-footnotes?"
+;;                             "zt-pref-hlinks-as-tt?"
+;;                             "zt-pref-hlinks-as-smaller?"))))
+;;   (list "true" "false"))
 
 
 ;;; Todo: See  update-document  at generic/document-edit.scm:341
@@ -552,7 +573,6 @@
         '())))
 
 
-
 ;; Inserts a new field at the current cursor position.
 ;;
 ;; str_fieldType, either "ReferenceMark" or "Bookmark"
@@ -565,11 +585,16 @@
 (tm-define (zotero-Document_insertField documentID str_fieldType int_noteType)
   (let* ((id (string-append (format "~s" documentID #f) (create-unique-id))))
     (insert `(zcite ,id "TEMP" "TEMP" ""))
-    ;; Give the typesetter a second to update the noteIndex...
-    (delayed
-      (:delay 1)
-      (let ((field (zotero-find-zcite id)))
-        (list id "TEMP" (zotero-zcite-noteIndex field))))))
+    ;; This does not work. The typesetter has to run! Need delayed somehow.
+    (let ((field (zotero-find-zcite id)))
+      (list id "TEMP" (zotero-zcite-fieldNoteIndex field)))))
+    ;; ;; Give the typesetter a second to update the noteIndex...
+    ;; (delayed
+    ;;   (:delay 1)
+      
+    ;;   (let ((field (zotero-find-zcite id)))
+    ;;     (set! zotero-Document_insert-result
+    ;;       (list id "TEMP" (zotero-zcite-noteIndex field)))))))
 
 
   
@@ -659,7 +684,21 @@
 (define (zotero-zcite-fieldRawText t)
   (tm-ref t 2))
 
-;; Todo: how do I get a reference binding?
+;; Todo: how do I get a reference binding? Is there an accessor for them?
+;;
+;; Hack: inside of a hidden*, write a tuple of them as the action of some
+;; observer...
+
+;; The set-binding call happens inside of the macro that renders the
+;; citation. I spent half a day figuring out how to write a glue-exported
+;; accessor function... then discovered this trick:
+;;
+(define (get-reference-binding label)
+  (texmacs-exec `(get-binding ,label)))
+
+;; For "note" styles, this reference binding links a citation field with
+;; the footnote number that it appears in.
+;;
 (define (zotero-zcite-fieldNoteIndex t)
   (get-reference-binding (string-append
                           "zotero-"
@@ -712,7 +751,7 @@
 ;;
 (tm-define (zotero-Field_removeCode documentID fieldID)
   (let* ((field (zotero-find-zcite fieldID))
-         (text (zotero-zcite-text field)))
+         (text (zotero-zcite-fieldText field)))
     (tree-set-diff field text))
   '())
 
@@ -724,8 +763,14 @@
 ;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;
 (tm-define (zotero-Field_setText documentID fieldID str_text isRich)
-  (tree-assign! (zotero-zcite-text (zotero-find-zcite fieldID))
-                (latex->texmacs (parse-latex str_text)))
+  (let* ((field (zotero-find-zcite fieldID))
+         (rawText (zotero-zcite-fieldRawText field))
+         (text (zotero-zcite-fieldText field)))
+    ;; There are two copies because it's planned to make it possible
+    ;; to edit one, but for now it only really uses the last one.
+    (tree-assign! rawText (latex->texmacs (parse-latex str_text)))
+    ;; newly consed, not eq? to rawText.
+    (tree-assign! text (latex->texmacs (parse-latex str_text))))
   '())
 
 
@@ -734,18 +779,17 @@
 ;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;
 (tm-define (zotero-Field_getText documentID fieldID)
-  
-  "STUB Field Text STUB")
-
+  (let* ((field (zotero-find-zcite fieldID)))
+    (zotero-zcite-fieldText field)))
 
 ;; Sets the (hidden, persistent) code of a field.
 ;;
 ;; ["Field_setCode", [documentID, fieldID, str_code]] -> null
 ;;
 (tm-define (zotero-Field_setCode documentID fieldID str_code)
-  ;; stub
-  (write (list "STUB:zotero-Field_setCode" documentID fieldID str_code))
-  (newline)
+  (let* ((field (zotero-find-zcite fieldID))
+         (code (zotero-zcite-fieldCode field)))
+    (tree-assign! code str_code)) ;; opaque, just store it.
   '())
 
 
@@ -755,10 +799,7 @@
 ;; null
 ;;
 (tm-define (zotero-Field_convert documentID fieldID str_fieldType int_noteType)
-  ;; stub
-  (write (list "STUB:zotero-Field_convert" documentID fieldID str_fieldType
-               int_noteType))
-  (newline)
+  (noop)
   '())
 
 ;;; Local Variables:
