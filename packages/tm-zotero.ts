@@ -45,11 +45,13 @@
     </src-comment>
   </active*>
 
-  <assign|zt-pref-hrefs-as-footnotes|on>
+  <assign|zt-pref-hrefs-as-footnotes|true>
 
-  <assign|zt-pref-hlinks-with-href-footnotes?|on>
+  <assign|zt-pref-hlinks-with-href-footnotes|false>
 
-  <assign|zt-option-this-cite-in-text?|off>
+  <assign|zt-not-inside-footnote|true>
+
+  <assign|zt-option-this-zcite-in-text|false>
 
   <\active*>
     <\src-comment>
@@ -61,25 +63,25 @@
 
   <assign|zt-orig-footnote|<value|footnote>>
 
-  <assign|zt-footnote|<macro|body|<with|zt-pref-hrefs-as-footnotes?|off|zt-pref-hlinks-with-href-footnotes?|off|zt-option-this-zcite-in-text?|on|<zt-orig-footnote|<arg|body>>>>>
+  <assign|zt-footnote|<macro|body|<with|zt-not-inside-footnote|false|<zt-orig-footnote|<arg|body>>>>>
 
-  <if|<unequal|<value|zt-footnote>|<value|footnote>>|<assign|footnote|<value|zt-footnote>>>
+  <assign|footnote|<value|zt-footnote>>
 
   \;
 
   <assign|zt-orig-href|<value|href>>
 
-  <assign|zt-href|<macro|dest|<if|<equal|<value|zt-pref-hrefs-as-footnotes?>|on>|<zt-footnote|<zt-orig-href|<arg|dest>>>|<zt-orig-href|<arg|dest>>>>>
+  <assign|zt-href|<macro|dest|<if|<and|<value|zt-pref-hrefs-as-footnotes>|<value|zt-not-inside-footnote>>|<zt-footnote|<zt-orig-href|<arg|dest>>>|<zt-orig-href|<arg|dest>>>>>
 
-  <if|<unequal|<value|zt-href>|<value|href>>|<assign|href|<value|zt-href>>>
+  <assign|href|<value|zt-href>>
 
   \;
 
   <assign|zt-orig-hlink|<value|hlink>>
 
-  <assign|zt-hlink|<macro|linktext|dest|<if|<equal|<value|zt-pref-hlinks-with-href-footnotes?>|on>|<zt-orig-hlink|<arg|linktext>|<arg|dest>><zt-footnote|<zt-orig-href|<arg|dest>>|<zt-orig-hlink|<arg|linktext>|<arg|dest>>>>>>
+  <assign|zt-hlink|<macro|linktext|dest|<if|<and|<value|zt-pref-hlinks-with-href-footnotes>|<value|zt-not-inside-footnote>>|<zt-orig-hlink|<arg|linktext>|<arg|dest>><zt-footnote|<zt-orig-href|<arg|dest>>>|<zt-orig-hlink|<arg|linktext>|<arg|dest>>>>>
 
-  <if|<unequal|<value|zt-hlink>|<value|hlink>>|<assign|hlink|<value|zt-hlink>>>
+  <assign|hlink|<value|zt-hlink>>
 
   <\active*>
     <\src-comment>
@@ -98,14 +100,15 @@
     </src-comment>
   </active*>
 
-  <assign|zt-zcite-in-text|<macro|fieldID|citebody|
-  <arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|0>>>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|0>>>
 
   <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|<value|footnote-nr>>>>>
 
   <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|<value|endnote-nr>>>>>
 
-  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<equal|<value|zotero-pref-noteType>|0>|<equal|<value|zt-option-this-zcite-in-text?>|on>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<equal|<value|zotero-pref-noteType>|1>|<unequal|<value|zt-option-this-zcite-in-text?>|on>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<equal|<value|zotero-pref-noteType>|2>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>>>>
+  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType1>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType2>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>>>>
+
+  <assign|render-zbibliography|<macro|fieldID|biblio-title|bibliobody|<set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|0><render-bibliography|<arg|biblio-title>|<arg|bibliobody>>>>
 
   <\active*>
     <\src-comment>
@@ -114,9 +117,14 @@
     </src-comment>
   </active*>
 
-  <assign|zcite*|<macro|fieldID|fieldCode|fieldText|<flag|Hidden zcite|>>>
+  <assign|zcite*|<macro|fieldID|fieldCode|fieldRawText|fieldText|<flag|Hidden
+  zcite|green>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<compound|render-zcite|<arg|fieldID>|<arg|fieldText>>>>
+  <assign|zcite|<macro|fieldID|fieldCode|fieldRawText|fieldText|<compound|render-zcite|<arg|fieldID>|<arg|fieldText>>>>
+
+  <assign|zbibliography|<\macro|fieldID|fieldCode|fieldRawText|fieldText>
+    <render-zbibliography|<bibliography-text>|<arg|fieldText>>
+  </macro>>
 </body>
 
 <\initial>

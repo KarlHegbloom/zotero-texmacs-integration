@@ -10,32 +10,42 @@
 ;;
 ;;;
 
-;;; I can not simply use the normal TeXmacs client mechanism since it is set up
-;;; for a different protocol, where the size is printed as an ascii string
-;;; representation, followed by a newline, then a string representation of a
-;;; scheme expression, (id (command args)). The Zotero connector protocol is
-;;; different. There's a 32 bit transaction ID, then a 32 bit size in network
-;;; order, followed by a JSON string. I'm going to borrow a lot from the
-;;; TeXmacs client scheme code, but do the socket read/write myself. I hope
-;;; this works.
-
 (texmacs-module (zotero)
   (:use (kernel texmacs tm-modes)
         (kernel library content)
         (convert tools sxml)))
 
-(use-modules (ice-9 popen))
-(use-modules (ice-9 format))
-(use-modules (json)) ;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 
+;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
+(use-modules (json))
 
-;; this just restructures the error object to match what TeXmacs is expecting inside the scheme session.
+;; This just restructures the error object to match what TeXmacs is expecting
+;; inside the scheme session.
+;;
 (define (safe-json-string->scm str)
   (catch 'json-invalid
     (lambda ()
       (json-string->scm str))
     (lambda args
       (throw 'json-invalid "Invalid JSON" "Invalid JSON" #f))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Helper functions
+;;
+
+(define (coerce-to-string obj)
+  "Some arguments in this protocol can be number or string. Coerce to string."
+  (cond
+    ((number? obj)
+     (number->string obj))
+    ((tree? obj)
+     (tree->string obj))
+    ((string? obj) obj)
+    (#t
+     (display "Coerce to string? Error:")
+     (write obj)
+     (newline))))
 
 
 
@@ -139,7 +149,7 @@
 
 (define (zotero-select-then-read)
   (let ((zp (get-zotero-socket-port!)))
-    (with (r w e) (select (list zp) '() '() 2);; 2 sec
+    (with (r w e) (select (list zp) '() '() 1);; 1 sec
       (if (not (null? r))
           (zotero-read)
           (list 0 0 "")))))
@@ -162,7 +172,7 @@
 ;;;
 (define (zotero-listen)
   (set! zotero-active? #t)
-  (with wait 10
+  (with (counter wait) '(1000 10)
     (delayed
       (:while zotero-active?)
       (:pause ((lambda () (inexact->exact (round wait)))))
@@ -170,6 +180,12 @@
       (with (tid len cmdstr) (zotero-select-then-read)
         (write (list 'tid: tid 'len: len 'cmdstr: cmdstr))
         (newline)
+        (when (not (> len 0))
+          (set! counter (- counter 1))
+          (when (= counter 0)
+            (set! zotero-active? #f)
+            (zotero-write tid (scm->json-string '()))
+            (set! wait 0)))
         (when (> len 0)
           (with (editCommand args) (safe-json-string->scm cmdstr)
             (write (list editCommand args))
@@ -179,15 +195,9 @@
                (zotero-write tid (scm->json-string '()))
                (set! zotero-active? #f)
                (close-zotero-socket-port!)
-               (set! wait 1))
-              ((string=? editCommand "Document_insertField") ;; handles sending result itself.
-               (apply (eval ;; to get the function itself
-                       (string->symbol 
-                        (string-append "zotero-"
-                                       editCommand)))
-                      (cons tid args))
                (set! wait 10))
-              (#t (with result (apply (eval ;; to get the function itself
+              (#t
+               (with result (apply (eval ;; to get the function itself
                                        (string->symbol 
                                         (string-append "zotero-"
                                                        editCommand)))
@@ -206,13 +216,24 @@
 (define (ensure-tm-zotero-style!)
   (add-style-package "tm-zotero"))
 
+(define zotero-new-fieldID #f)
 
 ;; Integration commands: TeXmacs -> Zotero, no reply, Zotero connects back with
 ;; Editor commands.
 ;;
 (tm-define (zotero-addCitation)
-  (zotero-write 0 (scm->json-string "addCitation"))
-  (zotero-listen))
+  (let ((t (inside-which zt-cite-tags)))
+    (if t
+        (when (not (and zotero-new-fieldID
+                        (string=? zotero-new-fieldID
+                                  (zotero-zcite-fieldID t))))
+          (zotero-editCitation))
+        (begin
+          (let* ((id (string-append (coerce-to-string (zotero-getDocId)) (create-unique-id))))
+            (set! zotero-new-fieldID id)
+            (insert `(zcite ,id "TEMP" "TEMP" "TEMP")))
+          (zotero-write 0 (scm->json-string "addCitation"))
+          (zotero-listen)))))
 
 (tm-define (zotero-editCitation)
   (zotero-write 0 (scm->json-string "editCitation"))
@@ -221,6 +242,9 @@
 ;; ---------
 
 (tm-define (zotero-addBibliography)
+  (let ((id (string-append (coerce-to-string (zotero-getDocId)) (create-unique-id))))
+    (set! zotero-new-fieldID id)
+    (insert `(zbibliography ,id "BIBL" "BIBL" "BIBL")))
   (zotero-write 0 (scm->json-string "addBibliography"))
   (zotero-listen))
 
@@ -255,16 +279,16 @@
   ("Edit Bibliography" (zotero-editBibliography))
   ---
   ("Refresh" (zotero-refresh))
-;;  ("Remove Codes" (zotero-removeCodes))
+  ;; ("Remove Codes" (zotero-removeCodes))
   ---
   ("Set Document Prefs" (zotero-setDocPrefs)))
 
 
 (menu-bind texmacs-extra-menu
-  (former)
-  (if (style-has? "tm-zotero-dtd")
-      (=> "Zotero"
-          (link zotero-menu))))
+  (when (style-has? "tm-zotero-dtd")
+    (former)
+    (=> "Zotero"
+        (link zotero-menu))))
 
 
 ;; (tm-define (notify-activated t)
@@ -418,7 +442,10 @@
 (tm-define (zotero-Document_canInsertField documentID str_fieldType)
   (and (in-text?)
        (not (in-math?))
-       (not (inside-which zt-cite-tags))))
+       (let ((t (inside-which zt-cite-tags)))
+         (or (not t)
+             (and zotero-new-fieldID
+                  (string=? zotero-new-fieldID (zotero-zcite-fieldID t)))))))
 
 
 
@@ -430,6 +457,7 @@
 (define-public zotero-NOTE_IN_TEXT  0)
 (define-public zotero-NOTE_FOOTNOTE 1)
 (define-public zotero-NOTE_ENDNOTE  2)
+
 ;;
 ;; The rest of the DocumentData settings are "opaque" from the viewpoint of
 ;; this interface. They control Zotero, not this connector.
@@ -489,12 +517,12 @@
 
 (define (zotero-set-DocumentData str_dataString)
   (init-env "zoteroDocumentData" str_dataString)
-  (zotero-init-env-zotero-prefs))
+  (zotero-init-env-zotero-prefs str_dataString))
 
 
-(define (zotero-init-env-zotero-prefs)
-  ;; (write (parse-xml (zotero-get-DocumentData)))
-  ;; (newline)
+(define (zotero-init-env-zotero-prefs str_dataString)
+  (write (parse-xml (zotero-get-DocumentData)))
+  (newline)
   (let ((zotero-init-env-zotero-prefs-sub
          (lambda (prefix attr-list)
            (let loop ((attr-list attr-list))
@@ -504,9 +532,20 @@
                                                        (caar attr-list)))
                                 (cadar attr-list))
                    (loop (cdr attr-list))))))))
-    (let loop ((sxml (cdr (parse-xml (zotero-get-DocumentData)))))
+    (let loop ((sxml (cdr (parse-xml str_dataString))))
          (cond
-           ((null? sxml) #t)
+           ((null? sxml)
+            ;; The TeXmacs style language case statements can not test an
+            ;; environment variable that is a string against any other
+            ;; string... the string it's set to has to be "true" or "false" to
+            ;; make boolean tests work. It can not check for "equals 0",
+            ;; "equals 1", etc.
+            (let ((noteType (get-env "zotero-pref-noteType")))
+              (init-env "zotero-pref-noteType0" "false")
+              (init-env "zotero-pref-noteType1" "false")
+              (init-env "zotero-pref-noteType2" "false")
+              (init-env (string-append "zotero-pref-noteType" noteType) "true"))
+            #t)
            ((eq? 'data (sxml-name (car sxml)))
             (zotero-init-env-zotero-prefs-sub "zotero-data-" (sxml-attr-list
                                                               (car sxml)))
@@ -558,13 +597,18 @@
 ;; ["Document_cursorInField", [documentID, str_fieldType]] -> null || [fieldID, fieldCode, int_noteIndex]
 ;;
 (tm-define (zotero-Document_cursorInField documentID str_fieldType)
-  (with t (inside-which '(zcite* zcite))
-    (if t
-        (begin
-          (list (tree->string (zotero-zcite-fieldID t))
-                (tree->string (zotero-zcite-fieldCode t))
-                (tree->string (zotero-zcite-noteIndex t))))
-        '())))
+  (if (tree-in? (cursor-tree) zt-cite-tags)
+      (let ((t (cursor-tree)))
+        (if (not (and zotero-new-fieldID
+                      (string=? zotero-new-fieldID
+                                (coerce-to-string
+                                 (zotero-zcite-fieldID t)))))
+            (begin
+              (list (coerce-to-string (zotero-zcite-fieldID t))
+                    (coerce-to-string (zotero-zcite-fieldCode t))
+                    (coerce-to-string (zotero-zcite-fieldNoteIndex t))))
+            '()))
+      '()))
 
 
 
@@ -577,19 +621,15 @@
 ;;
 ;; Ignore: str_fieldType
 ;;
-(tm-define (zotero-Document_insertField tid documentID str_fieldType int_noteType)
-  (let* ((id (string-append (format "~s" documentID #f) (create-unique-id))))
-    (insert `(zcite ,id "TEMP" "TEMP" ""))
-    (let ((field (zotero-find-zcite id)))
-      (delayed
-        ;;(:do (update-path (tree->path field)))
-        (:pause 250)
-        (:refresh 1500);; 1.5 sec to allow the macro expansion to run
-        (zotero-write tid (scm->json-string
-                           (list id "TEMP" (zotero-zcite-fieldNoteIndex field))))))))
-
+(tm-define (zotero-Document_insertField documentID str_fieldType int_noteType)
+  (let ((field (zotero-find-zcite zotero-new-fieldID))
+        (id zotero-new-fieldID))
+    (set! zotero-new-fieldID #f)
+    ;; (tree-go-to field 0)
+    (list id "TEMP" (coerce-to-string (zotero-zcite-fieldNoteIndex field)))))
 
   
+
 ;; Get all fields present in the document, in document order.
 ;;
 ;; str_fieldType is the type of field used by the document, either ReferenceMark or Bookmark
@@ -601,7 +641,7 @@
 ;; <zcite|id03|code|0|Text3>>)
 ;; ((zcite "id01" "code" "0" "Text") (zcite "id02" "code" "0" "Text2") (zcite "id03" "code" "0" "Text3"))
 
-(define zt-cite-tags '(zcite zcite*))
+(define zt-cite-tags '(zcite zcite* zbibliography))
 
 ;;; Todo: Use a hash table to memoize buffer positions for each field so that after this, access is more like O(1)
 ;;; rather than O(n), assuming hash lookup is faster than short list traversal with string compare... but this is more
@@ -614,16 +654,25 @@
 (tm-define (zotero-Document_getFields documentID str_fieldType)
   (let loop ((zcite-fields (map tree->stree
                                 (tm-search (buffer-tree)
-                                           (cut tm-in? <> zt-cite-tags))))
+                                           (lambda (t)
+                                             (and (tm-in? t zt-cite-tags)
+                                                  (not
+                                                   (and zotero-new-fieldID
+                                                        (string=? (zotero-zcite-fieldID t)
+                                                                  zotero-new-fieldID))))))))
              (ids '()) (codes '()) (indx '()))
        (cond
-         ((null? zcite-fields) (list ids codes indx))
+         ((null? zcite-fields) (if (nnull? ids)
+                                   (list (reverse ids)
+                                         (reverse codes)
+                                         (reverse indx))
+                                   '((0) ("TEMP") (0))))
          (#t
           (let ((field (car zcite-fields)))
             (loop (cdr zcite-fields)
-                  (cons (zotero-zcite-fieldID field) ids)
-                  (cons (zotero-zcite-fieldCode field) codes)
-                  (cons (zotero-zcite-fieldNoteIndex field) indx)))))))
+                  (cons (coerce-to-string (zotero-zcite-fieldID        field)) ids)
+                  (cons (coerce-to-string (zotero-zcite-fieldCode      field)) codes)
+                  (cons (coerce-to-string (zotero-zcite-fieldNoteIndex field)) indx)))))))
     
 
 
@@ -632,6 +681,8 @@
 
 
 ;; ["Document_convert" ??? (TODO in documentation.)
+;;
+;; public void convert(ReferenceMark mark, String fieldType, int noteType)
 ;;
 ;; I think this is for OpenOffice to convert a document from using ReferenceMark fields to Bookmark ones.
 ;; Maybe we could repurpose this for TeXmacs?  Better to make a new flag; and just ignore this one.
@@ -643,7 +694,11 @@
   '())
 
 
+
 ;; ["Document_setBibliographyStyle", ??? (TODO)
+;;
+;; public void setBibliographyStyle(int firstLineIndent, int bodyIndent, int lineSpacing,
+;;    		int entrySpacing, ArrayList<Number> arrayList, int tabStopCount)
 ;;
 (tm-define (zotero-Document_setBibliographyStyle . args)
   ;; stub
@@ -660,10 +715,10 @@
 ;; See: zotero-listen, where this is checked for inline... but also enable it here since I might need to use it during
 ;; development, at least. It's never called at all by zotero-listen, so can just be commented off here.
 ;;
-;; (tm-define (zotero-Document_complete documentID)
-;;   (set! zotero-active? #f)
-;;   (close-zotero-socket-port!)
-;;   '())
+(tm-define (zotero-Document_complete documentID)
+  (set! zotero-active? #f)
+  (close-zotero-socket-port!)
+  '())
 
 
 
@@ -682,26 +737,29 @@
 
 ;; These must match the definitions in tm-zotero.ts;
 ;;
-(define (zotero-zcite-fieldID t)
+(define-public (zotero-zcite-fieldID t)
   (tm-ref t 0))
 
-(define (zotero-zcite-fieldCode t)
+(define-public (zotero-zcite-fieldCode t)
   (tm-ref t 1))
+
+(define-public (zotero-zcite-fieldRawText t)
+  (tm-ref t 2))
 
 ;; The set-binding call happens inside of the macro that renders the
 ;; citation. I spent half a day figuring out how to write a glue-exported
 ;; accessor function... then discovered this trick:
 ;;
-(define (get-reference-binding label)
+(define-public (get-reference-binding label)
   (texmacs-exec `(get-binding ,label)))
 
 ;; For "note" styles, this reference binding links a citation field with
 ;; the footnote number that it appears in.
 ;;
-(define (zotero-zcite-fieldNoteIndex field)
+(define-public (zotero-zcite-fieldNoteIndex field)
   (get-reference-binding (string-append
                           "zotero-"
-                          (tree->string (zotero-zcite-fieldID field))
+                          (coerce-to-string (zotero-zcite-fieldID field))
                           "-noteIndex")))
 
 ;; This next field is set automatically, below, with the result of:
@@ -719,8 +777,8 @@
 ;;       It's easier to just curate your reference collection to make it
 ;;       produce what you want, right?
 ;;
-(define (zotero-zcite-fieldText t)
-  (tm-ref t 2))
+(define-public (zotero-zcite-fieldText t)
+  (tm-ref t 3))
 
 
 ;; Deletes a field from the document (both its code and its contents).
@@ -758,6 +816,11 @@
   '())
 
 
+(define-public (zotero-field-str_text-to-texmacs str_text)
+  (let ((tms (tree->stree (latex->texmacs (parse-latex str_text)))))
+    (display tms)
+    (stree->tree tms)))
+
 ;; Sets the (visible) text of a field.
 ;;
 ;; ["Field_setText", [documentID, fieldID, str_text, isRich]] -> null
@@ -765,10 +828,17 @@
 ;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;
 (tm-define (zotero-Field_setText documentID fieldID str_text isRich)
-  (let* ((field (zotero-find-zcite fieldID))
-         (rawText (zotero-zcite-fieldRawText field))
-         (text (zotero-zcite-fieldText field)))
-    (tree-assign! text (latex->texmacs (parse-latex str_text))))
+  (let* ((field   (zotero-find-zcite fieldID))
+         (rawtext (zotero-zcite-fieldRawText field))
+         (text    (zotero-zcite-fieldText field))
+         (tmtext  (zotero-field-str_text-to-texmacs str_text)))
+    (newline)
+    (write field) (newline)
+    (write rawtext) (newline)
+    (write text) (newline)
+    (write tmtext) (newline) (newline)
+    (tree-assign! rawtext str_text)
+    (tree-assign! text tmtext))
   '())
 
 
@@ -778,7 +848,9 @@
 ;;
 (tm-define (zotero-Field_getText documentID fieldID)
   (let* ((field (zotero-find-zcite fieldID)))
-    (zotero-zcite-fieldText field)))
+    (write field)
+    (newline)
+    (coerce-to-string (zotero-zcite-fieldRawText field))))
 
 ;; Sets the (hidden, persistent) code of a field.
 ;;
@@ -789,6 +861,11 @@
          (code (zotero-zcite-fieldCode field)))
     (tree-assign! code str_code)) ;; opaque, just store it.
   '())
+
+
+(tm-define (zotero-Field_getCode documentID fieldID)
+  (let* ((field (zotero-find-zcite fieldID)))
+    (coerce-to-string (zotero-zcite-fieldCode field))))
 
 
 ;; Converts a field from one type to another.
