@@ -41,6 +41,19 @@
 
   <\active*>
     <\src-comment>
+      Default values to avoid transcient "bad case" errors prior to setting
+      documentData.
+    </src-comment>
+  </active*>
+
+  <assign|zotero-pref-noteType0|true>
+
+  <assign|zotero-pref-noteType1|false>
+
+  <assign|zotero-pref-noteType2|false>
+
+  <\active*>
+    <\src-comment>
       hlink and href \ display rendering options.
     </src-comment>
   </active*>
@@ -63,7 +76,7 @@
 
   <assign|zt-orig-footnote|<value|footnote>>
 
-  <assign|zt-footnote|<macro|body|<with|zt-not-inside-footnote|false|<zt-orig-footnote|<arg|body>>>>>
+  <assign|zt-footnote|<macro|body|<style-with|src-compact|none|<next-footnote><with|zt-not-inside-footnote|false|<render-footnote|<the-footnote>|<arg|body>>><space|0spc><label|<merge|footnr-|<the-footnote>>><rsup|<with|font-shape|right|<reference|<merge|footnote-|<the-footnote>>>>>>>>
 
   <assign|footnote|<value|zt-footnote>>
 
@@ -100,15 +113,19 @@
     </src-comment>
   </active*>
 
-  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|0>>>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<arg|citebody><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>>>
 
-  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|<value|footnote-nr>>>>>
+  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><arg|citebody>>>>
 
-  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<arg|citebody><set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|<value|endnote-nr>>>>>
+  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><arg|citebody>>>>
 
-  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType1>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType2>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>>>>
+  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType1>|<value|zt-not-inside-footnote>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType1>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType2>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>>>>
 
-  <assign|render-zbibliography|<macro|fieldID|biblio-title|bibliobody|<set-binding|<merge|zotero-|<arg|fieldID>|-noteIndex>|0><render-bibliography|<arg|biblio-title>|<arg|bibliobody>>>>
+  \;
+
+  <assign|transform-bibitem|<macro|body|>>
+
+  \;
 
   <\active*>
     <\src-comment>
@@ -120,10 +137,10 @@
   <assign|zcite*|<macro|fieldID|fieldCode|fieldRawText|fieldText|<flag|Hidden
   zcite|green>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldRawText|fieldText|<compound|render-zcite|<arg|fieldID>|<arg|fieldText>>>>
+  <assign|zcite|<macro|fieldID|fieldCode|fieldRawText|fieldText|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldRawText|fieldText>
-    <render-zbibliography|<bibliography-text>|<arg|fieldText>>
+    <surround|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<hflush>|<arg|fieldText>>
   </macro>>
 </body>
 
