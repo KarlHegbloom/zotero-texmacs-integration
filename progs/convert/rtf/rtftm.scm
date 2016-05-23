@@ -32,28 +32,23 @@
 (tm-define (rtf-snippet->latex-snippet rtf_str)
   (let ((temp_rtf (url-temp-ext "rtf"))
         (temp_tex (url-temp-ext "tex")))
+    
     (string-save rtf_str temp_rtf)
-    (system (string-append "unrtf -P " (dirname (%search-load-path "convert/rtf/latex.conf"))
-                           " -t latex " (url->unix temp_rtf) 
-                           " | sed -re 's,(\\w\\.}?) ,\\1\\\\hspace{1spc},g'"
-                           " > " (url->unix temp_tex)))
+    (system (string-append
+             "unrtf -P " (dirname (%search-load-path "convert/rtf/latex.conf"))
+             " -t latex " (url->unix temp_rtf) 
+             " | sed -re 's,(\\w\\.}?) ,\\1\\\\hspace{1spc},g'"
+             " > " (url->unix temp_tex)))
     (system-remove temp_rtf)
-    (let* ((tex (string-load temp_tex)))
+    (let ((tex (string-load temp_tex)))
+      (system-remove temp_tex)
+      tex)))
 
 (tm-define (rtf-snippet->texmacs s)
-  (let ((temp_rtf (url-temp-ext "rtf"))
-        (temp_tex (url-temp-ext "tex")))
-    (string-save s temp_rtf)
-    (system (string-append "unrtf -P " (dirname (%search-load-path "convert/rtf/latex.conf"))
-                           " -t latex " (url->unix temp_rtf) 
-                           " | sed -re 's,(\\w\\.}?) ,\\1\\\\hspace{1spc},g'"
-                           " > " (url->unix temp_tex)))
-    (system-remove temp_rtf)
-    (let* ((tex (string-load temp_tex)))
-      (system-remove temp_tex)
-      (display tex) (display "\n")
-      (latex->texmacs (parse-latex tex)))))
-
+  (latex->texmacs
+   (parse-latex
+    (rtf-snippet->latex-snippet s))))
+    
 
 ;; (converter rtf-document rtf-stree
 ;;   (:function parse-rtf-document))
