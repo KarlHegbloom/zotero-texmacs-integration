@@ -1,7 +1,8 @@
 Zotero - TeXmacs integration plugin and citation styles.
 ========================================================
 
-This is a work in progress. You must run it from a git clone for
+This is a work in progress, but it is working. I am now using it to
+write a document with. You must run it from a git clone for
 now. Instructions are below.
 
 Not all of the CSL styles produce good results at this point. In
