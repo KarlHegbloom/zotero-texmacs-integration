@@ -14,6 +14,15 @@ couple of important lawsuits. I will keep track of the issue tracker,
 and try to fix things when requests come it, but be aware that it's
 secondary priority... though often a welcome break from the writing.
 
+NEWS
+----
+
+  * The name of the branch of my clone of Juris-M / Zotero that you
+    need to checkout has changed. I've edited the instructions
+    below to reflect that. The branch is called:
+    
+    karlhegbloom-integration-for-texmacs
+
 ----------------------------------------------------------------------
 
 Requirements
@@ -69,7 +78,7 @@ Don't start Firefox yet. Next, clone the modified version of Juris-M:
     cd ~/src
     git clone https://github.com/KarlHegbloom/zotero.git
     cd zotero
-    git checkout karlheg-dev-integration-pref-for-csl-format
+    git checkout karlhegbloom-integration-for-texmacs
 
 Starting Firefox should give you your normal Juris-M, and you should
 notice no changes (unless you try to use the LibreOffice connector
