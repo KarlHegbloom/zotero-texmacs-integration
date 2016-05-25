@@ -151,19 +151,34 @@
 (tm-define (zotero-zcite-fieldID t)
   (tree-ref t 0))
 
+;; I decided I like them better without the raw-data wrapper.
+;; (tm-define (zotero-zcite-fieldCode t)
+;;   ;; upgrade old tags, also fixup hand-entered ones?
+;;   (let ((code (tree-ref t 1)))
+;;     (cond
+;;       ((tm-func? code 'raw-data)
+;;        (tree-ref code 0))
+;;       ((and (not (tm-func? code 'raw-data))
+;;             (tm-atomic? code))
+;;        (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
+;;        (tree-ref code 0))
+;;       ((not (tm-func? code 'raw-data))
+;;        (tree-set! code (stree->tree '(raw-data "")))
+;;        (tree-ref code 0)))))
+
 (tm-define (zotero-zcite-fieldCode t)
   ;; upgrade old tags, also fixup hand-entered ones?
   (let ((code (tree-ref t 1)))
     (cond
       ((tm-func? code 'raw-data)
-       (tree-ref code 0))
-      ((and (not (tm-func? code 'raw-data))
-            (tm-atomic? code))
-       (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
-       (tree-ref code 0))
+       (tree-set! code (tree-ref code 0))
+       code)
+      ;; ((and (not (tm-func? code 'raw-data))
+      ;;       (tm-atomic? code))
+      ;;  (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
+      ;;  (tree-ref code 0))
       ((not (tm-func? code 'raw-data))
-       (tree-set! code (stree->tree '(raw-data "")))
-       (tree-ref code 0)))))
+       code))))
 
 ;; For "note" styles, this reference binding links a citation field with
 ;; the footnote number that it appears in.
