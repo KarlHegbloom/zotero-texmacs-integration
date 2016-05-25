@@ -19,16 +19,8 @@
 
 ;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 (use-modules (json))
+(use-modules (ice-9 format))
 
-;; This just restructures the error object to match what TeXmacs is expecting
-;; inside the scheme session.
-;;
-(define (safe-json-string->scm str)
-  (catch 'json-invalid
-    (lambda ()
-      (json-string->scm str))
-    (lambda args
-      (throw 'json-invalid "Invalid JSON" "Invalid JSON" #f))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -44,9 +36,10 @@
      (tree->string obj))
     ((string? obj) obj)
     (#t
-     (display "Coerce to string? Error:")
-     (write obj)
-     (newline))))
+     (display "Coerce to string? Error:") ;; debug trace
+     (write obj) ;; debug trace
+     (newline) ;; debug trace
+     )))
 
 
 ;; The documentID; this is not stable from one run to the next since it's value
@@ -54,8 +47,24 @@
 ;; or some subsequently loaded one. It does not have to be stable from one run
 ;; to the next, but unique for each document being processed during this run.
 ;;
+;; An alternative would be to assign it a stable value and store that in the
+;; init-env. It could be a UUID or a string formed just like the fieldID's are.
+;;
+;; I'm pretty sure that the LibreOffice document ID's are just sequential
+;; numbers counting from 0 each time the editor is launched. They identify it's
+;; internal document state management objects, which may actually be
+;; transcient, existing only during the duration of an "integration command"
+;; sequence.
+;;
 (tm-define (zotero-getDocId)
   (coerce-to-string (car (buffer-path))))
+
+;; There can be only 1 new field pending per document. For now I assume that we
+;; are editting only 1 document per instance of TeXmacs. If that changes, then
+;; this can become a hash table, or part of a per-document state management
+;; object.
+;;
+(define zotero-new-fieldID #f)
 
 (tm-define (zotero-get-new-fieldID)
   (coerce-to-string (create-unique-id)))
@@ -75,12 +84,34 @@
 ;;
 ;; Style sheet helper functions and tag accessors
 ;;
-(define zt-cite-tags '(zcite zcite* zbibliography))
+(define zt-cite-tags '(zcite zbibliography))
 
-;;; Ensure that the tm-zotero.ts is part of the document style.
-;;
-(define (ensure-tm-zotero-style!)
-  (add-style-package "tm-zotero"))
+
+(tm-define (zt-flag-if-modified fieldID)
+  (:secure)
+  (let* ((fieldID (coerce-to-string fieldID))
+         (field (zotero-find-zcite fieldID))
+         (text (format #f "~s" (zotero-zcite-fieldText field)))
+         (orig-fieldText (zotero-get-orig-fieldText fieldID)))
+    (if (and orig-fieldText
+             (not (string=? text orig-fieldText)))
+        (begin
+          (display* "zt-flag-if-modified: Field is modified: " fieldID "\n")
+          '(concat (flag "Modified!" "red")))
+        (begin
+          (display* "zt-flag-if-modified: Field is NOT modified: " fieldID "\n")
+          '(concat (flag "Not Modified." "green"))))))
+
+
+(tm-define (zotero-insert-new-field tag)
+  (:secure)
+  (let ((id (zotero-get-new-fieldID)))
+    (set! zotero-new-fieldID id)
+    (insert `(,tag ,id (raw-data "") "{Citation}"))
+    ;; Perhaps add it to the cache here
+    ))
+
+
 
 ;;; This young code says that it wants to be a GOOPS object someday. I'm not
 ;;; sure if that's right for it yet.
@@ -91,35 +122,53 @@
 
 ;;; tm-find returns an incorrect result! Use tm-search.
 ;;;
-(define (zotero-find-zcite fieldID)
+(tm-define (zotero-find-zcite fieldID)
   (car
    (tm-search
     (buffer-tree)
     (lambda (t)
       (and (tree-in? t zt-cite-tags)
            (string=? fieldID
-                     (tree->string (tree-ref t 0))))))))
-    
+                     (tree->string (zotero-zcite-fieldID t))))))))
+
+
+(tm-define (zotero-go-to-zcite documentID fieldID)
+  ;; Ignore documentID for now, assuming work with focused document only.
+  ;;
+  ;; for now just tree-go-to, but perhaps look up the position from the cache
+  ;; and jump to it without a tree-search having to happen first. (think "large
+  ;; documents")
+  (tree-go-to (zotero-find-zcite fieldID) 1))
+
+
 ;; These must match the definitions in tm-zotero.ts;
 ;;
-;;  L     0         1           2              3
-;; (zcite "fieldID" "fieldCode" "fieldRawText" "fieldText")
+;;  L     0         1           2
+;; (zcite "fieldID" "fieldCode" "fieldText")
 ;;
 ;; fieldNoteIndex is gotten via a reference binding.
 ;;
-(define-public (zotero-zcite-fieldID t)
+(tm-define (zotero-zcite-fieldID t)
   (tree-ref t 0))
 
-(define-public (zotero-zcite-fieldCode t)
-  (tree-ref t 1))
-
-(define-public (zotero-zcite-fieldRawText t)
-  (tree-ref t 2))
+(tm-define (zotero-zcite-fieldCode t)
+  ;; upgrade old tags, also fixup hand-entered ones?
+  (let ((code (tree-ref t 1)))
+    (cond
+      ((tm-func? code 'raw-data)
+       (tree-ref code 0))
+      ((and (not (tm-func? code 'raw-data))
+            (tm-atomic? code))
+       (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
+       (tree-ref code 0))
+      ((not (tm-func? code 'raw-data))
+       (tree-set! code (stree->tree '(raw-data "")))
+       (tree-ref code 0)))))
 
 ;; For "note" styles, this reference binding links a citation field with
 ;; the footnote number that it appears in.
 ;;
-(define-public (zotero-zcite-fieldNoteIndex field)
+(tm-define (zotero-zcite-fieldNoteIndex field)
   (get-reference-binding
    (zotero-ref-binding-key
     (tree->string (zotero-zcite-fieldID field)))))
@@ -140,407 +189,116 @@
 ;;       It's easier to just curate your reference collection to make it
 ;;       produce what you want, right?
 ;;
-(define-public (zotero-zcite-fieldText t)
-  (tree-ref t 3))
+(tm-define (zotero-zcite-fieldText t)
+  (tree-ref t 2))
 
 
 
+(tm-define (zotero-get-zcite-fields-list documentID fieldType)
+  ;; Maybe ensure active document is documentID? For now assume it is.
+  ;; Also for now assume fieldType is always "ReferenceMark", so ignore it.
+  ;; Q: What about "save-excursion" or "save-buffer-excursion"?
+  ;; A: This is searching the document tree, not moving the cursor.
+  (let ((all-fields (tm-search
+                     (buffer-tree)
+                     (lambda (t)
+                       (and (tree-in? t zt-cite-tags)
+                            (not
+                             (and zotero-new-fieldID
+                                  (string=? (tree->string
+                                             (zotero-zcite-fieldID t))
+                                            zotero-new-fieldID))))))))
+    all-fields))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;; The fieldCode is a JSON string. Among other things, it is how Zotero keeps
+;; track of whether or not the user has editted the automatically formatted
+;; citation text in the fieldText. When it has been editted, Zotero prompts
+;; first before overwriting it. By parsing that JSON and accessing that
+;; information ourself, we can render a red flag when it has been modified, to
+;; create a visual signal to the user. In order to make that happen, all
+;; setting and getting of the fieldCode must happen via these functions.
 ;;
-;; Protocol between tm_zotero and ZoteroTeXmacsIntegration.js
+(define zotero-fieldCode-cache (make-ahash-table))
+
+(tm-define (zotero-get-fieldCode-string field)
+  (let ((id (tree->string (zotero-zcite-fieldID field)))
+        (str_code (tree->string (zotero-zcite-fieldCode field))))
+    ;; So that Document_getFields causes this to happen.
+    (when (and (not (ahash-ref zotero-fieldCode-cache id #f))
+               (not (and zotero-new-fieldID
+                         (string=? zotero-new-fieldID id))))
+      (zotero-parse-and-cache-fieldCode field str_code))
+    str_code))
+
+;; Must handle empty string for zotero-Field_delete. Since it does not
+;; actually delete the tag from the document, it does not need to delete it
+;; from the cache.
 ;;
-;; https://www.zotero.org/support/dev/client_coding/libreoffice_plugin_wire_protocol
+;; Also handle empty string for zotero-Field_removeCode.
 ;;
-;; The Firefox or Zotero Standalone process operates a server on port 23116,
-;; which the extension residing within TeXmacs connects to. All frames consist
-;; of a 32 bits specifying the transaction ID, a big-endian 32-bit integer
-;; specifying the length of the payload, and the payload itself, which is
-;; either UTF-8 encoded JSON or an unescaped string beginning with “ERR:”.
+;; Also: What happens when I manually delete a zcite tag? How do I maintain the
+;; fieldCode and field positions cache?
 ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; It is unlikely that a zcite will be manually deleted during the course of an
+;; integration command / editor-integration command sequence... Zotero is
+;; already designed to handle the case where you've manually removed a citation
+;; field... So these routines simply need to check that the field is really
+;; there before returning any cached information...
 ;;
-(define zotero-socket-port #f)
-(define zotero-socket-inet-texmacs-port-number 23117)
-(define zotero-socket-inet-zotero-port-number 23116)
-  
-(define (get-zotero-socket-port!)
-  (catch 'system-error
-    (lambda ()
-      (if (and (port? zotero-socket-port)
-               (not (port-closed? zotero-socket-port)))
-          zotero-socket-port
-          (begin
-            (set! zotero-socket-port (socket PF_INET SOCK_STREAM 0))
-            (setsockopt zotero-socket-port SOL_SOCKET SO_REUSEADDR 1)
-            ;; (setsockopt zotero-socket-port IPPROTO_TCP TCP_NODELAY 1)
-            (setvbuf zotero-socket-port _IOFBF)
-            (bind    zotero-socket-port AF_INET INADDR_LOOPBACK 
-                     zotero-socket-inet-texmacs-port-number)
-            (connect zotero-socket-port AF_INET INADDR_LOOPBACK
-                     zotero-socket-inet-zotero-port-number)
-            zotero-socket-port)))
-    (lambda args
-      (close-port zotero-socket-port)
-      (set! zotero-socket-port #f)
-      (set! zotero-active? #f)
-      ;; Todo: Improve error dialog.
-      (zotero-Document_displayAlert 0 "System Error: Is Zotero running? Also maybe restart Firefox or Zotero SA." 0 0))))
-
-
-(define (close-zotero-socket-port!)
-  (if (and (port? zotero-socket-port)
-           (not (port-closed? zotero-socket-port)))
-      (begin
-        (close-port zotero-socket-port)
-        (set! zotero-socket-port #f))))
-
-
-(sigaction SIGPIPE (lambda (sig)
-                     (set! zotero-active? #f)
-                     (close-zotero-socket-port!)))
-
-
-(define (write-network-u32 value port)
-  (let ((v (make-u32vector 1 0)))
-    (u32vector-set! v 0 (htonl value))
-    (uniform-vector-write v port)))
-
-(define (read-network-u32 port)
-  (let ((v (make-u32vector 1 0)))
-    (uniform-vector-read! v port)
-    (ntohl (u32vector-ref v 0))))
-
-
-(define (zotero-write tid cmd)
-  (let ((zp (get-zotero-socket-port!)))
-    (catch 'system-error
-      ;;; This writes raw bytes. The string can be UTF-8.
-      (lambda ()
-        (let* ((cmdv (list->u8vector (map char->integer
-                                          (string->list cmd))))
-               (len (u8vector-length cmdv)))
-          (write-network-u32 tid zp)
-          (write-network-u32 len zp)
-          (uniform-vector-write cmdv zp)
-          (force-output zp)))
-      (lambda args
-        (write args)
-        (apply throw args)))))
-
-
-(define (zotero-read)
-  (let ((zp (get-zotero-socket-port!)))
-    (catch 'system-error
-      ;; This reads raw bytes. The string can be UTF-8.
-      (lambda ()
-        (let* ((tid (read-network-u32 zp))
-               (len (read-network-u32 zp))
-               (cmdv (make-u8vector len 0)))
-          (uniform-vector-read! cmdv zp)
-          (list tid len (list->string (map integer->char 
-                                           (u8vector->list cmdv))))))
-      (lambda args
-        (write args)
-        (apply throw args)))))
-
-(define (zotero-select-then-read)
-  (let ((zp (get-zotero-socket-port!)))
-    (with (r w e) (select (list zp) '() '() 1);; 1 sec
-      (if (not (null? r))
-          (zotero-read)
-          (list 0 0 "")))))
-
-
-;; see: (generic widgets):wait-for-toolbar in
-;; progs/generic/generic-widgets.scm at 366 for how to implement a timeout
-;; using delayed.
-
-(define zotero-active? #f)
-
-;;;
-;;; It's sort of a state machine; protocol is essentially synchronous, and user
-;;; expects to wait while it finishes before doing anything else anyhow.
-;;;
-;;; When this is entered, one of the Integration commands has just been sent to
-;;; Juris-M / Zotero. Zotero will call back and begin a word processing command
-;;; sequence, culminating with Document_complete.
-;;;
-;;;
-(define (zotero-listen)
-  (set! zotero-active? #t)
-  (with (counter wait) '(1000 10)
-    (delayed
-      (:while zotero-active?)
-      (:pause ((lambda () (inexact->exact (round wait)))))
-      (:do (set! wait (min (* 1.01 wait) 2500)))
-      (with (tid len cmdstr) (zotero-select-then-read)
-        ;; (write (list 'tid: tid 'len: len 'cmdstr: cmdstr))
-        ;; (newline)
-        (when (not (> len 0))
-          (set! counter (- counter 1))
-          (when (= counter 0)
-            (set! zotero-active? #f)
-            (zotero-write tid (scm->json-string '()))
-            (set! wait 0)))
-        (when (> len 0)
-          (with (editCommand args) (safe-json-string->scm cmdstr)
-            ;; (write (list editCommand args))
-            ;; (newline)
-            (cond
-              ((string=? editCommand "Document_complete")
-               (zotero-write tid (scm->json-string '()))
-               (set! zotero-active? #f)
-               (close-zotero-socket-port!)
-               (set! wait 10))
-              (#t
-               (with result (apply (eval ;; to get the function itself
-                                       (string->symbol 
-                                        (string-append "zotero-"
-                                                       editCommand)))
-                                      args)
-                    ;; (write result)
-                    ;; (newline)
-                    ;; (write (scm->json-string result))
-                    ;; (newline)
-                    ;; (display "--------------------\n\n")
-                    (zotero-write tid (scm->json-string result))
-                    (set! wait 10))))))))))
-
-
-
-(define zotero-new-fieldID #f)
-
-;; Integration commands: TeXmacs -> Zotero, no reply, Zotero connects back with
-;; Editor commands.
+;; What if I cut and paste a zcite from one location to another, and so the
+;; cached document position is no longer valid, but the zcite really is still
+;; in the document? For that case, I must fall back on a search of the document
+;; tree for a field with the sought-for fieldID, then update the cache.
 ;;
-(tm-define (zotero-addCitation)
-  (let ((t (inside-which zt-cite-tags)))
-    (if t
-        (when (not (and zotero-new-fieldID
-                        (string=? zotero-new-fieldID
-                                  (zotero-zcite-fieldID t))))
-          (zotero-editCitation))
+(tm-define (zotero-set-fieldCode-from-string field str_code)
+  (let ((code (zotero-zcite-fieldCode field)))
+    (zotero-parse-and-cache-fieldCode field str_code)
+    (tree-set! code str_code)))
+
+;; It goes through here so that this can also be called from the
+;; Document_getFields, in order to 
+(tm-define (zotero-parse-and-cache-fieldCode field str_code)
+  (let* ((id (tree->string (zotero-zcite-fieldID field)))
+         (code (zotero-zcite-fieldCode field))
+         (brace-idx (string-index str_code #\{))
+         (str_json (and brace-idx
+                        (substring str_code brace-idx)))
+         (scm-code (and str_json
+                        (safe-json-string->scm str_json))))
+    (if (and (pair? scm-code)
+             (string? (car scm-code))
+             (>= (string-length (car scm-code)) 4)
+             (string=? (string-take (car scm-code) 4) "ERR:"))
         (begin
-          (let* ((id (zotero-get-new-fieldID)))
-            (set! zotero-new-fieldID id)
-            (insert `(zcite ,id "" "{Citation}" "")))
-          (zotero-write 0 (scm->json-string "addCitation"))
-          (zotero-listen)))))
+          (display* (car scm-code) "\n") ;; debug error trace
+          (noop)) ;; silent error?
+        (when scm-code
+          (hash-set! zotero-fieldCode-cache id scm-code)))))
 
-(tm-define (zotero-editCitation)
-  (zotero-write 0 (scm->json-string "editCitation"))
-  (zotero-listen))
 
-;; ---------
-
-(tm-define (zotero-addBibliography)
-  (let ((id (string-append (coerce-to-string (zotero-getDocId)) (create-unique-id))))
-    (set! zotero-new-fieldID id)
-    (insert `(zbibliography ,id "" "{Citation}" "")))
-  (zotero-write 0 (scm->json-string "addBibliography"))
-  (zotero-listen))
-
-(tm-define (zotero-editBibliography)
-  (zotero-write 0 (scm->json-string "editBibliography"))
-  (zotero-listen))
-
-;; ---------
-
-(tm-define (zotero-refresh)
-  (zotero-write 0 (scm->json-string "refresh"))
-  (zotero-listen))
-
-;; (tm-define (zotero-removeCodes)
-;;   (:secure #t)
-;;   (zotero-write 0 (scm->json-string "removeCodes"))
-;;   (zotero-listen))
-
-;; ---------
-
-(tm-define (zotero-setDocPrefs)
-  (zotero-write 0 (scm->json-string "setDocPrefs"))
-  (zotero-listen))
+(tm-define (zotero-get-orig-fieldText field_or_id)
+  (let* ((id (or (and (string? field_or_id)
+                      field_or_id)
+                 (tree->string
+                  (zotero-zcite-fieldID field_or_id))))
+         (scm-code (hash-ref zotero-fieldCode-cache id #f))
+         (props (and scm-code
+                     (hash-ref scm-code "properties" #f)))
+         (plainCitation (and props
+                             (hash-ref props "plainCitation" #f))))
+    plainCitation))
 
 
 
-(menu-bind zotero-menu
-  ("Add Citation" (zotero-addCitation))
-  ("Edit Citation" (zotero-editCitation))
-  ---
-  ("Add Bibliography" (zotero-addBibliography))
-  ("Edit Bibliography" (zotero-editBibliography))
-  ---
-  ("Refresh" (zotero-refresh))
-  ;; ("Remove Codes" (zotero-removeCodes))
-  ---
-  ("Set Document Prefs" (zotero-setDocPrefs)))
-
-
-(menu-bind texmacs-extra-menu
-  (when (style-has? "tm-zotero-dtd")
-    (former)
-    (=> "Zotero"
-        (link zotero-menu))))
-
-
-;; (tm-define (notify-activated t)
-;;   (:require (and (style-has? "tm-zotero-dtd")
-;;                  (inside-which zt-cite-tags)))
-;;   ;; do something when activating a tag that's just like
-;;   ;; using the menus or toolbar.
-;;   (noop))
-                 
-;; (tm-define (notify-disactivated t)
-;;   (:require (and (style-has? "tm-zotero-dtd")
-;;                  (inside-which zt-cite-tags)))
-;;   ;; do something when activating a tag that's just like
-;;   ;; using the menus or toolbar.
-;;   (noop))
-
-;;; Preferences and Settings
-;;;
-;;; Todo:
-;;;
-;;; Setting: Zotero zcite and bibliograph by default in all new documents?
-;;;
-
-;; (define-preferences
-;;   ("tm-zotero:hlinks-as-footnotes" "on" init-env)
-;;   ("tm-zotero:hlinks-as-tt"        "on" init-env)
-;;   ("tm-zotero:hlinks-as-smaller"   "on" init-env))
-
-;; (tm-define (focus-parameter-menu-item l)
-;;   (:require (and (tree-label-parameter? (string->symbol l))
-;;                  )))
-
-;; (tm-define (customizable-parameters t)
-;;   (:require (tree-in? t '(zcite)))
-;;   (list (list "zt-pref-this-cite-in-text?" "This zcite in-text?")))
-
-;; (tm-define (parameter-choice-list var)
-;;   (:require (and (tree-in? t '(zcite))
-;;                  (in? var '("zt-pref-this-cite-in-text?"
-;;                             "zt-pref-hlinks-as-footnotes?"
-;;                             "zt-pref-hlinks-as-tt?"
-;;                             "zt-pref-hlinks-as-smaller?"))))
-;;   (list "true" "false"))
-
-
-;;; Todo: See  update-document  at generic/document-edit.scm:341
-;; (tm-define (update-document what)
-;;   (:require (style-has? "tm-zotero-dtd"))
-;;   (for (.. 0 doc-update-times)
-;;     (delayed ; allow typesetting/magic to happen before next update
-;;       (:idle 1)
-;;       (cursor-after
-;;        (cond ((== what "all") 
-;;               (generate-all-aux) (inclusions-gc) (wait-update-current-buffer))
-;;              ((== what "bibliography")
-;;               (generate-all-aux) (wait-update-current-buffer))
-;;              ((== what "buffer") 
-;;               (wait-update-current-buffer))
-;;              (else (generate-aux what)))))))
+;; DocumentData
 ;;
-;; Word Processor commands: Zotero -> TeXmacs
-;;
-;; Each sends: [CommandName, [Parameters,...]].
-;;
-;; The response is expected to be a JSON encoded payload, or the unquoted and
-;; unescaped string: ERR: Error string goes here
-;;
-;; Gets information about the client and the currently active
-;; document. documentID can be an integer or a string.
-;;
-;; ["Application_getActiveDocument", [int_protocolVersion]] -> [int_protocolVersion, documentID]
-;;
-(tm-define (zotero-Application_getActiveDocument pv)
-  (list pv (zotero-getDocId)))
-
-
-
-;; (define DIALOG_ICON_STOP 0)
-;; (define DIALOG_ICON_NOTICE 1)
-;; (define DIALOG_ICON_CAUTION 2)
-
-;; (define DIALOG_BUTTONS_OK 0)
-;; (define DIALOG_BUTTONS_OK_OK_PRESSED 1)
-
-;; (define DIALOG_BUTTONS_OK_CANCEL 1)
-;; (define DIALOG_BUTTONS_OK_CANCEL_CANCEL_PRESSED 0)
-;; (define DIALOG_BUTTONS_OK_CANCEL_OK_PRESSED 1)
-
-;; (define DIALOG_BUTTONS_YES_NO 2)
-;; (define DIALOG_BUTTONS_YES_NO_NO_PRESSED 0)
-;; (define DIALOG_BUTTONS_YES_NO_YES_PRESSED 1)
-
-;; (define DIALOG_BUTTONS_YES_NO_CANCEL 3)
-;; (define DIALOG_BUTTONS_YES_NO_CANCEL_CANCEL_PRESSED 0)
-;; (define DIALOG_BUTTONS_YES_NO_CANCEL_NO_PRESSED 1)
-;; (define DIALOG_BUTTONS_YES_NO_CANCEL_YES_PRESSED 2)
-
-
-(tm-widget ((zotero-display-alert str_Text int_Icon int_Buttons) cmd)
-  (hlist ((icon (list-ref (map %search-load-path
-                               '("icon-stop.png"
-                                 "icon-notice.png"
-                                 "icon-caution.png"))
-                          int_Icon)) (noop))
-         ;;; This does not work right with newline characters in the string.
-         >> (text str_Text))
-  (bottom-buttons >>> (cond
-                        ((= int_Buttons 0)
-                         ("Ok"     (cmd 1)))
-                        ((= int_Buttons 1)
-                         ("Ok"     (cmd 1))
-                         ("Cancel" (cmd 0)))
-                        ((= int_Buttons 2)
-                         ("Yes"    (cmd 1))
-                         ("No"     (cmd 0)))
-                        ((= int_Buttons 3)
-                         ("Yes"    (cmd 2))
-                         ("No"     (cmd 1))
-                         ("Cancel" (cmd 0))))))
-
-
-;; Shows an alert.
-;;
-;; ["Document_displayAlert", [documentID, str_dialogText, int_icon, int_buttons]] -> int_button_pressed
-;;
-(tm-define (zotero-Document_displayAlert documentID str_dialogText int_icon int_buttons)
-  (let ((ret 0))
-    (dialogue-window (zotero-display-alert str_dialogText int_icon int_buttons)
-                     (lambda (val)
-                       (set! ret val))
-                     "Zotero Alert!")
-    ret))
-
-
-;; Brings the document to the foreground. (For OpenOffice, this is a no-op on non-Mac systems.)
-;;
-;; ["Document_activate", [documentID]] -> null
-;;
-(tm-define (zotero-Document_activate documentID)
-  (noop)
-  '())
-
-
-;; Indicates whether a field can be inserted at the current cursor position.
-;;
-;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
-;;
-(tm-define (zotero-Document_canInsertField documentID str_fieldType)
-  (and (in-text?)
-       (not (in-math?))
-       (let ((t (inside-which zt-cite-tags)))
-         (or (not t)
-             (and zotero-new-fieldID
-                  (string=? zotero-new-fieldID (zotero-zcite-fieldID t)))))))
-
-
-
 ;; AFAIK the only pref that this program needs access to is noteType, and that
-;; access is read-only. The noteType is a document-wide setting.
+;; access is read-only. The noteType is a document-wide setting, since it goes
+;; with the CSL stylesheet chosen. But it is also passed to
+;; Document_insertField, Document_convert (?), and Field_convert, so really
+;; it could be a per-field setting. I choose to make it document-wide.
 ;;
 ;; enum noteType
 ;;
@@ -550,7 +308,7 @@
 
 ;;
 ;; The rest of the DocumentData settings are "opaque" from the viewpoint of
-;; this interface. They control Zotero, not this connector.
+;; this interface. They control Zotero, not TeXmacs.
 ;;
 ;; All of them are set via the zotero controlled dialog. That dialog is
 ;; displayed automatically when the document does not yet have
@@ -591,26 +349,35 @@
 ;;       (pref (@ (name "citationLangPrefsJournals")     (value "orig")))
 ;;       (pref (@ (name "citationLangPrefsPublishers")   (value "orig")))
 ;;       (pref (@ (name "citationLangPrefsPlaces")       (value "orig")))
-;;       (pref (@ (name "citationAffixes")               (value "|||||||||||||||||||||||||||||||||||||||||||||||")))
-;;       (pref (@ (name "projectName")                   (value "Project:TeXmacsTesting")))
+;;       (pref (@ (name "citationAffixes")
+;;                  (value "|||||||||||||||||||||||||||||||||||||||||||||||")))
+;;       (pref (@ (name "projectName")
+;;                  (value "Project:TeXmacsTesting")))
 ;;       (pref (@ (name "extractingLibraryID")           (value "0")))
-;;       (pref (@ (name "extractingLibraryName")         (value "No group selected")))
-;;       (pref (@ (name "fieldType")                     (value "ReferenceMark")))
+;;       (pref (@ (name "extractingLibraryName")
+;;                  (value "No group selected")))
+;;       (pref (@ (name "fieldType")                   (value "ReferenceMark")))
 ;;       (pref (@ (name "storeReferences")               (value "true")))
 ;;       (pref (@ (name "automaticJournalAbbreviations") (value "true")))
 ;;       (pref (@ (name "noteType")                      (value "0")))
 ;;       (pref (@ (name "suppressTrailingPunctuation")   (value "true")))))))
 
 
-(define (zotero-get-DocumentData)
+;; For now ignore documentID; assume it's always the active document anyway.  I
+;; think it's really just meant for a key to a table of document objects for
+;; keeping local state. For this application that state is in the actual
+;; document itself. Depending upon the way the documentID is formed, it could
+;; be used to obtain the buffer file name, document title, etc.
+;;
+(define (zotero-get-DocumentData documentID)
   (get-env "zoteroDocumentData"))
 
-(define (zotero-set-DocumentData str_dataString)
+(define (zotero-set-DocumentData documentID str_dataString)
   (init-env "zoteroDocumentData" str_dataString)
-  (zotero-init-env-zotero-prefs str_dataString))
+  (zotero-init-env-zotero-prefs documentID str_dataString))
 
 
-(define (zotero-init-env-zotero-prefs str_dataString)
+(define (zotero-init-env-zotero-prefs documentID str_dataString)
   ;; (write (parse-xml (zotero-get-DocumentData)))
   ;; (newline)
   (let ((zotero-init-env-zotero-prefs-sub
@@ -652,16 +419,490 @@
               (init-env "zotero-pref-noteType1" "false")
               (init-env "zotero-pref-noteType2" "false")
               (init-env (string-append "zotero-pref-noteType"
-                                       (sxml-attr (car sxml) 'value)) "true"))              
+                                       (sxml-attr (car sxml) 'value)) "true")) 
             (loop (cdr sxml)))))))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Protocol between tm_zotero and ZoteroTeXmacsIntegration.js
+;;
+;; https://www.zotero.org/support/dev/client_coding/libreoffice_plugin_wire_protocol
+;;
+;; The Firefox or Zotero Standalone process operates a server on port 23116,
+;; which the extension residing within TeXmacs connects to. All frames consist
+;; of a 32 bits specifying the transaction ID, a big-endian 32-bit integer
+;; specifying the length of the payload, and the payload itself, which is
+;; either UTF-8 encoded JSON or an unescaped string beginning with “ERR:”.
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+(define zotero-socket-port #f)
+(define zotero-socket-inet-texmacs-port-number 23117)
+(define zotero-socket-inet-zotero-port-number 23116)
+
+(define (set-nonblocking sock)
+  (fcntl sock F_SETFL (logior O_NONBLOCK
+                              (fcntl sock F_GETFL))))
+
+(define (set-blocking sock)
+  (fcntl sock F_SETFL (logand (lognot O_NONBLOCK)
+                              (fcntl sock F_GETFL))))
+
+;; From /usr/include/linux/tcp.h
+(define TCP_NODELAY 1)
+
+(define (get-zotero-socket-port!)
+  (catch 'system-error
+    (lambda ()
+      (if (and (port? zotero-socket-port)
+               (not (port-closed? zotero-socket-port)))
+          zotero-socket-port
+          (begin
+            (set! zotero-socket-port (socket PF_INET SOCK_STREAM 0))
+            (setsockopt zotero-socket-port SOL_SOCKET SO_REUSEADDR 1)
+            (bind    zotero-socket-port AF_INET INADDR_LOOPBACK 
+                     zotero-socket-inet-texmacs-port-number)
+            (connect zotero-socket-port AF_INET INADDR_LOOPBACK
+                     zotero-socket-inet-zotero-port-number)
+            (setvbuf zotero-socket-port _IOFBF)
+            (setsockopt zotero-socket-port IPPROTO_TCP TCP_NODELAY 1)
+            (set-blocking zotero-socket-port)
+            zotero-socket-port)))
+    (lambda args
+      (close-port zotero-socket-port)
+      (set! zotero-socket-port #f)
+      (set! zotero-active? #f)
+      (dialogue-window
+       (zotero-display-alert 
+        (zotero-getDocId)
+        (string-append "\\begin{center}\n"
+                       "Exception caught in: "
+                       "\\texttt{get-zotero-socket-port!}\n\n"
+                       "\\textbf{System Error:} Is Zotero running?\n"
+                       "\n"
+                       "If so, then you may need to {\\em restart} Firefox\\\\\n"
+                       "or Zotero Standalone.\n"
+                       "\\end{center}\n")
+        DIALOG_ICON_STOP
+        DIALOG_BUTTONS_OK)
+       (lambda (val)
+         (noop)))
+      #f)))
+
+
+(define (close-zotero-socket-port!)
+  (if (and (port? zotero-socket-port)
+           (not (port-closed? zotero-socket-port)))
+      (begin
+        (close-port zotero-socket-port)
+        (set! zotero-socket-port #f))))
+
+
+(sigaction SIGPIPE (lambda (sig)
+                     (set! zotero-active? #f)
+                     (close-zotero-socket-port!)))
+
+
+(define (write-network-u32 value port)
+  (let ((v (make-u32vector 1 0)))
+    (u32vector-set! v 0 (htonl value))
+    (uniform-vector-write v port)))
+
+(define (read-network-u32 port)
+  (let ((v (make-u32vector 1 0)))
+    (uniform-vector-read! v port)
+    (ntohl (u32vector-ref v 0))))
+
+
+(define (zotero-write tid cmd)
+  (let ((zp (get-zotero-socket-port!)))
+    (catch 'system-error
+      ;;; This writes raw bytes. The string can be UTF-8.
+      (lambda ()
+        (let* ((cmdv (list->u8vector (map char->integer
+                                          (string->list cmd))))
+               (len (u8vector-length cmdv)))
+          (write-network-u32 tid zp)
+          (write-network-u32 len zp)
+          (uniform-vector-write cmdv zp)
+          (force-output zp)))
+      (lambda args
+        (display* "ERR: System error in zotero-write " tid cmd "\n")
+        (display "Exception threw:\n")
+        (write args) ;; debug trace
+        (newline) ;; debug trace
+        (display "Closing Zotero port.")
+        (close-zotero-socket-port!)
+        (set! zotero-active #f)
+        (dialogue-window
+         (zotero-display-alert 
+          (zotero-getDocId)
+          (string-append "\\begin{center}\n"
+                         "Exception caught in: "
+                         "\\texttt{zotero-write}\n\n"
+                         "\\textbf{System Error:} Is Zotero running?\n"
+                         "\n"
+                         "If so, then you may need to {\\em restart}"
+                         "Firefox\\\\\n"
+                         "or Zotero Standalone.\n\n"
+                         "\\textbf{Closing Zotero port.}\n"
+                         "\\end{center}\n")
+          DIALOG_ICON_STOP
+          DIALOG_BUTTONS_OK)
+         (lambda (val)
+           (noop)))
+        #f))))
+
+
+(define (zotero-read)
+  (let ((zp (get-zotero-socket-port!)))
+    (catch 'system-error
+      ;; This reads raw bytes. The string can be UTF-8.
+      (lambda ()
+        (let* ((tid (read-network-u32 zp))
+               (len (read-network-u32 zp))
+               (cmdv (make-u8vector len 0)))
+          (uniform-vector-read! cmdv zp)
+          (list tid len (list->string (map integer->char 
+                                           (u8vector->list cmdv))))))
+      (lambda args
+        (display* "Exception caught in zotero-read.\n") ;; error debug trace
+        (write args) ;; error debug trace
+        (newline) ;; error debug trace
+        (list "ERR: System error in zotero-read."
+              0
+              ""))))) ;; return to zotero-listen
+
+
+(define (safe-json-string->scm str)
+  (catch 'json-invalid
+    (lambda ()
+      (json-string->scm str))
+    (lambda args
+      (display* "Exception caught from json-string->scm\n") ;; error debug trace
+      (write args) ;; error debug trace
+      (newline) ;; error debug trace
+      ;; return to zotero-listen
+      (list (format #f "ERR: Invalid JSON: ~s\n" str) '()))))
+
+(define (safe-scm->json-string scm)
+  (catch #t
+    (lambda ()
+      (scm->json-string scm))
+    (lambda args
+      (display* "Exception caught from scm->json-string\n") ;; error debug trace
+      (write args) ;; error debug trace
+      (newline) ;; error debug trace
+      ;;
+      ;; Return ERR: to caller, usually zotero-write, so send to Zotero.  That
+      ;; will cause Zotero to initiate an error dialog and reset back to
+      ;; Document_complete state.
+      ;;
+      (format #f (string-append "ERR: Error! "
+                                "Exception caught from scm->json-string \n\n"
+                                "Exception args: ~s\n\n"
+                                "scm: ~s\n")
+              args scm))))
+
+
+(define zotero-active? #f)
+
+;;;
+;;; It's sort of a state machine; protocol is essentially synchronous, and user
+;;; expects to wait while it finishes before doing anything else anyhow.
+;;;
+;;; When this is entered, one of the Integration commands has just been sent to
+;;; Juris-M / Zotero. Zotero will call back and begin a word processing command
+;;; sequence, culminating with Document_complete.
+;;;
+;;;
+(define (zotero-listen)
+  (set! zotero-active? #t)
+  (with (counter wait) '(40 10)
+    (delayed
+      (:while zotero-active?)
+      (:pause ((lambda () (inexact->exact (round wait)))))
+      (:do (set! wait (min (* 1.01 wait) 2500)))
+      ;; Only run when data is ready to be read...
+      (when (char-ready? zotero-socket-port)
+        (with (tid len cmdstr) (zotero-read)
+          (write (list 'tid: tid 'len: len 'cmdstr: cmdstr)) ;; debug trace
+          (newline) ;; debug trace    
+          (if (> len 0)
+              (with (editCommand args) (safe-json-string->scm cmdstr)
+                ;; (write (list editCommand (cons tid args))) ;; debug trace
+                ;; (newline) ;; debug trace
+                (cond
+                  ((and (>= (string-length editCommand) 4)
+                        (string=? (string-take editCommand 4) "ERR:"))
+                   (display* editCommand "\n") ;; debug trace
+                   (zotero-write tid editCommand) ;; send the error to Zotero
+                   (set! counter 40)
+                   (set! wait 10)) ;; keep listening
+                  ((string=? editCommand "Document_complete")
+                   (zotero-write tid (scm->json-string '()))
+                   ;;(close-zotero-socket-port!)
+                   (set! wait 0)
+                   (set! zotero-active? #f))
+                  (#t
+                   (apply (eval ;; to get the function itself
+                           (string->symbol 
+                            (string-append "zotero-"
+                                           editCommand)))
+                          (cons tid args))
+                   (set! counter 40)
+                   (set! wait 10))))
+              (begin
+                (set! counter (- counter 1))       ;; Sometimes when Firefox is
+                (when (<= counter 0)               ;; stopped in the middle of
+                  (close-zotero-socket-port!)      ;; it, char-ready? returns #t
+                  (set! wait 0)                    ;; but zotero-read does not
+                  (set! zotero-active? #f))))))))) ;; read anything.
+
+
+;; Integration commands: TeXmacs -> Zotero, no reply, Zotero connects back with
+;; Editor commands.
+;;
+;; See: zotero-menu.scm
+;; See: zotero-kbd.scm
+;;
+(define (zotero-call-integration-command cmd)
+  (when (not zotero-active?) ;; one at a time only
+    (let ((zp (get-zotero-socket-port!)))
+      (if (and (port? zp)
+               (catch 'system-error
+                 (lambda ()
+                   (zotero-write 0 (safe-scm->json-string cmd))
+                   #t)
+                 (lambda arg
+                   #f))) ;; Firefox or Zotero Standalone not running?
+          (begin
+            (zotero-listen) ;; delayed, returns immediately.
+            #t) ;; report successful initiation of integration command sequence
+          #f))))
+
+
+
+;; ---------
+
+(tm-define (zotero-addCitation)
+  (unless zotero-new-fieldID ;; one at a time only
+    (try-modification
+      (zotero-insert-new-field 'zcite)
+      (if (zotero-call-integration-command "addCitation")
+          #t
+          (begin
+            (set! zotero-new-fieldID #f)
+            #f)))))
+                
+
+(tm-define (zotero-editCitation)
+  (zotero-call-integration-command "editCitation"))
+
+;; ---------
+
+(tm-define (zotero-addBibliography)
+  (unless zotero-new-fieldID ;; one at a time only
+    (let ((id (zotero-get-new-fieldID)))
+      (set! zotero-new-fieldID id)
+      (try-modification
+        ;; It is what Zotero expects. I'd expect to put {Bibliography} there.
+        (insert `(zbibliography ,id "" "{Citation}"))
+        (if (zotero-call-integration-command "addBibliography")
+            #t
+            (begin
+              (set! zotero-new-fieldID #f)
+              #f))))))
+
+
+(tm-define (zotero-editBibliography)
+  (zotero-call-integration-command "editBibliography"))
+
+
+;; ---------
+
+
+(tm-define (zotero-refresh)
+  (zotero-call-integration-command "refresh"))
+
+
+;; (tm-define (zotero-removeCodes)
+;;   (zotero-call-integration-command "removeCodes"))
+
+
+;; ---------
+
+
+(tm-define (zotero-setDocPrefs)
+  (zotero-call-integration-command "setDocPrefs"))
+
+
+
+
+;; (tm-define (notify-activated t)
+;;   (:require (and (style-has? "tm-zotero-dtd")
+;;                  (inside-which zt-cite-tags)))
+;;   ;; do something when activating a tag that's just like
+;;   ;; using the menus or toolbar.
+;;   (noop))
+                 
+;; (tm-define (notify-disactivated t)
+;;   (:require (and (style-has? "tm-zotero-dtd")
+;;                  (inside-which zt-cite-tags)))
+;;   ;; do something when activating a tag that's just like
+;;   ;; using the menus or toolbar.
+;;   (noop))
+
+
+
+;;; Preferences and Settings
+;;;
+;;; Todo:
+;;;
+;;; Setting: Zotero zcite and bibliograph by default in all new documents?
+;;;
+
+
+;; (tm-define (focus-parameter-menu-item l)
+;;   (:require (and (tree-label-parameter? (string->symbol l))
+;;                  )))
+
+;; (tm-define (customizable-parameters t)
+;;   (:require (tree-in? t '(zcite)))
+;;   (list (list "zt-pref-this-cite-in-text?" "This zcite in-text?")))
+
+;; (tm-define (parameter-choice-list var)
+;;   (:require (and (tree-in? t '(zcite))
+;;                  (in? var '("zt-pref-this-cite-in-text?"
+;;                             "zt-pref-hlinks-as-footnotes?"
+;;                             "zt-pref-hlinks-as-tt?"
+;;                             "zt-pref-hlinks-as-smaller?"))))
+;;   (list "true" "false"))
+
+
+;;; Todo: See  update-document  at generic/document-edit.scm:341
+;;
+;; Maybe this should only happen from the Zotero menu?
+;;
+;; (tm-define (update-document what)
+;;   (:require (in-tm-zotero-style?))
+;;   (delayed
+;;     (:idle 1)
+;;     (cursor-after
+;;      (when (or (== what "all")
+;;                (== what "bibliography"))
+;;        (zotero-refresh))))
+;;   (former what))
+
+
+;;
+;; Word Processor commands: Zotero -> TeXmacs
+;;
+;; Each sends: [CommandName, [Parameters,...]].
+;;
+;; The response is expected to be a JSON encoded payload, or the unquoted and
+;; unescaped string: ERR: Error string goes here
+;;
+;; Gets information about the client and the currently active
+;; document. documentID can be an integer or a string.
+;;
+;; ["Application_getActiveDocument", [int_protocolVersion]] -> [int_protocolVersion, documentID]
+;;
+(tm-define (zotero-Application_getActiveDocument tid pv)
+  (zotero-write tid (safe-scm->json-string (list pv (zotero-getDocId)))))
+
+
+
+(define DIALOG_ICON_STOP 0)
+(define DIALOG_ICON_NOTICE 1)
+(define DIALOG_ICON_CAUTION 2)
+
+(define DIALOG_BUTTONS_OK 0)
+(define DIALOG_BUTTONS_OK_OK_PRESSED 1)
+
+(define DIALOG_BUTTONS_OK_CANCEL 1)
+(define DIALOG_BUTTONS_OK_CANCEL_OK_PRESSED 1)
+(define DIALOG_BUTTONS_OK_CANCEL_CANCEL_PRESSED 0)
+
+(define DIALOG_BUTTONS_YES_NO 2)
+(define DIALOG_BUTTONS_YES_NO_YES_PRESSED 1)
+(define DIALOG_BUTTONS_YES_NO_NO_PRESSED 0)
+
+(define DIALOG_BUTTONS_YES_NO_CANCEL 3)
+(define DIALOG_BUTTONS_YES_NO_CANCEL_YES_PRESSED 2)
+(define DIALOG_BUTTONS_YES_NO_CANCEL_NO_PRESSED 1)
+(define DIALOG_BUTTONS_YES_NO_CANCEL_CANCEL_PRESSED 0)
+
+
+(tm-widget ((zotero-display-alert documentID str_Text int_Icon int_Buttons) cmd)
+  (let ((text (tree->stree (latex->texmacs (parse-latex str_Text)))))
+    (centered
+      (hlist ((icon (list-ref (map %search-load-path
+                                   '("icon-stop.png"
+                                     "icon-notice.png"
+                                     "icon-caution.png"))
+                              int_Icon)) (noop))
+             >> (texmacs-output `(document (very-large ,text))
+                                `(style (tuple "generic"))))))
+  (bottom-buttons >>> (cond
+                        ((= int_Buttons DIALOG_BUTTONS_OK)
+                         ("Ok"     (cmd DIALOG_BUTTONS_OK_OK_PRESSED)))
+                        ((= int_Buttons DIALOG_BUTTONS_OK_CANCEL)
+                         ("Ok"     (cmd DIALOG_BUTTONS_OK_CANCEL_OK_PRESSED))
+                         ("Cancel" (cmd DIALOG_BUTTONS_OK_CANCEL_CANCEL_PRESSED)))
+                        ((= int_Buttons DIALOG_BUTTONS_YES_NO)
+                         ("Yes"    (cmd DIALOG_BUTTONS_YES_NO_YES_PRESSED))
+                         ("No"     (cmd DIALOG_BUTTONS_YES_NO_NO_PRESSED)))
+                        ((= int_Buttons DIALOG_BUTTONS_YES_NO_CANCEL)
+                         ("Yes"    (cmd DIALOG_BUTTONS_YES_NO_CANCEL_YES_PRESSED))
+                         ("No"     (cmd DIALOG_BUTTONS_YES_NO_CANCEL_NO_PRESSED))
+                         ("Cancel" (cmd DIALOG_BUTTONS_YES_NO_CANCEL_CANCEL_PRESSED))))))
+
+
+;; Shows an alert.
+;;
+;; ["Document_displayAlert", [documentID, str_dialogText, int_icon, int_buttons]] -> int_button_pressed
+;;
+(tm-define (zotero-Document_displayAlert tid documentID str_dialogText int_icon int_buttons)
+  (dialogue-window (zotero-display-alert documentID str_dialogText int_icon int_buttons)
+                   (lambda (val)
+                     (zotero-write tid (safe-scm->json-string val)))
+                   "Zotero Alert!"))
+
+
+;; Brings the document to the foreground. (For OpenOffice, this is a no-op on non-Mac systems.)
+;;
+;; ["Document_activate", [documentID]] -> null
+;;
+(tm-define (zotero-Document_activate tid documentID)
+  (zotero-write tid (safe-scm->json-string '())))
+
+
+;; Indicates whether a field can be inserted at the current cursor position.
+;;
+;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
+;;
+(tm-define (zotero-Document_canInsertField tid documentID str_fieldType)
+  (let ((ret (not
+              (not
+               (and (in-text?)
+                    (not (in-math?))
+                    (let ((t (inside-which zt-cite-tags)))
+                      (or (not t)
+                          (and zotero-new-fieldID
+                               (string=? zotero-new-fieldID
+                                         (zotero-zcite-fieldID t))))))))))
+    (zotero-write tid (safe-scm->json-string ret))))
+
 
 
 ;; Retrieves data string set by setDocumentData.
 ;;
 ;; ["Document_getDocumentData", [documentID]] -> str_dataString
 ;;
-(tm-define (zotero-Document_getDocumentData documentID)
-  (zotero-get-DocumentData))
+(tm-define (zotero-Document_getDocumentData tid documentID)
+  (zotero-write tid (safe-scm->json-string (zotero-get-DocumentData documentID))))
 
 
 ;; Stores a document-specific persistent data string. This data
@@ -669,40 +910,48 @@
 ;;
 ;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
 ;;
-(tm-define (zotero-Document_setDocumentData documentID str_dataString)
-  (zotero-set-DocumentData str_dataString)
-  '())
+(tm-define (zotero-Document_setDocumentData tid documentID str_dataString)
+  (zotero-set-DocumentData documentID str_dataString)
+  (zotero-write tid (safe-scm->json-string '())))
 
 
 
 ;; Indicates whether the cursor is in a given field. If it is, returns
-;; information about that field. Returns null, indicating that the
-;; cursor isn't in a field, or an array:
+;; information about that field. Returns null, indicating that the cursor isn't
+;; in a field of this fieldType, or a 3 element array containing:
 ;;
-;; fieldID, int or string, A unique identifier corresponding to this
-;; field fieldCode, int or string, The code stored within this field
-;; noteIndex, int, The number of the footnote in which this field
-;;                 resides, or 0 if the field is not in a footnote.
+;; fieldID, int or string, A unique identifier corresponding to this field.
+;;
+;; fieldCode, UTF-8 string, The code stored within this field.
+;;
+;; noteIndex, int, The number of the footnote in which this field resides, or 0
+;;                 if the field is not in a footnote.
 ;;
 ;; ["Document_cursorInField", [documentID, str_fieldType]] -> null || [fieldID, fieldCode, int_noteIndex]
 ;;
-(tm-define (zotero-Document_cursorInField documentID str_fieldType)
-  (if (tree-in? (cursor-tree) zt-cite-tags)
-      (let ((t (cursor-tree)))
-        (if (not (and zotero-new-fieldID
-                      (string=? zotero-new-fieldID
-                                (coerce-to-string
-                                 (zotero-zcite-fieldID t)))))
-            (begin
-              (list (coerce-to-string (zotero-zcite-fieldID t))
-                    (coerce-to-string (zotero-zcite-fieldCode t))
-                    (coerce-to-string (zotero-zcite-fieldNoteIndex t))))
-            '()))
-      '()))
+(tm-define (zotero-Document_cursorInField tid documentID str_fieldType)
+  (let ((ret
+         (if (tree-in? (cursor-tree) zt-cite-tags)
+             ;; Q: Do I need to canonicalize the cursor location by moving it?
+             (let* ((t (cursor-tree))
+                    (id (coerce-to-string (zotero-zcite-fieldID t))))
+               (if (not (and zotero-new-fieldID
+                             (string=? zotero-new-fieldID id)))
+                   (begin
+                     (list id
+                           (zotero-get-fieldCode-string t)
+                           (coerce-to-string (zotero-zcite-fieldNoteIndex t))))
+                   '())) ;; is the new field not finalized by Document_insertField
+             '()))) ;; not tree-in? zt-cite-tags
+    (zotero-write tid (safe-scm->json-string ret))))
 
 
 
-;; Inserts a new field at the current cursor position.
+;; Inserts a new field at the current cursor position. Because there has to be
+;; time for the typesetting to run in order for it to create the footnote
+;; number and set the reference bindings for the noteIndex, by the time this
+;; routine is being called by Zotero, TeXmacs must have already inserted the
+;; new field, but in a pending state, finalized by this.
 ;;
 ;; str_fieldType, either "ReferenceMark" or "Bookmark"
 ;; int_noteType, NOTE_IN_TEXT, NOTE_FOOTNOTE, or NOTE_ENDNOTE
@@ -711,12 +960,14 @@
 ;;
 ;; Ignore: str_fieldType
 ;;
-(tm-define (zotero-Document_insertField documentID str_fieldType int_noteType)
+(tm-define (zotero-Document_insertField tid documentID str_fieldType int_noteType)
   (let ((field (zotero-find-zcite zotero-new-fieldID))
         (id zotero-new-fieldID))
     (set! zotero-new-fieldID #f)
     ;; (tree-go-to field 1)
-    (list id "" (coerce-to-string (zotero-zcite-fieldNoteIndex field)))))
+    ;; Q: Is it useful to initialize the fieldCode to anything here?
+    (zotero-write tid (safe-scm->json-string
+                       (list id "" (coerce-to-string (zotero-zcite-fieldNoteIndex field)))))))
 
   
 
@@ -743,29 +994,26 @@
 ;; A protocol trace watching the traffic between Libreoffice and Zotero shows
 ;; that the BIBL field is also sent as one of the fields in this list.
 ;;
-(tm-define (zotero-Document_getFields documentID str_fieldType)
-  (let loop ((zcite-fields (tm-search
-                            (buffer-tree)
-                            (lambda (t)
-                              (and (tree-in? t zt-cite-tags)
-                                   (not
-                                    (and zotero-new-fieldID
-                                         (string=? (zotero-zcite-fieldID t)
-                                                   zotero-new-fieldID)))))))
-             (ids '()) (codes '()) (indx '()))
-       (cond
-         ((null? zcite-fields) (if (nnull? ids)
-                                   (list (reverse ids)
-                                         (reverse codes)
-                                         (reverse indx))
-                                   '((0) ("TEMP") (0))))
-         (#t
-          (let ((field (car zcite-fields)))
-            (loop (cdr zcite-fields)
-                  (cons (coerce-to-string (zotero-zcite-fieldID        field)) ids)
-                  (cons (coerce-to-string (zotero-zcite-fieldCode      field)) codes)
-                  (cons (coerce-to-string (zotero-zcite-fieldNoteIndex field)) indx)))))))
-    
+(tm-define (zotero-Document_getFields tid documentID str_fieldType)
+  (let ((ret
+         (let loop ((zcite-fields (zotero-get-zcite-fields-list
+                                   documentID str_fieldType))
+                    (ids '()) (codes '()) (indx '()))
+              (cond
+                ((null? zcite-fields) (if (nnull? ids)
+                                          (list (reverse! ids)
+                                                (reverse! codes)
+                                                (reverse! indx))
+                                          '((0) ("TEMP") (0))))
+                (#t
+                 (let ((field (car zcite-fields)))
+                   (loop (cdr zcite-fields)
+                         (cons (coerce-to-string (zotero-zcite-fieldID field)) ids)
+                         (cons (zotero-get-fieldCode-string field) codes)
+                         (cons (coerce-to-string (zotero-zcite-fieldNoteIndex
+                                                  field)) indx))))))))
+    (zotero-write tid (safe-scm->json-string ret))))
+
 
 
 ;; ["Document_convert" ??? (TODO in documentation.)
@@ -775,9 +1023,8 @@
 ;; I think this is for OpenOffice to convert a document from using ReferenceMark fields to Bookmark ones.
 ;; Maybe we could repurpose this for TeXmacs?  Better to make a new flag; and just ignore this one.
 ;;
-(tm-define (zotero-Document_convert . args)
-  (noop)
-  '())
+(tm-define (zotero-Document_convert tid . args)
+  (zotero-write tid (safe-scm->json-string '())))
 
 
 
@@ -792,8 +1039,7 @@
 ;; Java method signature.
 ;;
 ;; 
-(tm-define (zotero-Document_setBibliographyStyle
-            documentID
+(tm-define (zotero-Document_setBibliographyStyle tid documentID
             firstLineIndent bodyIndent
             lineSpacing entrySpacing
             arrayList tabStopCount)
@@ -822,17 +1068,18 @@
   ;; I don't like this use of non-font-size-relative measurements. Let's just
   ;; always leave them at the document defaults for the time being and let this
   ;; function be a noop.
-  (noop)
-  '())
+  ;;
+  (zotero-write tid (safe-scm->json-string '())))
 
 
 
 ;; Not documented, but exists in CommMessage.java in LibreOffice side of the
 ;; connector. It appears to do nothing there either.
 ;;
-(tm-define (zotero-Document_cleanup documentID)
-  (noop)
-  '())
+(tm-define (zotero-Document_cleanup tid documentID)
+  (zotero-write tid (safe-scm->json-string '())))
+  
+
 
 ;; Indicates that the given documentID will no longer be used and
 ;; associated resources may be freed.
@@ -842,59 +1089,89 @@
 ;; See: zotero-listen, where this is checked for inline... but also enable it here since I might need to use it during
 ;; development, at least. It's never called at all by zotero-listen, so can just be commented off here.
 ;;
-(tm-define (zotero-Document_complete documentID)
-  (set! zotero-active? #f)
-  (close-zotero-socket-port!)
-  '())
+;; (tm-define (zotero-Document_complete tid documentID)
+;;   (zotero-write tid (safe-scm->json-string '()) )
+;;   (set! zotero-active? #f)
+;;   ;; (close-zotero-socket-port!)
+;;   )
 
 
 
 ;; Deletes a field from the document (both its code and its contents).
+;;
+;; Note: I thought this should just remove the entire tag but IIRC it did not
+;; work right. I think that Zotero expected to just clear the fields, leaving
+;; the tag there for reuse? Need to look into this.
 ;;
 ;; fieldID as originally returned by Document_cursorInField,
 ;; Document_insertField, or Document_getFields.
 ;;
 ;; ["Field_delete", [documentID, fieldID]] -> null
 ;;
-(tm-define (zotero-Field_delete documentID fieldID)
+(tm-define (zotero-Field_delete tid documentID fieldID)
   (let* ((field (zotero-find-zcite fieldID))
          (code (zotero-zcite-fieldCode field))
-         (rawText (zotero-zcite-fieldRawText field))
          (text (zotero-zcite-fieldText field)))
     (tree-assign! code "")
-    (tree-assign! rawText "")
+    (zotero-set-fieldCode-from-string field "") ;; does not remove from document!
     (tree-assign! text ""))
-  '())
+  (display* "zotero-Field_delete " tid documentID fieldID "\n") ;; debug trace
+  (zotero-write tid (safe-scm->json-string '())))
+
 
 
 ;; Moves the current cursor position to encompass a field.
 ;;
 ;; ["Field_select", [documentID, fieldID]] -> null
 ;;
-;; Whether or not this works as expected depends on settings made by the drd-props macro. I think that I want the cursor
-;; to be inside of it's light blue box, after it.... (writing this comment prior to testing. FLW.)
+;; Whether or not this works as expected depends on settings made by the
+;; drd-props macro. I think that I want the cursor to be inside of it's light
+;; blue box, after it.... (writing this comment prior to testing. FLW.)
 ;;
-(tm-define (zotero-Field_select documentID fieldID)
-  (let ((field (zotero-find-zcite fieldID)))
-    (tree-go-to field 0))
-  '())
+(tm-define (zotero-Field_select tid documentID fieldID)
+  (zotero-got-to-zcite documentID fieldID)
+  (zotero-write tid (safe-scm->json-string '())))
+
 
 
 ;;
 ;; ["Field_removeCode", [documentID, fieldID]] -> null
 ;;
-(tm-define (zotero-Field_removeCode documentID fieldID)
+(tm-define (zotero-Field_removeCode tid documentID fieldID)
   (let* ((field (zotero-find-zcite fieldID))
          (code (zotero-zcite-fieldCode field)))
     (tree-assign! code ""))
-  '())
+  (zotero-write tid (safe-scm->json-string '())))
 
 
-(define-public (zotero-field-str_text-to-texmacs str_text)
+
+;; This could also do some processing of either the text prior to parsing and
+;; conversion to a tree, or of the tree after that phase.
+;;
+;; Todo: Here is where to implement client-side munging of the fieldText prior
+;; to setting that argument of the zcite tag. Ideas include:
+;;
+;;  * For styles that include an href or hlink, ensure proper formatting when
+;;    displayed as an in-text or as a note style citation. That means that the
+;;    hlink should become an href where the label is the URL, and that it must
+;;    be placed on it's own line with a spring on the end of the line above it
+;;    so that the remainder of the citation is filled properly and not
+;;    displayed with inch-wide spaces between words.
+;;
+;;  * Turn in-text hlinks into hlinks with footnote hrefs.
+;;
+;;  * Turn hlinks that display the URL in the textual part into hrefs instead,
+;;    also moved to a footnote, unless already in a footnote.
+;;
+;; The result of this must be a concat, or in-line-content
+;; 
+(tm-define (zotero-field-str_text-to-texmacs str_text)
   (latex->texmacs (parse-latex str_text)))
 
 ;; (tm-define (zotero-field-str_text-to-texmacs str_text)
 ;;   (rtf-snippet->texmacs str_text))
+
+
 
 ;; Sets the (visible) text of a field.
 ;;
@@ -902,45 +1179,54 @@
 ;;
 ;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;
-(tm-define (zotero-Field_setText documentID fieldID str_text isRich)
-  (let* ((field   (zotero-find-zcite fieldID))
-         (rawtext (zotero-zcite-fieldRawText field))
-         (text    (zotero-zcite-fieldText field))
-         (tmtext  (zotero-field-str_text-to-texmacs str_text)))
-    ;; (display "----------------- rawtext ----------------\n")
-    ;; (write rawtext) (newline)
+(tm-define (zotero-Field_setText tid documentID fieldID str_text isRich)
+  (let* ((field   (zotero-find-zcite fieldID)) ;; zcite tree
+         (text    (zotero-zcite-fieldText field)) ;; string
+         (tmtext  (zotero-field-str_text-to-texmacs str_text))) ;; concat tree
     ;; (display "----------------- tmtext -----------------\n")
     ;; (write tmtext) (newline)
     ;; (display "------------------------------------------\n")
-    (tree-assign! rawtext str_text)
     (tree-assign! text tmtext))
-  '())
+  (zotero-write tid (safe-scm->json-string '())))
+
 
 
 ;; Gets the (visible) text of a field.
 ;;
 ;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;
-(tm-define (zotero-Field_getText documentID fieldID)
+(tm-define (zotero-Field_getText tid documentID fieldID)
   (let* ((field (zotero-find-zcite fieldID)))
     ;; (write field)
     ;; (newline)
-    (coerce-to-string (zotero-zcite-fieldRawText field))))
+    (zotero-write tid
+                  (safe-scm->json-string
+                   (format "~s" (zotero-zcite-fieldText field) #f)))))
+
+
 
 ;; Sets the (hidden, persistent) code of a field.
 ;;
 ;; ["Field_setCode", [documentID, fieldID, str_code]] -> null
 ;;
-(tm-define (zotero-Field_setCode documentID fieldID str_code)
-  (let* ((field (zotero-find-zcite fieldID))
-         (code (zotero-zcite-fieldCode field)))
-    (tree-assign! code str_code)) ;; opaque, just store it.
-  '())
-
-
-(tm-define (zotero-Field_getCode documentID fieldID)
+(tm-define (zotero-Field_setCode tid documentID fieldID str_code)
   (let* ((field (zotero-find-zcite fieldID)))
-    (coerce-to-string (zotero-zcite-fieldCode field))))
+    (zotero-set-fieldCode-from-string field str_code))
+  (zotero-write tid (safe-scm->json-string '())))
+
+
+
+;; Gets the code of a field.
+;;
+;; ["Field_getCode", [documentID, fieldID]] -> str_code
+;;
+(tm-define (zotero-Field_getCode tid documentID fieldID)
+  (let* ((field (zotero-find-zcite fieldID)))
+    (zotero-write tid
+                  (safe-scm->json-string
+                   (coerce-to-string
+                    (zotero-get-fieldCode field))))))
+
 
 
 ;; Converts a field from one type to another.
@@ -948,9 +1234,11 @@
 ;; ["Field_convert", [documentID, fieldID, str_fieldType, int_noteType]] ->
 ;; null
 ;;
-(tm-define (zotero-Field_convert documentID fieldID str_fieldType int_noteType)
-  (noop)
-  '())
+(tm-define (zotero-Field_convert tid documentID
+             fieldID str_fieldType int_noteType)
+  (zotero-write tid (safe-scm->json-string '())))
+
+
 
 ;;; Local Variables:
 ;;; fill-column: 120

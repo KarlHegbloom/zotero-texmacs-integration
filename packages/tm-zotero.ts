@@ -8,12 +8,12 @@
 
     <\src-purpose>
       This package contains extended macros for citations and provides a
-      <TeXmacs> bridge to the Juris-M or Zotero reference manager for
-      Firefox. It utilizes the same interface that is used by the Zotero
-      \<rightarrow\> OpenOffice.org connector, presently with a patch applied
-      to Juris-M/Zotero to allow switching the output format, and with Better
-      BibTeX for Zotero that is extended to create a ".bbl" output formatter.
-      (vs HTML or RTF).
+      <TeXmacs> integration with the Juris-M or Zotero reference manager for
+      Firefox. It utilizes the same wire-protocolinterface that is used by
+      the Zotero \<rightarrow\> OpenOffice.org integration;<compound|math|>
+      presently it only works with a patch applied to Juris-M/Zotero to allow
+      switching the output format, and with Better BibTeX for Zotero that is
+      extended to create a ".bbl" output formatter. (vs HTML or RTF).
     </src-purpose>
 
     <src-copyright|2016|Karl Martin Hegbloom, Esq.>
@@ -28,16 +28,7 @@
 
   <use-module|(zotero)>
 
-  <\active*>
-    <\src-comment>
-      Helper macros (Not used presently.) <with|color|blue|Todo:>
-      <with|color|red|Support multiple bibliographies per document, etc.>
-    </src-comment>
-  </active*>
-
-  <assign|zbib-prefix|zbib>
-
-  <assign|with-zbib|<macro|zbib|body|<with|zbib-prefix|<arg|zbib>|<arg|body>>>>
+  <use-package|std-counter|std-utils|env-float|std-list>
 
   <\active*>
     <\src-comment>
@@ -54,15 +45,19 @@
 
   <\active*>
     <\src-comment>
-      hlink and href \ display rendering options.
+      Flag to prevent the attempt to create footnotes inside of footnotes
+      problem. By default, we are not inside of a footnote.
     </src-comment>
   </active*>
 
-  <assign|zt-pref-hrefs-as-footnotes|true>
-
-  <assign|zt-pref-hlinks-with-href-footnotes|false>
-
   <assign|zt-not-inside-footnote|true>
+
+  <\active*>
+    <\src-comment>
+      Per zcite option, to force an in-text citation when using a CSL "note"
+      style.
+    </src-comment>
+  </active*>
 
   <assign|zt-option-this-zcite-in-text|false>
 
@@ -80,29 +75,36 @@
 
   <assign|footnote|<value|zt-footnote>>
 
-  \;
-
-  <assign|zt-orig-href|<value|href>>
-
-  <assign|zt-href|<macro|dest|<if|<and|<value|zt-pref-hrefs-as-footnotes>|<value|zt-not-inside-footnote>>|<zt-footnote|<zt-orig-href|<arg|dest>>>|<zt-orig-href|<arg|dest>>>>>
-
-  <assign|href|<value|zt-href>>
-
-  \;
-
-  <assign|zt-orig-hlink|<value|hlink>>
-
-  <assign|zt-hlink|<macro|linktext|dest|<if|<and|<value|zt-pref-hlinks-with-href-footnotes>|<value|zt-not-inside-footnote>>|<zt-orig-hlink|<arg|linktext>|<arg|dest>><zt-footnote|<zt-orig-href|<arg|dest>>>|<zt-orig-hlink|<arg|linktext>|<arg|dest>>>>>
-
-  <assign|hlink|<value|zt-hlink>>
-
   <\active*>
     <\src-comment>
-      End-notes
+      End-notes <with|color|red|ARE NOT WORKING.> I do not know how to do
+      this without it storing typesetter-expanded things into the endnote
+      attachment aux... quote / eval ?
     </src-comment>
   </active*>
 
-  <assign|zt-endnote|<macro|body|<todo|TODO: Endnotes>>>
+  <new-counter|endnote>
+
+  <assign|endnote-sep|<footnote-sep>>
+
+  <assign|endnote-item-render|<value|aligned-space-item>>
+
+  <assign|endnote-item-transform|<value|identity>>
+
+  <new-list|endnote-list|<value|endnote-item-render>|<value|endnote-item-transform>>
+
+  <assign|the-endnotes|<macro|<endnote-list*|<get-attachment|endnotes>>>>
+
+  <assign|render-endnote*|<\macro|sym|nr|body>
+    <write|endnotes|<style-with|src-compact|all|<with|par-mode|justify|par-left|0cm|par-right|0cm|font-shape|right|<style-with|src-compact|none|<surround|<locus|<id|<hard-id|<arg|body>>>|<link|hyperlink|<id|<hard-id|<arg|body>>>|<url|<merge|#endnr-|<arg|nr>>>>|<item*|<arg|sym>>><endnote-sep>|<set-binding|<merge|endnote-|<arg|nr>>|<value|the-label>|body><right-flush>|<style-with|src-compact|none|<arg|body>>>>>>>
+  </macro>>
+
+  <assign|render-endnote|<macro|nr|body|<render-endnote*|<arg|nr>|<arg|nr>|<arg|body>>>>
+
+  <assign|zt-endnote|<macro|body|<style-with|src-compact|none|<next-endnote><render-endnote|<the-endnote>|<arg|body>><space|0spc><label|<merge|endnr-|<the-endnote>>><rsup|<with|font-shape|right|<reference|<merge|endnote-|<the-endnote>>>>>>>>
+
+  <assign|zt-endnote|<with|color|red|ENDNOTES NOT IMPLEMENTED.> See:
+  tm-zotero.ts>
 
   <\active*>
     <\src-comment>
@@ -113,33 +115,49 @@
     </src-comment>
   </active*>
 
-  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<arg|citebody><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>>>
+  <assign|zt-flag-modified|<macro|fieldID|<extern|(lambda (id)
+  (zt-flag-if-modified id))|<arg|fieldID>>>>
 
-  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><arg|citebody>>>>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0><zt-flag-modified|<arg|fieldID>><arg|citebody>>>
 
-  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><arg|citebody>>>>
+  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>>
 
-  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType1>|<value|zt-not-inside-footnote>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType1>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType2>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>>>>
+  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>>
 
-  \;
-
-  <assign|transform-bibitem|<macro|body|>>
-
-  \;
+  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType1>|<value|zt-not-inside-footnote>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType1>|<neg|<value|zt-not-inside-footnote>>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType2>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>>>>
 
   <\active*>
     <\src-comment>
-      Juris-M / Zotero Citations (do not use zcite* yet. I don't know if it
-      will be part of the final thing.)
+      Fix-ups for default macros for displaying the bib-list.
+      <with|color|red|This is a work in progress and not final.>
     </src-comment>
   </active*>
 
-  <assign|zcite*|<macro|fieldID|fieldCode|fieldRawText|fieldText|<flag|Hidden
-  zcite|green>>>
+  <assign|transform-bibitem|<macro|body|>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldRawText|fieldText|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>
+  <\active*>
+    <\src-comment>
+      Juris-M / Zotero Citations and Bibliography. Both the zcite and
+      zbibliography macros must have the same arity, semantics, and order of
+      arguments because Zotero treats them generically as "fields".
 
-  <assign|zbibliography|<\macro|fieldID|fieldCode|fieldRawText|fieldText>
+      <with|color|red|This is a work in progress. Note: take care when
+      setting drd-props so that the cursor can be inside of the light-blue
+      box so that the "editCitation" thing will work properly.>
+
+      The use of `surround' in the zbibliography forces it to be typeset in
+      block context. Without that, the lines don't wrap properly and run off
+      the right edge of the page. The zcite on the other hand must be in line
+      context, because if it's block context, you can't put a citation
+      in-text without it forcing itself to be on it's own line. When I was
+      trying to use a converter from rtf to TeXmacs, they kept coming out as
+      blocks rather than in-line.
+    </src-comment>
+  </active*>
+
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>
+
+  <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <surround|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<hflush>|<arg|fieldText>>
   </macro>>
 </body>

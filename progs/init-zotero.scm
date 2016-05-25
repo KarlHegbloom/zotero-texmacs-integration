@@ -13,11 +13,14 @@
 (plugin-configure zotero
   (:require #t))
 
+;; The tm-zotero.ts will load the zotero.scm module.
+(when (supports-zotero?)
+  (texmacs-modes
+    (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
+    (in-zcite% (inside? 'zcite))
+    (in-zbibliography% (inside? 'zbibliography))
+    (in-zfield% (or (inside? 'zcite)
+                    (inside? 'zbibliography))))
 
-;; ( (init-tm-zotero)
-;;   (noop))
-
-;;; lazy menu defines and etc?
-;; (when (supports-zotero?)
-  
-;;    )
+  ;;(lazy-keyboard (zotero-kbd) in-zotero-style?)
+  (lazy-menu (zotero-menu) in-tm-zotero-style?))
