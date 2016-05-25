@@ -21,13 +21,25 @@
 (use-modules (json))
 (use-modules (ice-9 format))
 
+(define-macro (format-error . args)
+  `(format (current-error-port) ,@args))
+
+
+;; (define-public zotero-debug-trace? #t)
+(define-public zotero-debug-trace? #f)
+
+(define-macro (format-debug . args)
+  (if zotero-debug-trace?
+      `(format (current-output-port) ,@args)
+      (lambda args
+        (noop))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Helper functions
 ;;
 
-(define (coerce-to-string obj)
+(define (as-string obj)
   "Some arguments in this protocol can be number or string. Coerce to string."
   (cond
     ((number? obj)
@@ -36,10 +48,8 @@
      (tree->string obj))
     ((string? obj) obj)
     (#t
-     (display "Coerce to string? Error:") ;; debug trace
-     (write obj) ;; debug trace
-     (newline) ;; debug trace
-     )))
+     (format-error "Error in zotero:as-string: ~s\n" obj)
+     obj)))
 
 
 ;; The documentID; this is not stable from one run to the next since it's value
@@ -57,7 +67,7 @@
 ;; sequence.
 ;;
 (tm-define (zotero-getDocId)
-  (coerce-to-string (car (buffer-path))))
+  (as-string (car (buffer-path))))
 
 ;; There can be only 1 new field pending per document. For now I assume that we
 ;; are editting only 1 document per instance of TeXmacs. If that changes, then
@@ -67,7 +77,7 @@
 (define zotero-new-fieldID #f)
 
 (tm-define (zotero-get-new-fieldID)
-  (coerce-to-string (create-unique-id)))
+  (as-string (create-unique-id)))
 
 (tm-define (zotero-ref-binding-key fieldID)
   (string-append "zotero" fieldID "-noteIndex"))
@@ -89,17 +99,17 @@
 
 (tm-define (zt-flag-if-modified fieldID)
   (:secure)
-  (let* ((fieldID (coerce-to-string fieldID))
+  (let* ((fieldID (as-string fieldID))
          (field (zotero-find-zcite fieldID))
-         (text (format #f "~s" (zotero-zcite-fieldText field)))
+         (text (format #f "~s" (tree->stree (zotero-zcite-fieldText field))))
          (orig-fieldText (zotero-get-orig-fieldText fieldID)))
     (if (and orig-fieldText
              (not (string=? text orig-fieldText)))
         (begin
-          (display* "zt-flag-if-modified: Field is modified: " fieldID "\n")
+          (format-debug "Debug: zt-flag-if-modified: Field is modified: ~s\n" fieldID)
           '(concat (flag "Modified!" "red")))
         (begin
-          (display* "zt-flag-if-modified: Field is NOT modified: " fieldID "\n")
+          (format-debug "Debug: zt-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
           '(concat (flag "Not Modified." "green"))))))
 
 
@@ -129,7 +139,7 @@
     (lambda (t)
       (and (tree-in? t zt-cite-tags)
            (string=? fieldID
-                     (tree->string (zotero-zcite-fieldID t))))))))
+                     (as-string (zotero-zcite-fieldID t))))))))
 
 
 (tm-define (zotero-go-to-zcite documentID fieldID)
@@ -186,7 +196,7 @@
 (tm-define (zotero-zcite-fieldNoteIndex field)
   (get-reference-binding
    (zotero-ref-binding-key
-    (tree->string (zotero-zcite-fieldID field)))))
+    (as-string (zotero-zcite-fieldID field)))))
 
 
 ;; This next field is set automatically, below, with the result of converting
@@ -220,7 +230,7 @@
                        (and (tree-in? t zt-cite-tags)
                             (not
                              (and zotero-new-fieldID
-                                  (string=? (tree->string
+                                  (string=? (as-string
                                              (zotero-zcite-fieldID t))
                                             zotero-new-fieldID))))))))
     all-fields))
@@ -238,8 +248,8 @@
 (define zotero-fieldCode-cache (make-ahash-table))
 
 (tm-define (zotero-get-fieldCode-string field)
-  (let ((id (tree->string (zotero-zcite-fieldID field)))
-        (str_code (tree->string (zotero-zcite-fieldCode field))))
+  (let ((id (as-string (zotero-zcite-fieldID field)))
+        (str_code (as-string (zotero-zcite-fieldCode field))))
     ;; So that Document_getFields causes this to happen.
     (when (and (not (ahash-ref zotero-fieldCode-cache id #f))
                (not (and zotero-new-fieldID
@@ -275,7 +285,7 @@
 ;; It goes through here so that this can also be called from the
 ;; Document_getFields, in order to 
 (tm-define (zotero-parse-and-cache-fieldCode field str_code)
-  (let* ((id (tree->string (zotero-zcite-fieldID field)))
+  (let* ((id (as-string (zotero-zcite-fieldID field)))
          (code (zotero-zcite-fieldCode field))
          (brace-idx (string-index str_code #\{))
          (str_json (and brace-idx
@@ -296,7 +306,7 @@
 (tm-define (zotero-get-orig-fieldText field_or_id)
   (let* ((id (or (and (string? field_or_id)
                       field_or_id)
-                 (tree->string
+                 (as-string
                   (zotero-zcite-fieldID field_or_id))))
          (scm-code (hash-ref zotero-fieldCode-cache id #f))
          (props (and scm-code
@@ -485,24 +495,26 @@
             (set-blocking zotero-socket-port)
             zotero-socket-port)))
     (lambda args
+      (format-error "ERR: Exception caught in get-zotero-socket-port!: ~s\n" args)
       (close-port zotero-socket-port)
       (set! zotero-socket-port #f)
       (set! zotero-active? #f)
       (dialogue-window
-       (zotero-display-alert 
+       (zotero-display-alert
         (zotero-getDocId)
         (string-append "\\begin{center}\n"
                        "Exception caught in: "
                        "\\texttt{get-zotero-socket-port!}\n\n"
-                       "\\textbf{System Error:} Is Zotero running?\n"
-                       "\n"
+                       "\\textbf{System Error:} " (caar (cdddr args)) "\n\n"
+                       "Is Zotero running?\n\n"
                        "If so, then you may need to {\\em restart} Firefox\\\\\n"
                        "or Zotero Standalone.\n"
                        "\\end{center}\n")
         DIALOG_ICON_STOP
         DIALOG_BUTTONS_OK)
        (lambda (val)
-         (noop)))
+         (noop))
+       "System Error in get-zotero-socket-port!")
       #f)))
 
 
@@ -531,6 +543,7 @@
 
 
 (define (zotero-write tid cmd)
+  (format-debug "Debug: zotero-write: ~s ~s\n" tid cmd)
   (let ((zp (get-zotero-socket-port!)))
     (catch 'system-error
       ;;; This writes raw bytes. The string can be UTF-8.
@@ -543,11 +556,9 @@
           (uniform-vector-write cmdv zp)
           (force-output zp)))
       (lambda args
-        (display* "ERR: System error in zotero-write " tid cmd "\n")
-        (display "Exception threw:\n")
-        (write args) ;; debug trace
-        (newline) ;; debug trace
-        (display "Closing Zotero port.")
+        (format-error "ERR: System error in zotero-write: ~s ~s\n" tid cmd)
+        (format-error "ERR: Exception caught: ~s\n" args)
+        (format-error "ERR: Closing Zotero port!\n")
         (close-zotero-socket-port!)
         (set! zotero-active #f)
         (dialogue-window
@@ -582,12 +593,8 @@
           (list tid len (list->string (map integer->char 
                                            (u8vector->list cmdv))))))
       (lambda args
-        (display* "Exception caught in zotero-read.\n") ;; error debug trace
-        (write args) ;; error debug trace
-        (newline) ;; error debug trace
-        (list "ERR: System error in zotero-read."
-              0
-              ""))))) ;; return to zotero-listen
+        (format-error "ERR: Exception caught in zotero-read: ~s\n" args)
+        (list (or tid 0) (or len 666) (format #f "ERR: System error in zotero-read: ~s" args)))))) ;; return to zotero-listen
 
 
 (define (safe-json-string->scm str)
@@ -595,20 +602,18 @@
     (lambda ()
       (json-string->scm str))
     (lambda args
-      (display* "Exception caught from json-string->scm\n") ;; error debug trace
-      (write args) ;; error debug trace
-      (newline) ;; error debug trace
+      (format-error "ERR: Exception caught from json-string->scm: ~s\n" args)
       ;; return to zotero-listen
       (list (format #f "ERR: Invalid JSON: ~s\n" str) '()))))
+
 
 (define (safe-scm->json-string scm)
   (catch #t
     (lambda ()
       (scm->json-string scm))
     (lambda args
-      (display* "Exception caught from scm->json-string\n") ;; error debug trace
-      (write args) ;; error debug trace
-      (newline) ;; error debug trace
+      (format-error "ERR: Exception caught from scm->json-string: ~s\n" args)
+      (format-error "ERR: scm: ~s\n" scm)
       ;;
       ;; Return ERR: to caller, usually zotero-write, so send to Zotero.  That
       ;; will cause Zotero to initiate an error dialog and reset back to
@@ -642,16 +647,13 @@
       ;; Only run when data is ready to be read...
       (when (char-ready? zotero-socket-port)
         (with (tid len cmdstr) (zotero-read)
-          (write (list 'tid: tid 'len: len 'cmdstr: cmdstr)) ;; debug trace
-          (newline) ;; debug trace    
+          (format-debug "Debug: tid:~s len:~s cmdstr:~s\n" tid len cmdstr)
           (if (> len 0)
               (with (editCommand args) (safe-json-string->scm cmdstr)
-                ;; (write (list editCommand (cons tid args))) ;; debug trace
-                ;; (newline) ;; debug trace
+                (format-debug "Debug: ~s\n" (list editCommand (cons tid args)))
                 (cond
                   ((and (>= (string-length editCommand) 4)
                         (string=? (string-take editCommand 4) "ERR:"))
-                   (display* editCommand "\n") ;; debug trace
                    (zotero-write tid editCommand) ;; send the error to Zotero
                    (set! counter 40)
                    (set! wait 10)) ;; keep listening
@@ -719,16 +721,14 @@
 
 (tm-define (zotero-addBibliography)
   (unless zotero-new-fieldID ;; one at a time only
-    (let ((id (zotero-get-new-fieldID)))
-      (set! zotero-new-fieldID id)
-      (try-modification
-        ;; It is what Zotero expects. I'd expect to put {Bibliography} there.
-        (insert `(zbibliography ,id "" "{Citation}"))
-        (if (zotero-call-integration-command "addBibliography")
-            #t
-            (begin
-              (set! zotero-new-fieldID #f)
-              #f))))))
+    (try-modification
+      ;; It is what Zotero expects. I'd expect to put {Bibliography} there.
+      (zotero-insert-new-field 'zbibliography)
+      (if (zotero-call-integration-command "addBibliography")
+          #t
+          (begin
+            (set! zotero-new-fieldID #f)
+            #f)))))
 
 
 (tm-define (zotero-editBibliography)
@@ -949,13 +949,13 @@
          (if (tree-in? (cursor-tree) zt-cite-tags)
              ;; Q: Do I need to canonicalize the cursor location by moving it?
              (let* ((t (cursor-tree))
-                    (id (coerce-to-string (zotero-zcite-fieldID t))))
+                    (id (as-string (zotero-zcite-fieldID t))))
                (if (not (and zotero-new-fieldID
                              (string=? zotero-new-fieldID id)))
                    (begin
                      (list id
                            (zotero-get-fieldCode-string t)
-                           (coerce-to-string (zotero-zcite-fieldNoteIndex t))))
+                           (as-string (zotero-zcite-fieldNoteIndex t))))
                    '())) ;; is the new field not finalized by Document_insertField
              '()))) ;; not tree-in? zt-cite-tags
     (zotero-write tid (safe-scm->json-string ret))))
@@ -982,7 +982,7 @@
     ;; (tree-go-to field 1)
     ;; Q: Is it useful to initialize the fieldCode to anything here?
     (zotero-write tid (safe-scm->json-string
-                       (list id "" (coerce-to-string (zotero-zcite-fieldNoteIndex field)))))))
+                       (list id "" (as-string (zotero-zcite-fieldNoteIndex field)))))))
 
   
 
@@ -1023,9 +1023,9 @@
                 (#t
                  (let ((field (car zcite-fields)))
                    (loop (cdr zcite-fields)
-                         (cons (coerce-to-string (zotero-zcite-fieldID field)) ids)
+                         (cons (as-string (zotero-zcite-fieldID field)) ids)
                          (cons (zotero-get-fieldCode-string field) codes)
-                         (cons (coerce-to-string (zotero-zcite-fieldNoteIndex
+                         (cons (as-string (zotero-zcite-fieldNoteIndex
                                                   field)) indx))))))))
     (zotero-write tid (safe-scm->json-string ret))))
 
@@ -1198,9 +1198,6 @@
   (let* ((field   (zotero-find-zcite fieldID)) ;; zcite tree
          (text    (zotero-zcite-fieldText field)) ;; string
          (tmtext  (zotero-field-str_text-to-texmacs str_text))) ;; concat tree
-    ;; (display "----------------- tmtext -----------------\n")
-    ;; (write tmtext) (newline)
-    ;; (display "------------------------------------------\n")
     (tree-assign! text tmtext))
   (zotero-write tid (safe-scm->json-string '())))
 
@@ -1212,11 +1209,10 @@
 ;;
 (tm-define (zotero-Field_getText tid documentID fieldID)
   (let* ((field (zotero-find-zcite fieldID)))
-    ;; (write field)
-    ;; (newline)
     (zotero-write tid
                   (safe-scm->json-string
-                   (format "~s" (zotero-zcite-fieldText field) #f)))))
+                   (format #f "~s" (tree->stree
+                                    (zotero-zcite-fieldText field)))))))
 
 
 
@@ -1239,7 +1235,7 @@
   (let* ((field (zotero-find-zcite fieldID)))
     (zotero-write tid
                   (safe-scm->json-string
-                   (coerce-to-string
+                   (as-string
                     (zotero-get-fieldCode field))))))
 
 

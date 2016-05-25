@@ -157,9 +157,13 @@
 
   <assign|zcite|<macro|fieldID|fieldCode|fieldText|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>
 
+  <drd-props|zcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
+
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <surround|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<hflush>|<arg|fieldText>>
   </macro>>
+
+  <drd-props|zbibliography|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
 </body>
 
 <\initial>
