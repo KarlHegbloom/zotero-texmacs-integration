@@ -697,7 +697,8 @@
           (begin
             (zotero-listen) ;; delayed, returns immediately.
             #t) ;; report successful initiation of integration command sequence
-          #f))))
+          (begin
+            #f)))))
 
 
 

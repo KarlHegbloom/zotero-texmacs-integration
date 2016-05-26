@@ -22,5 +22,5 @@
     (in-zfield% (or (inside? 'zcite)
                     (inside? 'zbibliography))))
 
-  ;;(lazy-keyboard (zotero-kbd) in-zotero-style?)
+  (lazy-keyboard (zotero-kbd) in-tm-zotero-style?)
   (lazy-menu (zotero-menu) in-tm-zotero-style?))

@@ -1,4 +1,5 @@
-(texmacs-module (zotero-menu))
+(texmacs-module (zotero-menu)
+  (:use (zotero)))
 
 (menu-bind zotero-menu
   ("Add Citation" (zotero-addCitation))
@@ -8,6 +9,7 @@
   ("Edit Bibliography" (zotero-editBibliography))
   ---
   ("Refresh" (zotero-refresh))
+
   ;; ("Remove Codes" (zotero-removeCodes))
   ---
   ("Set Document Prefs" (zotero-setDocPrefs)))
