@@ -148,6 +148,8 @@
 
   <assign|render-bibitem|<macro|text|<style-with|src-compact|none|<vspace*|<bibitem-vsep>><with|par-first|<minus|1tmpt|<value|bibitem-width>>|<yes-indent>><resize|<arg|text>|||<maximum|1r|<value|bibitem-width>>|>>>>
 
+  <assign|bibindent|<macro|<space|1em>>>
+
   <\active*>
     <\src-comment>
       Juris-M / Zotero Citations and Bibliography. Both the zcite and
