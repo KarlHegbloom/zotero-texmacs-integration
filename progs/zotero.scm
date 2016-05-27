@@ -485,6 +485,25 @@
 ;; From /usr/include/linux/tcp.h
 (define TCP_NODELAY 1)
 
+;;; Todo: Support Mac OS.
+;;;
+;;; Notes: for MacOS, they use a Unix domain pipe. Look first in:
+;;;
+;;;  /Users/Shared/.zoteroIntegrationPipe_$(logname)
+;;;
+;;; and then fall back on ${HOME}/.zoteroIntegrationPipe
+;;;
+;;; Start the Zotero first since it will remove the pipe file then recreate
+;;; it... Handle that in case of Zotero restart. SIGPIPE.
+;;;
+;;; Just before it actually deletes the pipe file, it writes "Zotero
+;;; shutdown\n" to it.
+;;;
+;;; It speaks exactly the same protocol over that pipe as Linux does over the
+;;; TCP socket.
+;;;
+
+
 (define (get-zotero-socket-port!)
   (catch 'system-error
     (lambda ()
