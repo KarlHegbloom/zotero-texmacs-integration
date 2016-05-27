@@ -14,21 +14,22 @@
   (:use (kernel texmacs tm-modes)
         (kernel library content)
         (convert tools sxml)
-        (convert rtf rtftm)))
+        ;; (convert rtf rtftm)
+        ))
 
 
 ;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 (use-modules (json))
 (use-modules (ice-9 format))
 
-(define-macro (format-error . args)
+(define-public-macro (zt-format-error . args)
   `(format (current-error-port) ,@args))
 
 
-;; (define-public zotero-debug-trace? #t)
-(define-public zotero-debug-trace? #f)
+;; (define-public zotero-debug-trace? #f)
+(define-public zotero-debug-trace? #t)
 
-(define-macro (format-debug . args)
+(define-public-macro (zt-format-debug . args)
   (if zotero-debug-trace?
       `(format (current-output-port) ,@args)
       (lambda args
@@ -48,7 +49,7 @@
      (tree->string obj))
     ((string? obj) obj)
     (#t
-     (format-error "Error in zotero:as-string: ~s\n" obj)
+     (zt-format-error "Error in zotero:as-string: ~s\n" obj)
      obj)))
 
 
@@ -74,7 +75,7 @@
 ;; this can become a hash table, or part of a per-document state management
 ;; object.
 ;;
-(define zotero-new-fieldID #f)
+(define-public zotero-new-fieldID #f)
 
 (tm-define (zotero-get-new-fieldID)
   (as-string (create-unique-id)))
@@ -106,20 +107,25 @@
     (if (and orig-fieldText
              (not (string=? text orig-fieldText)))
         (begin
-          (format-debug "Debug: zt-flag-if-modified: Field is modified: ~s\n" fieldID)
+          (zt-format-debug "Debug: zt-flag-if-modified: Field is modified: ~s\n" fieldID)
           '(concat (flag "Modified!" "red")))
         (begin
-          (format-debug "Debug: zt-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
+          (zt-format-debug "Debug: zt-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
           '(concat (flag "Not Modified." "green"))))))
 
 
 (tm-define (zotero-insert-new-field tag)
   (:secure)
-  (let ((id (zotero-get-new-fieldID)))
-    (set! zotero-new-fieldID id)
-    (insert `(,tag ,id (raw-data "") "{Citation}"))
-    ;; Perhaps add it to the cache here
-    ))
+  (if (not (in-zfield?))
+      (let ((id (zotero-get-new-fieldID)))
+        (set! zotero-new-fieldID id)
+        (insert `(,tag ,id (raw-data "") "{Citation}"))
+        ;; Perhaps add it to the cache here
+        )
+      (begin
+        (zt-format-error "ERR: zotero-insert-new-field ~s : focus-tree is a ~s\n"
+                         tag (tree-label (focus-tree)))
+        #f)))
 
 
 
@@ -177,18 +183,19 @@
 ;;        (tree-ref code 0)))))
 
 (tm-define (zotero-zcite-fieldCode t)
-  ;; upgrade old tags, also fixup hand-entered ones?
-  (let ((code (tree-ref t 1)))
-    (cond
-      ((tm-func? code 'raw-data)
-       (tree-set! code (tree-ref code 0))
-       code)
-      ;; ((and (not (tm-func? code 'raw-data))
-      ;;       (tm-atomic? code))
-      ;;  (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
-      ;;  (tree-ref code 0))
-      ((not (tm-func? code 'raw-data))
-       code))))
+  (tree-ref t 1))
+  ;; ;; upgrade old tags, also fixup hand-entered ones?
+  ;; (let ((code (tree-ref t 1)))
+  ;;   (cond
+  ;;     ((tm-func? code 'raw-data)
+  ;;      (tree-set! code (tree-ref code 0))
+  ;;      code)
+  ;;     ;; ((and (not (tm-func? code 'raw-data))
+  ;;     ;;       (tm-atomic? code))
+  ;;     ;;  (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
+  ;;     ;;  (tree-ref code 0))
+  ;;     ((not (tm-func? code 'raw-data))
+  ;;      code))))
 
 ;; For "note" styles, this reference binding links a citation field with
 ;; the footnote number that it appears in.
@@ -495,7 +502,7 @@
             (set-blocking zotero-socket-port)
             zotero-socket-port)))
     (lambda args
-      (format-error "ERR: Exception caught in get-zotero-socket-port!: ~s\n" args)
+      (zt-format-error "ERR: Exception caught in get-zotero-socket-port!: ~s\n" args)
       (close-port zotero-socket-port)
       (set! zotero-socket-port #f)
       (set! zotero-active? #f)
@@ -543,7 +550,7 @@
 
 
 (define (zotero-write tid cmd)
-  (format-debug "Debug: zotero-write: ~s ~s\n" tid cmd)
+  (zt-format-debug "Debug: zotero-write: ~s ~s\n" tid cmd)
   (let ((zp (get-zotero-socket-port!)))
     (catch 'system-error
       ;;; This writes raw bytes. The string can be UTF-8.
@@ -556,9 +563,9 @@
           (uniform-vector-write cmdv zp)
           (force-output zp)))
       (lambda args
-        (format-error "ERR: System error in zotero-write: ~s ~s\n" tid cmd)
-        (format-error "ERR: Exception caught: ~s\n" args)
-        (format-error "ERR: Closing Zotero port!\n")
+        (zt-format-error "ERR: System error in zotero-write: ~s ~s\n" tid cmd)
+        (zt-format-error "ERR: Exception caught: ~s\n" args)
+        (zt-format-error "ERR: Closing Zotero port!\n")
         (close-zotero-socket-port!)
         (set! zotero-active #f)
         (dialogue-window
@@ -593,7 +600,7 @@
           (list tid len (list->string (map integer->char 
                                            (u8vector->list cmdv))))))
       (lambda args
-        (format-error "ERR: Exception caught in zotero-read: ~s\n" args)
+        (zt-format-error "ERR: Exception caught in zotero-read: ~s\n" args)
         (list (or tid 0) (or len 666) (format #f "ERR: System error in zotero-read: ~s" args)))))) ;; return to zotero-listen
 
 
@@ -602,7 +609,7 @@
     (lambda ()
       (json-string->scm str))
     (lambda args
-      (format-error "ERR: Exception caught from json-string->scm: ~s\n" args)
+      (zt-format-error "ERR: Exception caught from json-string->scm: ~s\n" args)
       ;; return to zotero-listen
       (list (format #f "ERR: Invalid JSON: ~s\n" str) '()))))
 
@@ -612,8 +619,8 @@
     (lambda ()
       (scm->json-string scm))
     (lambda args
-      (format-error "ERR: Exception caught from scm->json-string: ~s\n" args)
-      (format-error "ERR: scm: ~s\n" scm)
+      (zt-format-error "ERR: Exception caught from scm->json-string: ~s\n" args)
+      (zt-format-error "ERR: scm: ~s\n" scm)
       ;;
       ;; Return ERR: to caller, usually zotero-write, so send to Zotero.  That
       ;; will cause Zotero to initiate an error dialog and reset back to
@@ -647,10 +654,10 @@
       ;; Only run when data is ready to be read...
       (when (char-ready? zotero-socket-port)
         (with (tid len cmdstr) (zotero-read)
-          (format-debug "Debug: tid:~s len:~s cmdstr:~s\n" tid len cmdstr)
+          (zt-format-debug "Debug: tid:~s len:~s cmdstr:~s\n" tid len cmdstr)
           (if (> len 0)
               (with (editCommand args) (safe-json-string->scm cmdstr)
-                (format-debug "Debug: ~s\n" (list editCommand (cons tid args)))
+                (zt-format-debug "Debug: ~s\n" (list editCommand (cons tid args)))
                 (cond
                   ((and (>= (string-length editCommand) 4)
                         (string=? (string-take editCommand 4) "ERR:"))
@@ -707,8 +714,8 @@
 (tm-define (zotero-addCitation)
   (unless zotero-new-fieldID ;; one at a time only
     (try-modification
-      (zotero-insert-new-field 'zcite)
-      (if (zotero-call-integration-command "addCitation")
+      (if (and (zotero-insert-new-field 'zcite)
+               (zotero-call-integration-command "addCitation"))
           #t
           (begin
             (set! zotero-new-fieldID #f)
@@ -724,8 +731,8 @@
   (unless zotero-new-fieldID ;; one at a time only
     (try-modification
       ;; It is what Zotero expects. I'd expect to put {Bibliography} there.
-      (zotero-insert-new-field 'zbibliography)
-      (if (zotero-call-integration-command "addBibliography")
+      (if (and (zotero-insert-new-field 'zbibliography)
+               (zotero-call-integration-command "addBibliography"))
           #t
           (begin
             (set! zotero-new-fieldID #f)
@@ -801,15 +808,16 @@
 ;;
 ;; Maybe this should only happen from the Zotero menu?
 ;;
-;; (tm-define (update-document what)
-;;   (:require (in-tm-zotero-style?))
-;;   (delayed
-;;     (:idle 1)
-;;     (cursor-after
-;;      (when (or (== what "all")
-;;                (== what "bibliography"))
-;;        (zotero-refresh))))
-;;   (former what))
+(tm-define (update-document what)
+  (:require (in-tm-zotero-style?))
+  (delayed
+    (:idle 1)
+    (cursor-after
+     (when (or (== what "all")
+               (== what "bibliography"))
+       (zotero-refresh))
+     (unless (== what "bibliography")
+       (former what)))))
 
 
 ;;
@@ -900,11 +908,13 @@
 ;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
 ;;
 (tm-define (zotero-Document_canInsertField tid documentID str_fieldType)
+  ;; Todo: This is probably not working quite right.
   (let ((ret (not
               (not
                (and (in-text?)
                     (not (in-math?))
                     (let ((t (inside-which zt-cite-tags)))
+                      (zt-format-debug "Debug: zotero-Document_canInsertField (inside-which zt-cite-tags) => ~s\n" t)
                       (or (not t)
                           (and zotero-new-fieldID
                                (string=? zotero-new-fieldID
