@@ -784,17 +784,17 @@
 ;;;
 ;;; Todo:
 ;;;
-;;; Setting: Zotero zcite and bibliograph by default in all new documents?
-;;;
-
+;; (tm-define (focus-parameter-menu-item l)
+;;   (:require (in-zcite?))
+;;   )
 
 ;; (tm-define (focus-parameter-menu-item l)
-;;   (:require (and (tree-label-parameter? (string->symbol l))
-;;                  )))
+;;   (:require (in-zbibliography?))
+;;   )
 
 ;; (tm-define (customizable-parameters t)
-;;   (:require (tree-in? t '(zcite)))
-;;   (list (list "zt-pref-this-cite-in-text?" "This zcite in-text?")))
+;;   (:require (in-zcite?))
+;;   (list (list "zt-option-this-cite-in-text?" "This zcite in-text?")))
 
 ;; (tm-define (parameter-choice-list var)
 ;;   (:require (and (tree-in? t '(zcite))
