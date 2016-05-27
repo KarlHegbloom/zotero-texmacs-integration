@@ -128,6 +128,13 @@
 
   \;
 
+  <assign|zbibCitationItemId|<macro|itemID|<extern|(lambda (itemID)
+  (zt-format-debug "Debug:zbibCitationItemId ~s\\n" itemID) '(concat
+  ""))|<arg|itemID>>>>
+
+  <assign|ztshowid|<macro|id|<extern|(lambda (id) (zt-format-debug
+  "Debug:ztshowid ~s\\n" id) '(concat ""))|<arg|id>>>>
+
   <\active*>
     <\src-comment>
       Fix-ups for default macros for displaying the bib-list.
@@ -135,7 +142,11 @@
     </src-comment>
   </active*>
 
+  <assign|bibitem-vsep|<macro|0.444fn>>
+
   <assign|transform-bibitem|<macro|body|>>
+
+  <assign|render-bibitem|<macro|text|<style-with|src-compact|none|<vspace*|<bibitem-vsep>><with|par-first|<minus|1tmpt|<value|bibitem-width>>|<yes-indent>><resize|<arg|text>|||<maximum|1r|<value|bibitem-width>>|>>>>
 
   <\active*>
     <\src-comment>

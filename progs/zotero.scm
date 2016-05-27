@@ -13,6 +13,7 @@
 (texmacs-module (zotero)
   (:use (kernel texmacs tm-modes)
         (kernel library content)
+        (utils library cursor)
         (convert tools sxml)
         ;; (convert rtf rtftm)
         ))
@@ -22,18 +23,18 @@
 (use-modules (json))
 (use-modules (ice-9 format))
 
-(define-public-macro (zt-format-error . args)
-  `(format (current-error-port) ,@args))
+(tm-define (zt-format-error . args)
+  (:secure)
+  (apply format (cons (current-error-port) ,@args)))
 
 
 ;; (define-public zotero-debug-trace? #f)
 (define-public zotero-debug-trace? #t)
 
-(define-public-macro (zt-format-debug . args)
-  (if zotero-debug-trace?
-      `(format (current-output-port) ,@args)
-      (lambda args
-        (noop))))
+(tm-define (zt-format-debug . args)
+  (:secure)
+  (when zotero-debug-trace?
+    (apply format (cons (current-output-port) args))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1192,7 +1193,13 @@
 ;; The result of this must be a concat, or in-line-content
 ;; 
 (tm-define (zotero-field-str_text-to-texmacs str_text)
-  (latex->texmacs (parse-latex str_text)))
+  (let ((t (latex->texmacs (parse-latex str_text))))
+    ;; (zt-format-debug "Debug:zotero-field-str_text-to-texmacs:str_text:~s\n"
+    ;;               str_text)
+    ;; (zt-format-debug "Debug:zotero-field-str_text-to-texmacs:t:~s\n" t)
+    ;;
+    t))
+
 
 ;; (tm-define (zotero-field-str_text-to-texmacs str_text)
 ;;   (rtf-snippet->texmacs str_text))
