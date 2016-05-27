@@ -120,7 +120,7 @@
   (if (not (in-zfield?))
       (let ((id (zotero-get-new-fieldID)))
         (set! zotero-new-fieldID id)
-        (insert `(,tag ,id (raw-data "") "{Citation}"))
+        (insert `(,tag ,id "" "{Citation}"))
         ;; Perhaps add it to the cache here
         )
       (begin
