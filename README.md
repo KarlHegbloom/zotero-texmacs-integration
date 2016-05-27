@@ -22,6 +22,17 @@ NEWS
     below to reflect that. The branch is called:
     
     karlhegbloom-integration-for-texmacs
+    
+  * I am working on fixing the patch to Better BibTeX for Zotero so
+    that it adds new functionality that I will be utilizing in
+    this. Until all of the modifications to other people's programs
+    are rolled in or some compromise reached or whatever, you'll need
+    to run that from a git clone also in order to make all of this
+    work right. Instructions for that have been added.
+    
+    * I'll try not to make your documents break if you start using
+      this now by ensuring that I don't change tags and things out
+      from under them.
 
 ----------------------------------------------------------------------
 
@@ -53,6 +64,15 @@ Requirements
   
     * In order for the bbl output format to be defined, you must
       install a recent release of Better BibTeX for Zotero.
+      
+      * Actually, as mentioned above in NEWS, for now you'll need to
+        run a git clone of it from my repository... that can change
+        pretty fast so look back every day at the NEWS section here.
+        
+      * For that, you'll need to apt-get install coffeescript, rake,
+        and ruby-bundler. I'll try and get things done fairly quickly
+        so that it's not necessary for long. You may need to work out
+        the dependencies some; I don't recall them all, sorry.
 
 
 Setup and Options
@@ -65,6 +85,8 @@ Firefox. Then:
     mkdir ~/saved
     mv juris-m@juris-m.github.io* ~/saved
     echo ~/src/zotero > juris-m@juris-m.github.io
+    mv better-bibtex@iris-advies.com ~/saved
+    echo ~/src/zotero-better-bibtex > better-bibtex@iris-advies.com
     cd ..
     cp -p prefs.js prefs-SAVED.js
     echo 'user_pref("xpinstall.signatures.required", false);' >> prefs.js
@@ -79,6 +101,12 @@ Don't start Firefox yet. Next, clone the modified version of Juris-M:
     git clone https://github.com/KarlHegbloom/zotero.git
     cd zotero
     git checkout karlhegbloom-integration-for-texmacs
+    cd ..
+    git clone https://github.com/KarlHegbloom/zotero-better-bibtex.git
+    cd zotero-better-bibtex
+    git checkout karlheg-dev # Note that this branch name may change soon
+    bundle update
+    TRAVIS_PULL_REQUEST=false rake
 
 Starting Firefox should give you your normal Juris-M, and you should
 notice no changes (unless you try to use the LibreOffice connector
