@@ -72,8 +72,17 @@
 ;; transcient, existing only during the duration of an "integration command"
 ;; sequence.
 ;;
+;; This should not be stored within the document since it changes each time
+;; TeXmacs is restarted and depending on whether the document is loaded first,
+;; second, etc.
+;;
 (tm-define (zotero-getDocId)
-  (as-string (car (buffer-path))))
+  (string-append
+   (if (defined? 'getpid)
+       (as-string (getpid))
+       (random 32768))
+   "-"
+   (format #f "~a" (buffer-path))))
 
 ;; There can be only 1 new field pending per document. For now I assume that we
 ;; are editting only 1 document per instance of TeXmacs. If that changes, then
