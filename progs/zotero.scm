@@ -921,15 +921,22 @@
 (tm-define (parameter-show-in-menu? l)
   (:require
    (and (in-zfield?)
-        (in? l (list "zotero-pref-noteType0"  ;; set by Zotero, in-text style
-                     "zotero-pref-noteType1"  ;; set by Zotero, footnote style
-                     "zotero-pref-noteType2"  ;; set by Zotero, endnote style
-                     "zt-not-inside-note" ;; tm-zotero.ts internal only
-                     "zt-in-footnote"
-                     "zt-in-endnote"
-                     "zt-option-this-zcite-in-text"
-                     "endnote-nr" "footnote-nr"
-                     "zt-endnote" "zt-footnote"))))
+        ;; Never show these.
+        (or (in? l (list "zotero-pref-noteType0"  ;; set by Zotero, in-text style
+                         "zotero-pref-noteType1"  ;; set by Zotero, footnote style
+                         "zotero-pref-noteType2"  ;; set by Zotero, endnote style
+                         "zt-not-inside-note" ;; tm-zotero.ts internal only
+                         "zt-in-footnote"
+                         "zt-in-endnote"
+                         "zt-option-this-zcite-in-text"
+                         "endnote-nr" "footnote-nr"
+                         "zt-endnote" "zt-footnote"))
+            ;; Sometimes the footnote related items belong here.
+            (and (or (== (get-env "zotero-pref-noteType0") "true")
+                     (and (or (== (get-env "zotero-pref-noteType1") "true")
+                              (== (get-env "zotero-pref-noteType2") "true"))
+                          (== (get-env "zt-option-this-zcite-in-text") "true")))
+                 (in? l (list "footnote-sep" "page-fnote-barlen" "page-fnote-sep"))))))
   #f)
 
 
@@ -947,7 +954,11 @@
   (:require (and (in-zcite?)
                  (== var "zt-option-this-zcite-in-text")))
   (list "true" "false"))
-            
+
+
+(tm-define (hidden-child? t i)
+  (:require (in-zfield?))
+  #f)
 
 (define-preferences
   ("zt-pref-in-text-hrefs-as-footnotes"         "on"  ignore)
