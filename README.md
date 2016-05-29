@@ -22,17 +22,23 @@ NEWS
     below to reflect that. The branch is called:
     
     karlhegbloom-integration-for-texmacs
+  
+  * The pull-request for Better BibTeX for Zotero has been accepted
+    and so after the next release, a git clone of my version will not
+    be required any longer.
+
+    * I am working on fixing the patch to Better BibTeX for Zotero so
+      that it adds new functionality that I will be utilizing in
+      this. Until all of the modifications to other people's programs
+      are rolled in or some compromise reached or whatever, you'll
+      need to run that from a git clone also in order to make all of
+      this work right. Instructions for that have been added.
     
-  * I am working on fixing the patch to Better BibTeX for Zotero so
-    that it adds new functionality that I will be utilizing in
-    this. Until all of the modifications to other people's programs
-    are rolled in or some compromise reached or whatever, you'll need
-    to run that from a git clone also in order to make all of this
-    work right. Instructions for that have been added.
-    
-    * I'll try not to make your documents break if you start using
-      this now by ensuring that I don't change tags and things out
-      from under them.
+      * I'll try not to make your documents break if you start using
+        this now by ensuring that I don't change tags and things out
+        from under them.
+        
+  * The pull-request for my changes to Juris-M are under review.
 
 ----------------------------------------------------------------------
 
