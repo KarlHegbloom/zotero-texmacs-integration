@@ -45,12 +45,28 @@
 
   <\active*>
     <\src-comment>
-      Flag to prevent the attempt to create footnotes inside of footnotes
-      problem. By default, we are not inside of a footnote.
+      <with|color|red|Todo:> What should happen when the citation style is
+      set to noteType2 (endnote) and the writer wants to make a note? Should
+      there still be footnotes, as well as endnotes? Or should there be a
+      general purpose macro that switches depending on which style has been
+      selected, so that changing styles automatically moves the manually
+      created notes between being footnotes or endnotes? Will anyone really
+      use it?
     </src-comment>
   </active*>
 
-  <assign|zt-not-inside-footnote|true>
+  <\active*>
+    <\src-comment>
+      Flag to prevent the attempt to create notes inside of notes problem. By
+      default, we are not inside of a footnote or endnote.
+    </src-comment>
+  </active*>
+
+  <assign|zt-not-inside-note|true>
+
+  <assign|zt-in-footnote|false>
+
+  <assign|zt-in-endnote|false>
 
   <\active*>
     <\src-comment>
@@ -71,7 +87,7 @@
 
   <assign|zt-orig-footnote|<value|footnote>>
 
-  <assign|zt-footnote|<macro|body|<style-with|src-compact|none|<next-footnote><with|zt-not-inside-footnote|false|<render-footnote|<the-footnote>|<arg|body>>><space|0spc><label|<merge|footnr-|<the-footnote>>><rsup|<with|font-shape|right|<reference|<merge|footnote-|<the-footnote>>>>>>>>
+  <assign|zt-footnote|<macro|body|<style-with|src-compact|none|<next-footnote><with|zt-not-inside-note|false|zt-in-footnote|true|<render-footnote|<the-footnote>|<arg|body>>><space|0spc><label|<merge|footnr-|<the-footnote>>><rsup|<with|font-shape|right|<reference|<merge|footnote-|<the-footnote>>>>>>>>
 
   <assign|footnote|<value|zt-footnote>>
 
@@ -101,7 +117,7 @@
 
   <assign|render-endnote|<macro|nr|body|<render-endnote*|<arg|nr>|<arg|nr>|<arg|body>>>>
 
-  <assign|zt-endnote|<macro|body|<style-with|src-compact|none|<next-endnote><render-endnote|<the-endnote>|<arg|body>><space|0spc><label|<merge|endnr-|<the-endnote>>><rsup|<with|font-shape|right|<reference|<merge|endnote-|<the-endnote>>>>>>>>
+  <assign|zt-endnote|<macro|body|<style-with|src-compact|none|<next-endnote><with|zt-not-inside-note|false|zt-in-endnote|true|<render-endnote|<the-endnote>|<arg|body>>><space|0spc><label|<merge|endnr-|<the-endnote>>><rsup|<with|font-shape|right|<reference|<merge|endnote-|<the-endnote>>>>>>>>
 
   <assign|zt-endnote|<with|color|red|ENDNOTES NOT IMPLEMENTED.> See:
   tm-zotero.ts>
@@ -118,27 +134,29 @@
   <assign|zt-flag-modified|<macro|fieldID|<extern|(lambda (id)
   (zt-flag-if-modified id))|<arg|fieldID>>>>
 
-  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<if|<value|zt-not-inside-footnote>|0|<value|footnote-nr>>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>
 
   <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>>
 
   <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>>
 
-  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType1>|<value|zt-not-inside-footnote>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<value|zotero-pref-noteType2>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>>>>
+  <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType1>|<value|zt-not-inside-note>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType2>|<value|zt-not-inside-note>>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>>>>
 
   \;
 
   <assign|zbibCitationItemId|<macro|itemID|<extern|(lambda (itemID)
-  (zt-format-debug "Debug:zbibCitationItemId ~s\\n" itemID) '(concat
-  ""))|<arg|itemID>>>>
+  (zt-zbibCitationItemId itemID))|<arg|itemID>>>>
 
-  <assign|ztshowid|<macro|id|<extern|(lambda (id) (zt-format-debug
-  "Debug:ztshowid ~s\\n" id) '(concat ""))|<arg|id>>>>
+  <assign|ztshowid|<macro|id|<extern|(lambda (id) (zt-ztshowid
+  id))|<arg|id>>>>
 
   <\active*>
     <\src-comment>
       Fix-ups for default macros for displaying the bib-list.
       <with|color|red|This is a work in progress and not final.>
+
+      For example, the transform-bibitem is presently being handed the BibTeX
+      key for the entry...
     </src-comment>
   </active*>
 

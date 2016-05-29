@@ -13,7 +13,11 @@
 (texmacs-module (zotero)
   (:use (kernel texmacs tm-modes)
         (kernel library content)
+        (utils base environment)
+        (utils edit selections)
         (utils library cursor)
+        (generic generic-edit)
+        (generic format-edit)
         (convert tools sxml)
         ;; (convert rtf rtftm)
         ))
@@ -91,6 +95,24 @@
 (tm-define (get-reference-binding key)
   (texmacs-exec `(get-binding ,key)))
 
+;;; Modes
+;;;
+(texmacs-modes
+    (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
+    (in-zcite% (tree-func? (focus-tree) 'zcite)
+               in-text% in-tm-zotero-style%)
+    (in-zbibliography% (tree-func? (focus-tree) 'zbibliography)
+                       in-text% in-tm-zotero-style%)
+    (in-zfield% (or (in-zcite?) (in-zbibliography?)))
+    (zt-can-edit-field% (and (in-zfield?)
+                             (not
+                              (and zotero-new-fieldID
+                                   (string=?
+                                    zotero-new-fieldID
+                                    (as-string
+                                     (zotero-zcite-fieldID
+                                      (focus-tree))))))))
+    )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -185,7 +207,7 @@
 
 (tm-define (zotero-zcite-fieldCode t)
   (tree-ref t 1))
-  ;; ;; upgrade old tags, also fixup hand-entered ones?
+  ;; upgrade old tags, also fixup hand-entered ones?
   ;; (let ((code (tree-ref t 1)))
   ;;   (cond
   ;;     ((tm-func? code 'raw-data)
@@ -324,6 +346,49 @@
     plainCitation))
 
 
+
+;;; zbibCitationItemID
+;;;
+;;; This is sent right after the \bibitem{bibtex_id} as
+;;; \zbibCitationItemID{itemID}, where the itemID corresponds to the id inside
+;;; of the zcite fieldCode JSON object. So the bibtex_id can be used to
+;;; correlate the bibliographic entry with a BibTeX database if you like, and
+;;; the itemID from this macro can be used to correlate this bibliography entry
+;;; with each point in the document where it was cited. I have a few ideas
+;;; about how I want to use this information... the obvious use is to decorate
+;;; the citations for hyperlinking within the document.
+;;;
+;;; I want each citation to hyperlink to the bibliography entry corresponding
+;;; to it, and the bibliography entry to hyperlink to any on-line source or
+;;; perhaps to the Zotero.org entry or whatever; for legal cases, it should
+;;; link to either Google Scholar or Casetext. For journal articles, it should
+;;; link to a freely available source, or to Heinonline or something. Trailing
+;;; after the normal bibliography entry then will be a sequence of
+;;; pageref-labelled but linking to on-the-spot-locus back-links to each point
+;;; of citation withing the body of the document. When a document does not have
+;;; a bibliography, the footnote, endnote, or in-text citations themselves
+;;; should link to the on-line source... and perhaps all of those fancy
+;;; features should be parameterized for toggling them on and off.
+;;;
+;;; It occurs to me that in order to select which part of the text to wrap with
+;;; a locus for the hyperlink, I'll either have to arbitrarily select the first
+;;; word or two, or obtain semantic information from either the fieldCode JSON
+;;; object (with the 
+;;;
+(tm-define (zt-zbibCitationItemId itemID)
+  (:secure)
+  (zt-format-debug "Debug:zt-zbibCitationItemId: ~s\n" itemID)
+  '(concat ""))
+
+;;; ztshowid
+;;;
+;;; I don't think this one will ever really show up, but just in case, I've
+;;; defined it, so it can at least be observed when it occurs.
+;;;
+(tm-define (zt-ztshowid id)
+  (:secure)
+  (zt-format-debug "Debug:zt-ztshowid: ~s\n" id)
+  '(concat ""))
 
 ;; DocumentData
 ;;
@@ -782,52 +847,109 @@
 
 
 
+;;; The definition of "latex" style command shortcuts for "\zcite" (aliased
+;;; also as "\zc") makes it easy to enter them with the keyboard only, not
+;;; needing the menu. But when you kill and yank zcite fields, it does not
+;;; automatically update them... but running "zotero-refresh" from the menu
+;;; causes the update to happen. So for example, create a citation to several
+;;; sources, then just below it, create another one containing at least one of
+;;; the same sources as the first one. Now kill the second one and yank it back
+;;; just above the first one. Now use the Zotero menu to "refresh", and you'll
+;;; see that Zotero updates the "id" or "supra", switching them appropriately.
+;;; I want it to do that automatically when I kill and yank. I know it requires
+;;; using observers etc. but I'm not far enough along in my understanding of
+;;; TeXmacs internals to do it just yet. I'm sure it's possible.
 
-;; (tm-define (notify-activated t)
-;;   (:require (and (style-has? "tm-zotero-dtd")
-;;                  (inside-which zt-cite-tags)))
-;;   ;; do something when activating a tag that's just like
-;;   ;; using the menus or toolbar.
-;;   (noop))
+;;; notify-activated is probably not the exactly method I need for that... but
+;;; it's close. This makes it refresh every time you disactivate and reactivate
+;;; a zcite tag.
+
+(tm-define (notify-activated t)
+  (:require (and (in-tm-zotero-style?)
+                 (in-zcite?)))
+  ;; do something when activating a tag that's just like
+  ;; using the menus or toolbar?
+  (zotero-refresh))
                  
-;; (tm-define (notify-disactivated t)
-;;   (:require (and (style-has? "tm-zotero-dtd")
-;;                  (inside-which zt-cite-tags)))
-;;   ;; do something when activating a tag that's just like
-;;   ;; using the menus or toolbar.
-;;   (noop))
+(tm-define (notify-disactivated t)
+  (:require (and (in-tm-zotero-style?)
+                 (in-zcite?)))
+  ;; do something when activating a tag that's just like
+  ;; using the menus or toolbar.
+  (zotero-refresh))
 
 
 
 ;;; Preferences and Settings
 ;;;
-;;; Todo:
+;;; Some CSL styles define in-text citations, and others define note style ones
+;;; that create either a footnote or an endnote, depending on which of those
+;;; you select from the Zotero document preferences dialogue.  When you enter a
+;;; citation while already inside of a footnote or an endnote when in either
+;;; style, it's designed so that it won't create a footnote of a footnote or a
+;;; footnote of an endnote; that is, that particular citation will be rendered
+;;; as an in-text citation, but the noteIndex reference binding will be set
+;;; appropriately since it really is inside of a footnote or endnote.
 ;;;
-;; (tm-define (focus-parameter-menu-item l)
-;;   (:require (in-zcite?))
-;;   )
+;;; This in-text or note style is a global setting, but when a note style is
+;;; active, any individual citation can be forced to be in-text by the
+;;; user. Zotero sends the noteType with every field update, but this program
+;;; is not really using that for anything. My guess is that it's designed to
+;;; cause it to perform lazy update of the field types for the LibreOffice
+;;; integration.
+;;;
+;;; While learning about TeXmacs internals in order to setup the configurable
+;;; settings here, I learned that: "standard-options" is about style packages
+;;; loaded or not, and "parameter-show-in-menu?" is about parameters I might
+;;; test for in "if" or "case", and set locally using a "with" wrapping a tag.
+;;;
+;;; Whether citations appear in-text or in footnotes or endnotes is not an
+;;; option set by changing what style package is loaded, since it's necessary
+;;; to allow in-text citations when the CSL style is for footnote or endnotes,
+;;; in case the writer wants to override one, or in case the citation is being
+;;; made while already inside of a manually-created footnote or endnote.
+;;;
+(tm-define (parameter-show-in-menu? l)
+  (:require
+   (and (in-zfield?)
+        (in? l (list "zotero-pref-noteType0"  ;; set by Zotero, in-text style
+                     "zotero-pref-noteType1"  ;; set by Zotero, footnote style
+                     "zotero-pref-noteType2"  ;; set by Zotero, endnote style
+                     "zt-not-inside-note" ;; tm-zotero.ts internal only
+                     "zt-in-footnote"
+                     "zt-in-endnote"
+                     "zt-option-this-zcite-in-text"
+                     "endnote-nr" "footnote-nr"
+                     "zt-endnote" "zt-footnote"))))
+  #f)
 
-;; (tm-define (focus-parameter-menu-item l)
-;;   (:require (in-zbibliography?))
-;;   )
 
-;; (tm-define (customizable-parameters t)
-;;   (:require (in-zcite?))
-;;   (list (list "zt-option-this-cite-in-text?" "This zcite in-text?")))
+(tm-define (customizable-parameters t)
+  (:require (and (in-zcite?)
+                 (!= (get-env "zotero-pref-noteType0") "true")
+                 (or (== (get-env "zotero-pref-noteType1") "true")
+                     (== (get-env "zotero-pref-noteType2") "true"))
+                 (!= (get-env "zt-in-footnote") "true")
+                 (!= (get-env "zt-in-endnote") "true")))
+  (list (list "zt-option-this-zcite-in-text" "Force in-text?")))
 
-;; (tm-define (parameter-choice-list var)
-;;   (:require (and (tree-in? t '(zcite))
-;;                  (in? var '("zt-pref-this-cite-in-text?"
-;;                             "zt-pref-hlinks-as-footnotes?"
-;;                             "zt-pref-hlinks-as-tt?"
-;;                             "zt-pref-hlinks-as-smaller?"))))
-;;   (list "true" "false"))
+
+(tm-define (parameter-choice-list var)
+  (:require (and (in-zcite?)
+                 (== var "zt-option-this-zcite-in-text")))
+  (list "true" "false"))
+            
+
+(define-preferences
+  ("zt-pref-in-text-hrefs-as-footnotes"         "on"  ignore)
+  ("zt-pref-in-text-hlinks-have-href-footnotes" "on"  ignore))
+
 
 
 ;;; Todo: See  update-document  at generic/document-edit.scm:341
-;;
-;; Maybe this should only happen from the Zotero menu?
-;;
+;;;
+;;; Maybe this should only happen from the Zotero menu?
+;;;
 (tm-define (update-document what)
   (:require (in-tm-zotero-style?))
   (delayed
@@ -838,6 +960,7 @@
        (zotero-refresh))
      (unless (== what "bibliography")
        (former what)))))
+
 
 
 ;;
