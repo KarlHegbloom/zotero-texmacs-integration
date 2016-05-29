@@ -32,8 +32,8 @@
   (apply format (cons (current-error-port) ,@args)))
 
 
-;; (define-public zotero-debug-trace? #f)
-(define-public zotero-debug-trace? #t)
+(define-public zotero-debug-trace? #f)
+;; (define-public zotero-debug-trace? #t)
 
 (tm-define (zt-format-debug . args)
   (:secure)
@@ -959,6 +959,7 @@
 (tm-define (hidden-child? t i)
   (:require (in-zfield?))
   #f)
+
 
 (define-preferences
   ("zt-pref-in-text-hrefs-as-footnotes"         "on"  ignore)
