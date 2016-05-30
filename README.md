@@ -23,20 +23,8 @@ NEWS
     
     karlhegbloom-integration-for-texmacs
   
-  * The pull-request for Better BibTeX for Zotero has been accepted
-    and so after the next release, a git clone of my version will not
-    be required any longer.
-
-    * I am working on fixing the patch to Better BibTeX for Zotero so
-      that it adds new functionality that I will be utilizing in
-      this. Until all of the modifications to other people's programs
-      are rolled in or some compromise reached or whatever, you'll
-      need to run that from a git clone also in order to make all of
-      this work right. Instructions for that have been added.
-    
-      * I'll try not to make your documents break if you start using
-        this now by ensuring that I don't change tags and things out
-        from under them.
+  * Release 1.6.60 of Better BibTeX for Zotero is out. This contains
+    the necessary support for this TeXmacs integration with Zotero.
         
   * The pull-request for my changes to Juris-M are under review.
 
@@ -69,17 +57,17 @@ Requirements
   * **Better BibTeX for Zotero** <https://github.com/retorquere/zotero-better-bibtex/wiki/Installation>
   
     * In order for the bbl output format to be defined, you must
-      install a recent release of Better BibTeX for Zotero.
+      install a recent release of Better BibTeX for Zotero. You'll
+      need at least version 1.6.60.
       
-      * Actually, as mentioned above in NEWS, for now you'll need to
-        run a git clone of it from my repository... that can change
-        pretty fast so look back every day at the NEWS section here.
-        
-      * For that, you'll need to apt-get install coffeescript, rake,
-        and ruby-bundler. I'll try and get things done fairly quickly
-        so that it's not necessary for long. You may need to work out
-        the dependencies some; I don't recall them all, sorry.
+      * If you were running from a github checkout, then you can keep
+      using it if you like, or:
+      
+    cd ~/.mozilla/firefox/*.default/extensions
+    rm better-bibtex@iris-advies.com
 
+      * Now start Firefox and install the new version of Better BibTeX
+        for Zotero.
 
 Setup and Options
 -----------------
