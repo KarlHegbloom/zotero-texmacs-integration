@@ -81,8 +81,6 @@ Firefox. Then:
     mkdir ~/saved
     mv juris-m@juris-m.github.io* ~/saved
     echo ~/src/zotero > juris-m@juris-m.github.io
-    mv better-bibtex@iris-advies.com ~/saved
-    echo ~/src/zotero-better-bibtex > better-bibtex@iris-advies.com
     cd ..
     cp -p prefs.js prefs-SAVED.js
     echo 'user_pref("xpinstall.signatures.required", false);' >> prefs.js
@@ -97,12 +95,7 @@ Don't start Firefox yet. Next, clone the modified version of Juris-M:
     git clone https://github.com/KarlHegbloom/zotero.git
     cd zotero
     git checkout karlhegbloom-integration-for-texmacs
-    cd ..
-    git clone https://github.com/KarlHegbloom/zotero-better-bibtex.git
-    cd zotero-better-bibtex
-    git checkout karlheg-dev # Note that this branch name may change soon
-    bundle update
-    TRAVIS_PULL_REQUEST=false rake
+
 
 Starting Firefox should give you your normal Juris-M, and you should
 notice no changes (unless you try to use the LibreOffice connector
