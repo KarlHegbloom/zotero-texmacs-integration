@@ -960,8 +960,11 @@
   (:require (in-zfield?))
   #f)
 
+(define (zt-notify-debug-trace var val)
+  (set! zotero-debug-trace? (== val "on")))
 
 (define-preferences
+  ("zotero-debug-trace?" "off" zt-notify-debug-trace)
   ("zt-pref-in-text-hrefs-as-footnotes"         "on"  ignore)
   ("zt-pref-in-text-hlinks-have-href-footnotes" "on"  ignore))
 
@@ -1233,6 +1236,12 @@
             firstLineIndent bodyIndent
             lineSpacing entrySpacing
             arrayList tabStopCount)
+  (init-env "zotero-BibliographyStyle_firstLineIndent" (format #f "~s" firstLineIndent))
+  (init-env "zotero-BibliographyStyle_bodyIndent" (format #f "~s" bodyIndent))
+  (init-env "zotero-BibliographyStyle_lineSpacing" (format #f "~s" lineSpacing))
+  (init-env "zotero-BibliographyStyle_entrySpacing" (format #f "~s" entrySpacing))
+  (init-env "zotero-BibliographyStyle_arrayList" (format #f "~s" arrayList))
+  (init-env "zotero-BibliographyStyle_tabStopCount" (format #f "~s" tabStopCount))
   ;;
   ;; static final double MM_PER_100_TWIP = 25.4/1440*100;
   ;;
@@ -1255,10 +1264,58 @@
   ;; // entry spacing
   ;; styleProps.setPropertyValue("ParaBottomMargin", (int) (entrySpacing*MM_PER_100_TWIP));
   ;;
-  ;; I don't like this use of non-font-size-relative measurements. Let's just
-  ;; always leave them at the document defaults for the time being and let this
-  ;; function be a noop.
+  ;; I don't like this use of non-font-size-relative measurements. I wonder
+  ;; what font size they assume as the default?
   ;;
+  ;; Trying various bibliography formats by changing CSL styles:
+  ;;
+  ;; Open University (numeric):
+  ;;
+  ;; <associate|zotero-BibliographyStyle_arrayList|()>
+  ;; <associate|zotero-BibliographyStyle_bodyIndent|720>
+  ;; <associate|zotero-BibliographyStyle_entrySpacing|240>
+  ;; <associate|zotero-BibliographyStyle_firstLineIndent|-720>
+  ;; <associate|zotero-BibliographyStyle_lineSpacing|240>
+  ;; <associate|zotero-BibliographyStyle_tabStopCount|0>
+  ;;
+  ;; JM Indigo Book
+  ;;
+  ;; <associate|zotero-BibliographyStyle_arrayList|()>
+  ;; <associate|zotero-BibliographyStyle_bodyIndent|0>
+  ;; <associate|zotero-BibliographyStyle_entrySpacing|240>
+  ;; <associate|zotero-BibliographyStyle_firstLineIndent|0>
+  ;; <associate|zotero-BibliographyStyle_lineSpacing|240>
+  ;; <associate|zotero-BibliographyStyle_tabStopCount|0>
+  ;;
+  ;; Chicago Manual of Style (full note)
+  ;;
+  ;; <associate|zotero-BibliographyStyle_arrayList|()>
+  ;; <associate|zotero-BibliographyStyle_bodyIndent|720>
+  ;; <associate|zotero-BibliographyStyle_entrySpacing|0>
+  ;; <associate|zotero-BibliographyStyle_firstLineIndent|-720>
+  ;; <associate|zotero-BibliographyStyle_lineSpacing|240>
+  ;; <associate|zotero-BibliographyStyle_tabStopCount|0>
+  ;;
+  ;; American Psychological Association 6th Edition
+  ;;
+  ;; <associate|zotero-BibliographyStyle_arrayList|()>
+  ;; <associate|zotero-BibliographyStyle_bodyIndent|720>
+  ;; <associate|zotero-BibliographyStyle_entrySpacing|0>
+  ;; <associate|zotero-BibliographyStyle_firstLineIndent|-720>
+  ;; <associate|zotero-BibliographyStyle_lineSpacing|480>
+  ;; <associate|zotero-BibliographyStyle_tabStopCount|0>
+  ;;
+  ;; Australian Guide to Legal Citation
+  ;;
+  ;; <associate|zotero-BibliographyStyle_arrayList|()>
+  ;; <associate|zotero-BibliographyStyle_bodyIndent|0>
+  ;; <associate|zotero-BibliographyStyle_entrySpacing|240>
+  ;; <associate|zotero-BibliographyStyle_firstLineIndent|0>
+  ;; <associate|zotero-BibliographyStyle_lineSpacing|240>
+  ;; <associate|zotero-BibliographyStyle_tabStopCount|0>
+  ;;
+  ;; 
+
   (zotero-write tid (safe-scm->json-string '())))
 
 
