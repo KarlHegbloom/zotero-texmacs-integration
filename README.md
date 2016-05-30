@@ -62,12 +62,14 @@ Requirements
       
       * If you were running from a github checkout, then you can keep
       using it if you like, or:
-      
-    cd ~/.mozilla/firefox/*.default/extensions
+
+
+    cd ~/.mozilla/firefox/*.default/extensions;
     rm better-bibtex@iris-advies.com
 
-      * Now start Firefox and install the new version of Better BibTeX
-        for Zotero.
+
+    * Now start Firefox and install the new version of Better BibTeX
+      for Zotero.
 
 Setup and Options
 -----------------
