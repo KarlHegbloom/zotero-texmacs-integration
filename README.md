@@ -23,8 +23,11 @@ NEWS
     
     karlhegbloom-integration-for-texmacs
   
-  * Release 1.6.60 of Better BibTeX for Zotero is out. This contains
-    the necessary support for this TeXmacs integration with Zotero.
+  * I had to change the outputFormat again. See below for how to run
+    Better BibTeX for Zotero from a git clone.
+
+    * Release 1.6.60 of Better BibTeX for Zotero is out. This contains
+      the necessary support for this TeXmacs integration with Zotero.
         
   * The pull-request for my changes to Juris-M are under review.
 
