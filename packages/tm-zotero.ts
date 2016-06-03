@@ -16,7 +16,7 @@
       extended to create a ".bbl" output formatter. (vs HTML or RTF).
     </src-purpose>
 
-    <src-copyright|2016|Karl Martin Hegbloom, Esq.>
+    <src-copyright|2016|Karl Martin Hegbloom>
 
     <\src-license>
       This software falls under the <hlink|GNU general public license,
@@ -132,7 +132,7 @@
   </active*>
 
   <assign|zt-flag-modified|<macro|fieldID|<extern|(lambda (id)
-  (zt-flag-if-modified id))|<arg|fieldID>>>>
+  (zt-ext-flag-if-modified id))|<arg|fieldID>>>>
 
   <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>
 
@@ -144,29 +144,60 @@
 
   \;
 
-  <assign|zbibCitationItemId|<macro|itemID|<extern|(lambda (itemID)
-  (zt-zbibCitationItemId itemID))|<arg|itemID>>>>
+  <assign|ztcslidNode|<macro|nodename|<extern|(lambda (nodename)
+  (zt-ext-ztcslidNode nodename))|<arg|nodename>>>>
 
-  <assign|ztshowid|<macro|id|<extern|(lambda (id) (zt-ztshowid
+  <assign|ztcslid|<macro|cslid|<extern|(lambda (cslid) (zt-ext-ztcslid
+  cslid))|<arg|cslid>>>>
+
+  <assign|zbibCitationItemID|<macro|itemID|<extern|(lambda (itemID)
+  (zt-ext-zbibCitationItemID itemID))|<arg|itemID>>>>
+
+  <assign|ztShowID|<macro|id|<extern|(lambda (id) (zt-ext-ztShowID
   id))|<arg|id>>>>
+
+  \;
+
+  <assign|ztbibItemIndentTabN|1>
+
+  <assign|ztbibIndent|<macro|body|<extern|(lambda (body) (zt-ext-ztbibIndent
+  body))|<arg|body>>>>
+
+  <assign|ztLeftMargin|<macro|body|<arg|body><hspace|<minimum|<minus|<value|item-hsep>|1.0spc>|1.0spc>>>>
+
+  <assign|XztLeftMargin|<macro|body|<set-binding|<value|the-label>|<arg|body>>>>
+
+  <assign|XXztLeftMargin|<value|identity>>
+
+  <assign|ztRightInline|<value|identity>>
+
+  <assign|ztbibItem-vsep|<macro|<value|par-sep>>>
+
+  <assign|ztbibItemText|<\macro|body>
+    <\with|par-sep|<times|<value|par-sep>|<value|zotero-BibliographyStyle_lineSpacing>>|ztbibItem-vsep|<times|<value|ztbibItem-vsep>|<value|zotero-BibliographyStyle_itemSpacing>>>
+      <\surround|<vspace*|<value|ztbibItem-vsep>>|<right-flush>>
+        <\with|par-no-first|false|par-first|<value|zotero-BibliographyStyle_firstLineIndent>|par-left|<value|zotero-BibliographyStyle_bodyIndent>>
+          <arg|body>
+        </with>
+      </surround>
+    </with>
+  </macro>>
 
   <\active*>
     <\src-comment>
       Fix-ups for default macros for displaying the bib-list.
       <with|color|red|This is a work in progress and not final.>
 
-      For example, the transform-bibitem is presently being handed the BibTeX
-      key for the entry...
+      This is so that the same bbl outputFormat from Better BibTeX for Zotero
+      can be used for LaTeX and for TeXmacs.
     </src-comment>
   </active*>
 
-  <assign|bibitem-vsep|<macro|0.444fn>>
+  \;
 
-  <assign|transform-bibitem|<macro|body|>>
+  <assign|thebibliography|<macro|keywidth|body|<arg|body>>>
 
-  <assign|render-bibitem|<macro|text|<style-with|src-compact|none|<vspace*|<bibitem-vsep>><with|par-first|<minus|1tmpt|<value|bibitem-width>>|<yes-indent>><resize|<arg|text>|||<maximum|1r|<value|bibitem-width>>|>>>>
-
-  <assign|bibindent|<macro|<space|1em>>>
+  <assign|bibitem|<macro|key|<assign|ztbibItemIndentTabN|1>>>
 
   <\active*>
     <\src-comment>
@@ -193,7 +224,11 @@
   <drd-props|zcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
-    <surround|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<hflush>|<arg|fieldText>>
+    <\surround|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
+      <principal-section*|<bibliography-text>>
+
+      <with|font-size|0.84|par-left|0tab|par-first|0tab|par-no-first|true|<arg|fieldText>>
+    </surround>
   </macro>>
 
   <drd-props|zbibliography|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
