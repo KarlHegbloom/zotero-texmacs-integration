@@ -17,17 +17,29 @@ secondary priority... though often a welcome break from the writing.
 NEWS
 ----
 
+  * For best results, you need to install my monkey-patched
+    citeproc.js:
+    
+    https://github.com/KarlHegbloom/propachi-texmacs/releases/
+
+    * It will only work when you have the settings shown below that
+      allow an unsigned plugin.
+      
+    * I don't know if it will work right without that.
+
+  * I had to change the outputFormat again. See below for how to run
+    Better BibTeX for Zotero from a git clone.
+
+
   * The name of the branch of my clone of Juris-M / Zotero that you
     need to checkout has changed. I've edited the instructions
     below to reflect that. The branch is called:
     
     karlhegbloom-integration-for-texmacs
   
-  * I had to change the outputFormat again. See below for how to run
-    Better BibTeX for Zotero from a git clone.
-
-    * Release 1.6.60 of Better BibTeX for Zotero is out. This contains
-      the necessary support for this TeXmacs integration with Zotero.
+  * (see above) Release 1.6.60 of Better BibTeX for Zotero is
+    out. This contains the necessary support for this TeXmacs
+    integration with Zotero.
         
   * The pull-request for my changes to Juris-M are under review.
 
