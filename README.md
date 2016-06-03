@@ -56,7 +56,13 @@ Requirements
       
   * **Better BibTeX for Zotero** <https://github.com/retorquere/zotero-better-bibtex/wiki/Installation>
   
-    * In order for the bbl output format to be defined, you must
+    * I had to change the outputFormat again, so for a short time(?)
+      you will need to run from a github checkout of my fork of
+      Better BibTeX for Zotero. See instructions below.
+
+    * OLD: (but will become new again, so leaving it here.)
+
+      * In order for the bbl output format to be defined, you must
       install a recent release of Better BibTeX for Zotero. You'll
       need at least version 1.6.60.
       
@@ -81,6 +87,8 @@ Firefox. Then:
     mkdir ~/saved
     mv juris-m@juris-m.github.io* ~/saved
     echo ~/src/zotero > juris-m@juris-m.github.io
+    mv better-bibtex@iris-advies.com* ~/saved
+    echo ~/src/zotero-better-bibtex > better-bibtex@iris-advies.com
     cd ..
     cp -p prefs.js prefs-SAVED.js
     echo 'user_pref("xpinstall.signatures.required", false);' >> prefs.js
@@ -95,7 +103,14 @@ Don't start Firefox yet. Next, clone the modified version of Juris-M:
     git clone https://github.com/KarlHegbloom/zotero.git
     cd zotero
     git checkout karlhegbloom-integration-for-texmacs
-
+    cd ..
+    git clone https://github.com/KarlHegbloom/zotero-better-bibtex.git
+    cd zotero-better-bibtex
+    git checkout KarlHegbloom-bbl-outputFormat
+    sudo date
+    bundle update
+    sudo -k
+    TRAVIS_PULL_REQUEST=false rake
 
 Starting Firefox should give you your normal Juris-M, and you should
 notice no changes (unless you try to use the LibreOffice connector
