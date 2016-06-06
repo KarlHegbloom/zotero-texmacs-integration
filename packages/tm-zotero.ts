@@ -30,6 +30,11 @@
 
   <use-package|std-counter|std-utils|env-float|std-list>
 
+  \;
+
+  <assign|ztDebug|<macro|body|<extern|(lambda (body) (zt-format-debug
+  "Debug:ztDebug: ~s\\n" body))|<arg|body>>>>
+
   <\active*>
     <\src-comment>
       Default values to avoid transcient "bad case" errors prior to setting
@@ -67,6 +72,15 @@
   <assign|zt-in-footnote|false>
 
   <assign|zt-in-endnote|false>
+
+  <\active*>
+    <\src-comment>
+      Ditto, but for things that depend on not being inside of a
+      zbibliography.
+    </src-comment>
+  </active*>
+
+  <assign|zt-not-inside-zbibliography|true>
 
   <\active*>
     <\src-comment>
@@ -124,6 +138,21 @@
 
   <\active*>
     <\src-comment>
+      Links are wrapped in this macro so that they can be rendered
+      differently depending on whether they are in-text, in footnote or
+      endnote, or in a bibliography. I could not simply redefine hlink the
+      way I did with footnote, since it is a primitive defined in C++.
+    </src-comment>
+  </active*>
+
+  \;
+
+  <assign|ztHref|<macro|url|display|<if|<not|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>>|<hlink|<arg|display>|<arg|url>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<hlink|<arg|display>|<arg|url>>>|<zt-footnote|<hlink|<arg|display>|<arg|url>>>><rsup|)>>>>
+
+  <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
+
+  <\active*>
+    <\src-comment>
       Citation display depending on CSL noteType: 0
       \<rightarrow\><compound|text|<compound|math|>><compound|math|><compound|math|>
       in-text, 1 \<rightarrow\> footnote, 2 \<rightarrow\> end-note, plus
@@ -142,40 +171,72 @@
 
   <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType1>|<value|zt-not-inside-note>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType2>|<value|zt-not-inside-note>>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>>>>
 
-  \;
+  <\active*>
+    <\src-comment>
+      When <with|font-family|tt|development_extensions.csl_reverse_lookup_support
+      = true;> in citeproc.js, it can print out a bunch of information that I
+      couldn't help but experimentally enable once just to see what it does.
+      I'm not convinced that I want to use it for anything, but just in case,
+      it's still possible as long as these macros are defined and are output
+      by the bbl outputFormat in that case.
 
-  <assign|ztcslidNode|<macro|nodename|<extern|(lambda (nodename)
-  (zt-ext-ztcslidNode nodename))|<arg|nodename>>>>
+      \\ztShowID{\\ztcslidNode{#{state.opt.nodenames[cslid]}}\\ztcslid{#{cslid}}#{str}}}
+    </src-comment>
+  </active*>
 
-  <assign|ztcslid|<macro|cslid|<extern|(lambda (cslid) (zt-ext-ztcslid
-  cslid))|<arg|cslid>>>>
+  <assign|ztShowID|<macro|node|cslid|body|<extern|(lambda (node cslid body)
+  (zt-ext-ztShowID id))|<arg|node>|<arg|cslid>|<arg|body>>>>
+
+  <\active*>
+    <\src-comment>
+      These are used below to simplify the expressions inside the macros, to
+      make them easier to read.
+    </src-comment>
+  </active*>
+
+  <assign|ztRigidHspace|<macro|len|<hspace|<arg|len>|<arg|len>|<arg|len>>>>
+
+  <assign|ztRawWidth|<macro|body|<look-up|<box-info|<arg|body>|w>|0>>>
+
+  <assign|ztAsTmlen|<macro|rawWidth|<times|1tmpt|<arg|rawWidth>>>>
+
+  <\active*>
+    <\src-comment>
+      The itemID here is the same as the itemID in the zfield-Code JSON when
+      "Store References in Document" is enabled via the Document Preferences
+      dialogue. This will be useful for hyperlinking, I think. That will
+      require scheme code that has access to the information parsed from the
+      JSON.
+    </src-comment>
+  </active*>
 
   <assign|zbibCitationItemID|<macro|itemID|<extern|(lambda (itemID)
   (zt-ext-zbibCitationItemID itemID))|<arg|itemID>>>>
 
-  <assign|ztShowID|<macro|id|<extern|(lambda (id) (zt-ext-ztShowID
-  id))|<arg|id>>>>
+  <\active*>
+    <\src-comment>
+      The indent will be the same as that set by the firstLineIndent and
+      bodyIndent.
+    </src-comment>
+  </active*>
 
-  \;
+  <assign|zt-left-margin-extra-indent|0tmpt>
 
-  <assign|ztbibItemIndentTabN|1>
+  <assign|AAAztNewBlock|<macro|body|<arg|body><next-line><assign|zt-left-margin-extra-indent|1tab>>>
 
-  <assign|ztbibIndent|<macro|body|<extern|(lambda (body) (zt-ext-ztbibIndent
-  body))|<arg|body>>>>
+  <assign|ztNewBlock|<macro|body|<arg|body><next-line>>>
 
-  <assign|ztLeftMargin|<macro|body|<arg|body><hspace|<minimum|<minus|<value|item-hsep>|1.0spc>|1.0spc>>>>
+  <assign|ztbibIndent|<macro|body|<arg|body>>>
 
-  <assign|XztLeftMargin|<macro|body|<set-binding|<value|the-label>|<arg|body>>>>
+  <assign|AAAztLeftMargin|<macro|body|<ztRigidHspace|<value|zt-left-margin-extra-indent>><arg|body><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|tab-amount|0tmpt|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<ztRawWidth|<arg|body>>>|<ztRawWidth|<ztRigidHspace|<value|item-hsep>>>>>|<value|item-hsep>>>>>>
 
-  <assign|XXztLeftMargin|<value|identity>>
+  <assign|ztLeftMargin|<macro|body|<arg|body><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|tab-amount|0tmpt|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<ztRawWidth|<arg|body>>>|<ztRawWidth|<ztRigidHspace|<value|item-hsep>>>>>|<value|item-hsep>>>>>>
 
   <assign|ztRightInline|<value|identity>>
 
-  <assign|ztbibItem-vsep|<macro|<value|par-sep>>>
-
   <assign|ztbibItemText|<\macro|body>
-    <\with|par-sep|<times|<value|par-sep>|<value|zotero-BibliographyStyle_lineSpacing>>|ztbibItem-vsep|<times|<value|ztbibItem-vsep>|<value|zotero-BibliographyStyle_itemSpacing>>>
-      <\surround|<vspace*|<value|ztbibItem-vsep>>|<right-flush>>
+    <\with|par-sep|<times|<value|par-sep>|<value|zotero-BibliographyStyle_lineSpacing>>|ztbibItem-vsep|<times|<value|ztbibItem-vsep>|<value|zotero-BibliographyStyle_entrySpacing>>>
+      <\surround|<vspace*|<value|item-vsep>>|<right-flush>>
         <\with|par-no-first|false|par-first|<value|zotero-BibliographyStyle_firstLineIndent>|par-left|<value|zotero-BibliographyStyle_bodyIndent>>
           <arg|body>
         </with>
@@ -197,7 +258,8 @@
 
   <assign|thebibliography|<macro|keywidth|body|<arg|body>>>
 
-  <assign|bibitem|<macro|key|<assign|ztbibItemIndentTabN|1>>>
+  <assign|bibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
+  key))|<arg|key>>>>
 
   <\active*>
     <\src-comment>
@@ -223,11 +285,13 @@
 
   <drd-props|zcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
 
+  <assign|zt-option-zbib-font-size|0.84>
+
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <\surround|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
       <principal-section*|<bibliography-text>>
 
-      <with|font-size|0.84|par-left|0tab|par-first|0tab|par-no-first|true|<arg|fieldText>>
+      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|<arg|fieldText>>
     </surround>
   </macro>>
 

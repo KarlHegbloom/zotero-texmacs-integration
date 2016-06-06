@@ -18,6 +18,7 @@
         (utils library cursor)
         (generic generic-edit)
         (generic format-edit)
+        (generic document-edit)
         (convert tools sxml)
         ;; (convert rtf rtftm)
         ))
@@ -120,30 +121,15 @@
                                     zt-new-fieldID
                                     (as-string
                                      (zt-zfield-ID
-                                      (focus-tree)))))))))
+                                      (focus-tree))))))))
+    (in-ztHref% (tree-func? (focus-tree) 'ztHref)
+                in-text% in-tm-zotero-style%))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Style sheet helper functions and tag accessors
 ;;;
 (define zt-zfield-tags '(zcite zbibliography))
-
-
-(tm-define (zt-ext-flag-if-modified fieldID)
-  (:secure)
-  (let* ((fieldID (as-string fieldID))
-         (field (zt-find-zfield fieldID))
-         (text (format #f "~s" (tree->stree (zt-zfield-Text field))))
-         (orig-text (zt-get-orig-zfield-Text fieldID)))
-    (if (and orig-text
-             (not (string=? text orig-text)))
-        (begin
-          (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
-          '(concat (flag "Modified!" "red")))
-        (begin
-          (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
-          '(concat (flag "Not Modified." "green"))))))
-
 
 
 (tm-define (zt-insert-new-field tag)
@@ -392,6 +378,38 @@
 
 
 
+(tm-define (zt-ext-flag-if-modified fieldID)
+  (:secure)
+  (let* ((fieldID (as-string fieldID))
+         (field (zt-find-zfield fieldID))
+         (text (format #f "~s" (tree->stree (zt-zfield-Text field))))
+         (orig-text (zt-get-orig-zfield-Text fieldID)))
+    (if (and orig-text
+             (not (string=? text orig-text)))
+        (begin
+          (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
+          '(concat (flag "Modified!" "red")))
+        (begin
+          (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
+          '(concat (flag "Not Modified." "green"))))))
+
+
+
+;;; ztShowID
+;;;
+;;; I don't think this one will ever really show up, but just in case, I've
+;;; defined it, so it can at least be observed when it occurs.
+;;;
+;;; "<span class=\"" + state.opt.nodenames[cslid] + "\" cslid=\"" + cslid + "\">" + str + "</span>"
+;;;
+;;; "\\ztShowID{#{state.opt.nodenames[cslid]}}{#{cslid}}{#{str}}"
+;;;
+(tm-define (zt-ext-ztShowID node cslid body)
+  (:secure)
+  (zt-format-debug "Debug:zt-ext-ztShowID: ~s ~s ~s\n" node clsid body)
+  '(concat ""))
+
+
 ;;; zbibCitationItemID
 ;;;
 ;;; This is sent right after the \bibitem{bibtex_id} as
@@ -420,49 +438,17 @@
 ;;; word or two, or obtain semantic information from either the fieldCode JSON
 ;;; object (with the 
 ;;;
-(tm-define (zt-ext-ztcslidNode nodename)
-  (:secure)
-  (zt-format-debug "Debug:zt-ext-cslidNode: ~s\n" nodename)
-  '(concat ""))
-
-(tm-define (zt-ext-ztcslid cslid)
-  (:secure)
-  (zt-format-debug "Debug:zt-ext-ztcslid: ~s\n" cslid)
-  '(concat ""))
-
 (tm-define (zt-ext-zbibCitationItemID itemID)
   (:secure)
-  (zt-format-debug "Debug:zt-ext-zbibCitationItemID: ~s\n" itemID)
+  (zt-format-debug "Debug:STUB:zt-ext-zbibCitationItemID: ~s\n" itemID)
   '(concat ""))
 
-;;; Not sure this is right yet, but it seems like it's what those
-;;; tab stops must be for.
-;;;
-(tm-define (zt-ext-ztbibIndent body)
+(tm-define (zt-ext-bibitem key)
   (:secure)
-  (let* ((tabs (with-input-from-string
-                   (get-env "zotero-BibliographyStyle_arrayList")
-                 (lambda () (read (current-input-port)))))
-         (tabN (max (inexact->exact
-                     (string->number
-                      (get-env "zotero-BibliographyStyle_tabStopCount")))
-                    (inexact->exact 
-                     (string->number
-                      (get-env "ztbibItemIndentTabN")))))
-         (tab (list-ref tabs (- tabN 1))))
-    (if (nnull? tab)
-        `(concat (space ,tab) ,body)
-        `(concat ,body))))
-
-;;; ztShowID
-;;;
-;;; I don't think this one will ever really show up, but just in case, I've
-;;; defined it, so it can at least be observed when it occurs.
-;;;
-(tm-define (zt-ext-ztShowID id)
-  (:secure)
-  (zt-format-debug "Debug:zt-ext-ztShowID: ~s\n" id)
+  (zt-format-debug "Debug:STUB:zt-ext-bibitem: ~s\n" key)
   '(concat ""))
+
+
 
 ;;; DocumentData
 ;;;
@@ -545,7 +531,7 @@
   (get-env "zoteroDocumentData"))
 
 (define (zt-set-DocumentData documentID str_dataString)
-  (init-env "zoteroDocumentData" str_dataString)
+  (set-init-env "zoteroDocumentData" str_dataString)
   (zt-set-init-env-zotero-prefs documentID str_dataString))
 
 
@@ -557,9 +543,9 @@
            (let loop ((attr-list attr-list))
                 (cond
                   ((null? attr-list) #t)
-                  (#t (init-env (string-append prefix (symbol->string
-                                                       (caar attr-list)))
-                                (cadar attr-list))
+                  (#t (set-init-env (string-append prefix (symbol->string
+                                                           (caar attr-list)))
+                                    (cadar attr-list))
                    (loop (cdr attr-list))))))))
     (let loop ((sxml (cdr (parse-xml str_dataString))))
          (cond
@@ -579,19 +565,19 @@
            ((eq? 'prefs (sxml-name (car sxml)))
             (loop (sxml-content (car sxml))))
            ((eq? 'pref (sxml-name (car sxml)))
-            (init-env (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
-                      (sxml-attr (car sxml) 'value))
+            (set-init-env (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
+                          (sxml-attr (car sxml) 'value))
             (when (string=? "noteType" (sxml-attr (car sxml) 'name))
               ;; The TeXmacs style language case statements can not test an
               ;; environment variable that is a string against any other
               ;; string... the string it's set to has to be "true" or "false"
               ;; to make boolean tests work. It can not check for "equals 0",
               ;; "equals 1", etc.
-              (init-env "zotero-pref-noteType0" "false")
-              (init-env "zotero-pref-noteType1" "false")
-              (init-env "zotero-pref-noteType2" "false")
-              (init-env (string-append "zotero-pref-noteType"
-                                       (sxml-attr (car sxml) 'value)) "true")) 
+              (set-init-env "zotero-pref-noteType0" "false")
+              (set-init-env "zotero-pref-noteType1" "false")
+              (set-init-env "zotero-pref-noteType2" "false")
+              (set-init-env (string-append "zotero-pref-noteType"
+                                           (sxml-attr (car sxml) 'value)) "true"))
             (loop (cdr sxml)))))))
 
 
@@ -640,6 +626,21 @@
 ;;;
 ;;; It speaks exactly the same protocol over that pipe as Linux does over the
 ;;; TCP socket.
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Todo: Support Windows
+;;;
+;;; On Windows, the Word plugin calls on Juris-M / Zotero by invoking firefox
+;;; "via WM_COPYDATA rather than the command line".
+;;;
+;;; See: zotero/components/zotero-service.js:401
+;;;
+;;; -ZoteroIntegrationAgent
+;;;
+;;; -ZoteroIntegrationCommand
+;;;
+;;; -ZoteroIntegrationDocument
 ;;;
 
 
@@ -985,7 +986,8 @@
 ;;;
 (tm-define (parameter-show-in-menu? l)
   (:require
-   (and (in-zfield?)
+   (and (or (in-zfield?)
+            (in-ztHref?))
         ;; Never show these.
         (or (in? l (list "zotero-pref-noteType0"  ;; set by Zotero, in-text style
                          "zotero-pref-noteType1"  ;; set by Zotero, footnote style
@@ -993,6 +995,7 @@
                          "zt-not-inside-note" ;; tm-zotero.ts internal only
                          "zt-in-footnote"
                          "zt-in-endnote"
+                         "zt-not-inside-zbibliography"
                          "zt-option-this-zcite-in-text"
                          "endnote-nr" "footnote-nr"
                          "zt-endnote" "zt-footnote"))
@@ -1003,6 +1006,13 @@
                           (== (get-env "zt-option-this-zcite-in-text") "true")))
                  (in? l (list "footnote-sep" "page-fnote-barlen" "page-fnote-sep"))))))
   #f)
+
+
+(tm-define (parameter-show-in-menu? l)
+  (:require
+   (and (in-zbibliography?)
+        (in? l (list "zt-option-zbib-font-size"))))
+  #t)
 
 
 (tm-define (customizable-parameters t)
@@ -1022,8 +1032,9 @@
 
 
 (tm-define (hidden-child? t i)
-  (:require (in-zfield?))
+  (:require (in-zcite?))
   #f)
+        
 
 (define (zt-notify-debug-trace var val)
   (set! zt-debug-trace? (== val "on")))
@@ -1140,7 +1151,6 @@
 ;;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
 ;;;
 (tm-define (zotero-Document_canInsertField tid documentID str_fieldType)
-  ;; Todo: This is probably not working quite right.
   (let ((ret (not
               (not
                (and (in-text?)
@@ -1161,6 +1171,7 @@
 ;;;
 (tm-define (zotero-Document_getDocumentData tid documentID)
   (zotero-write tid (safe-scm->json-string (zt-get-DocumentData documentID))))
+
 
 
 ;;; Stores a document-specific persistent data string. This data
@@ -1353,14 +1364,107 @@
 ;;;
 ;;; So 240 twip is single spaced, but we want to set the par-sep.
 ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; From the CSL 1.0.1-Dev Specification Document, Options,
+;;; Bibliography-specific options:
+;;;
+;;;   hanging-indent
+;;;
+;;;     If set to “true” (“false” is the default), bibliographic entries are
+;;;     rendered with hanging-indents.
+;;;
+;;;   second-field-align
+;;;
+;;;     If set, subsequent lines of bibliographic entries are aligned along the
+;;;     second field. With “flush”, the first field is flush with the
+;;;     margin. With “margin”, the first field is put in the margin, and
+;;;     subsequent lines are aligned with the margin. An example, where the
+;;;     first field is <text variable="citation-number" suffix=". "/>:
+;;;
+;;;       9.  Adams, D. (2002). The Ultimate Hitchhiker's Guide to the
+;;;           Galaxy (1st ed.).
+;;;       10. Asimov, I. (1951). Foundation.
+;;;
+;;;   line-spacing
+;;;
+;;;     Specifies vertical line distance. Defaults to “1” (single-spacing), and
+;;;     can be set to any positive integer to specify a multiple of the
+;;;     standard unit of line height (e.g. “2” for double-spacing).
+;;;
+;;;   entry-spacing
+;;;
+;;;     Specifies vertical distance between bibliographic entries. By default
+;;;     (with a value of “1”), entries are separated by a single additional
+;;;     line-height (as set by the line-spacing attribute). Can be set to any
+;;;     non-negative integer to specify a multiple of this amount.
+;;;
+;;;
+;;; Display
+;;;
+;;;   The display attribute (similar the “display” property in CSS) may be used
+;;;   to structure individual bibliographic entries into one or more text
+;;;   blocks. If used, all rendering elements should be under the control of a
+;;;   display attribute. The allowed values:
+;;;
+;;;     “block” - block stretching from margin to margin.
+;;;
+;;;     “left-margin” - block starting at the left margin. If followed by a
+;;;     “right-inline” block, the “left-margin” blocks of all bibliographic
+;;;     entries are set to a fixed width to accommodate the longest content
+;;;     string found among these “left-margin” blocks. In the absence of a
+;;;     “right-inline” block the “left-margin” block extends to the right
+;;;     margin.
+;;;
+;;;     “right-inline” - block starting to the right of a preceding
+;;;     “left-margin” block (behaves as “block” in the absence of such a
+;;;     “left-margin” block). Extends to the right margin.
+;;;
+;;;     “indent” - block indented to the right by a standard amount. Extends to
+;;;     the right margin.
+;;;
+;;;   Examples
+;;;
+;;;     Instead of using second-field-align (see Whitespace), a similar layout
+;;;     can be achieved with a “left-margin” and “right-inline” block. A
+;;;     potential benefit is that the styling of blocks can be further
+;;;     controlled in the final output (e.g. using CSS for HTML, styles for
+;;;     Word, etc.).
+;;;
+;;;       <bibliography>
+;;;         <layout>
+;;;           <text display="left-margin" variable="citation-number"
+;;;               prefix="[" suffix="]"/>
+;;;           <group display="right-inline">
+;;;             <!-- rendering elements -->
+;;;           </group>
+;;;         </layout>
+;;;       </bibliography>
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; The American Anthropological Association style uses a display="block" for
+;;; the first line, contributors, followed by a display="left-margin" group for
+;;; the date, and then a display="right-inline" for the rest. It uses no
+;;; special settings for margins or anything in the bibliography tag. (AAA has
+;;; since dropped their special style and is now going with Chicago
+;;; Author-Date.)
+;;;
+;;; The APA annotated bibliography and the Chicago annotated bibliography use
+;;; display="block" for the text variables "abstract" and "note",
+;;; respectively. Those are the last items of each bibliography entry... empty
+;;; and not emitted when that variable has no value for the items expansion.
+;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; Trying various bibliography formats by changing CSL styles:
 ;;;
 ;;; Open University (numeric), hanging-indent="true"
-;;; second-field-align="flush" Labels in the document are in-text [1] numbered
-;;; in citation-order, and the bibliography is presented in citation-order,
-;;; with the citation-number, a space, and then the bibliographic entry. The
-;;; HTML looks like this:
+;;; second-field-align="flush", 'display' attribute not used.
+;;;
+;;; Labels in the document are in-text [1] numbered in citation-order, and the
+;;; bibliography is presented in citation-order, with the citation-number, a
+;;; space, and then the bibliographic entry. The HTML looks like this:
 ;;;
 ;;; <div class="csl-entry">
 ;;;   <div class="csl-left-margin">1 </div><div class="csl-right-inline">Galloway Jr, Russell W. (1989) ‘Basic Equal Protection Analysis’. <i>Santa Clara Law Review</i>, 29, pp. 121–170. [online] Available from: http://heinonline.org/HOL/Page?handle=hein.journals/saclr29&#38;id=139&#38;div=&#38;collection=journals</div>
@@ -1371,10 +1475,10 @@
 ;;; bibliography entry.
 ;;;
 ;;; <associate|zotero-BibliographyStyle_arrayList|()>
-;;; <associate|zotero-BibliographyStyle_bodyIndent|720>
-;;; <associate|zotero-BibliographyStyle_entrySpacing|240>
-;;; <associate|zotero-BibliographyStyle_firstLineIndent|-720>
-;;; <associate|zotero-BibliographyStyle_lineSpacing|240>
+;;; <associate|zotero-BibliographyStyle_bodyIndent|2.0000tab>
+;;; <associate|zotero-BibliographyStyle_entrySpacing|1.0000>
+;;; <associate|zotero-BibliographyStyle_firstLineIndent|-2.0000tab>
+;;; <associate|zotero-BibliographyStyle_lineSpacing|1.0000>
 ;;; <associate|zotero-BibliographyStyle_tabStopCount|0>
 ;;;
 ;;; -------------------------------------------------------------------------
@@ -1386,18 +1490,47 @@
 ;;; <div class="csl-entry">Crouse v. Crouse, 817P. 2d 836 (Court of Appeals September 11, 1991). Retrieved from http://scholar.google.com/scholar_case?q=Crouse+v+Crouse&#38;hl=en&#38;as_sdt=4,45&#38;case=2646370866214680565&#38;scilh=0</div>
 ;;;
 ;;; <associate|zotero-BibliographyStyle_arrayList|()>
-;;; <associate|zotero-BibliographyStyle_bodyIndent|720>
-;;; <associate|zotero-BibliographyStyle_entrySpacing|0>
-;;; <associate|zotero-BibliographyStyle_firstLineIndent|-720>
-;;; <associate|zotero-BibliographyStyle_lineSpacing|480>
+;;; <associate|zotero-BibliographyStyle_bodyIndent|2.0000tab>
+;;; <associate|zotero-BibliographyStyle_entrySpacing|0.0000>
+;;; <associate|zotero-BibliographyStyle_firstLineIndent|-2.0000tab>
+;;; <associate|zotero-BibliographyStyle_lineSpacing|2.0000>
 ;;; <associate|zotero-BibliographyStyle_tabStopCount|0>
+;;;
+;;; -------------------------------------------------------------------------
+;;;
+;;; I'm pretty sure it's an array of tab stops.
+;;;
+;;; It is set by Elsevier (numeric, with titles, sorted alphabetically).
+;;;   entry-spacing="0" second-field-align="flush", 'display' attribute not used.
+;;;
+;;; <div class="csl-entry">
+;;;     <div class="csl-left-margin">[1]</div><div class="csl-right-inline">R.W. Galloway Jr, Basic Constitutional Analysis, Santa Clara L. Rev. 28 (1988) 775.</div>
+;;; </div>
+;;;
+;;; The bodyIndent is the same as that tab-stop.
+;;;
+;;; <associate|zotero-BibliographyStyle_arrayList|<tuple|1.4000tab>>
+;;; <associate|zotero-BibliographyStyle_bodyIndent|1.4000tab>
+;;; <associate|zotero-BibliographyStyle_entrySpacing|1.0000>
+;;; <associate|zotero-BibliographyStyle_firstLineIndent|-1.4000tab>
+;;; <associate|zotero-BibliographyStyle_lineSpacing|1.0000>
+;;; <associate|zotero-BibliographyStyle_tabStopCount|1>
 ;;;
 ;;; -------------------------------------------------------------------------
 ;;;
 ;;; iso690-numeric-en
 ;;;
 ;;; The bibliography section of the CSL for this style does not set any of the
-;;; attribute variables for hanging indent or anything. It sends HTML like this:
+;;; attribute variables for hanging indent. It does use 'display="left-margin"
+;;; for the text of variable="citation-number", and 'display="right-inline"'
+;;; for each group in the bibliography.
+;;;
+;;; The bbl sent back has a very long string in the location that's supposed to
+;;; set the width of the labels in the-bibliography's biblist. So something is
+;;; wrong with the way that it forms the maxoffset value. Thus, I can not use
+;;; that, and must find that value myself using tm-select or ice-9 match.
+;;;
+;;; It sends HTML like this:
 ;;;
 ;;; <div class="csl-entry">
 ;;;   <div class="csl-left-margin">1. </div><div class="csl-right-inline">GALLOWAY JR, Russell W. Basic Equal Protection Analysis. <i>Santa Clara Law Review</i> [online]. 1989. Vol. 29, p. 121–170. Available from: http://heinonline.org/HOL/Page?handle=hein.journals/saclr29&#38;id=139&#38;div=&#38;collection=journals</div>
@@ -1405,50 +1538,31 @@
 ;;; </div>
 ;;;
 ;;; <associate|zotero-BibliographyStyle_arrayList|()>
-;;; <associate|zotero-BibliographyStyle_bodyIndent|0>
-;;; <associate|zotero-BibliographyStyle_entrySpacing|240>
-;;; <associate|zotero-BibliographyStyle_firstLineIndent|0>
-;;; <associate|zotero-BibliographyStyle_lineSpacing|240>
+;;; <associate|zotero-BibliographyStyle_bodyIndent|0.0000tab>
+;;; <associate|zotero-BibliographyStyle_entrySpacing|1.0000>
+;;; <associate|zotero-BibliographyStyle_firstLineIndent|0.0000tab>
+;;; <associate|zotero-BibliographyStyle_lineSpacing|1.0000>
 ;;; <associate|zotero-BibliographyStyle_tabStopCount|0>
+;;;
 ;;;
 ;;; JM Indigo Book
 ;;;
 ;;; <associate|zotero-BibliographyStyle_arrayList|()>
-;;; <associate|zotero-BibliographyStyle_bodyIndent|0>
-;;; <associate|zotero-BibliographyStyle_entrySpacing|240>
-;;; <associate|zotero-BibliographyStyle_firstLineIndent|0>
-;;; <associate|zotero-BibliographyStyle_lineSpacing|240>
+;;; <associate|zotero-BibliographyStyle_bodyIndent|0.0000tab>
+;;; <associate|zotero-BibliographyStyle_entrySpacing|1.0000>
+;;; <associate|zotero-BibliographyStyle_firstLineIndent|0.0000tab>
+;;; <associate|zotero-BibliographyStyle_lineSpacing|1.0000>
 ;;; <associate|zotero-BibliographyStyle_tabStopCount|0>
 ;;;
-;;; Chicago Manual of Style (full note)
+;;;
+;;; JM Chicago Manual of Style (full note)
 ;;;
 ;;; <associate|zotero-BibliographyStyle_arrayList|()>
-;;; <associate|zotero-BibliographyStyle_bodyIndent|720>
-;;; <associate|zotero-BibliographyStyle_entrySpacing|0>
-;;; <associate|zotero-BibliographyStyle_firstLineIndent|-720>
-;;; <associate|zotero-BibliographyStyle_lineSpacing|240>
+;;; <associate|zotero-BibliographyStyle_bodyIndent|2.0000tab>
+;;; <associate|zotero-BibliographyStyle_entrySpacing|0.0000>
+;;; <associate|zotero-BibliographyStyle_firstLineIndent|-2.0000tab>
+;;; <associate|zotero-BibliographyStyle_lineSpacing|1.0000>
 ;;; <associate|zotero-BibliographyStyle_tabStopCount|0>
-;;;
-;;; American Psychological Association 6th Edition
-;;;
-;;; hanging-indent="true" entry-spacing="0" line-spacing="2"
-;;;
-;;; <associate|zotero-BibliographyStyle_arrayList|()>
-;;; <associate|zotero-BibliographyStyle_bodyIndent|720>
-;;; <associate|zotero-BibliographyStyle_entrySpacing|0>
-;;; <associate|zotero-BibliographyStyle_firstLineIndent|-720>
-;;; <associate|zotero-BibliographyStyle_lineSpacing|480>
-;;; <associate|zotero-BibliographyStyle_tabStopCount|0>
-;;;
-;;; Australian Guide to Legal Citation
-;;;
-;;; <associate|zotero-BibliographyStyle_arrayList|()>
-;;; <associate|zotero-BibliographyStyle_bodyIndent|0>
-;;; <associate|zotero-BibliographyStyle_entrySpacing|240>
-;;; <associate|zotero-BibliographyStyle_firstLineIndent|0>
-;;; <associate|zotero-BibliographyStyle_lineSpacing|240>
-;;; <associate|zotero-BibliographyStyle_tabStopCount|0>
-;;;
 ;;;
 
 (define tmpt-per-inch 153600); tmpt
@@ -1535,64 +1649,62 @@
 ;;; 720 twip == 2 tab
 
 (define (zt-zotero-lineSpacing->tmlen meas)
-  (let ((sep-mult (/ meas 240)))
+  (let ((sep-mult (/ (if (= meas 0) 240 meas)
+                     240)))
     (format #f "~,4f" (exact->inexact sep-mult)))) ;; times par-sep
 
 (define (zt-zotero-entrySpacing->tmlen meas)
-  (let ((sep-mult (/ meas 240)))
+  (let ((sep-mult (/ (if (= meas 0) 240 meas)
+                     240)))
     (format #f "~,4f" (exact->inexact sep-mult)))) ;; times item-vsep
 
 (define (zt-zotero-firstLineIndent->tmlen meas)
-  (let ((indent-tabs (/ meas 360)))
+  (let ((indent-tabs (/ meas 360))) ; can be zero
     (format #f "~,4ftab" (exact->inexact indent-tabs))))
 
 (define (zt-zotero-bodyIndent->tmlen meas)
-  (let ((indent-tabs (/ meas 360)))
+  (let ((indent-tabs (/ meas 360))) ; can be zero
     (format #f "~,4ftab" (exact->inexact indent-tabs))))
 
-;;; I'm pretty sure it's an array of tab stops.
-;;;
-;;; It is set by Elsevier (numeric, with titles, sorted alphabetically), but
-;;; then it does not really seem to use it... Since the bodyIndent is the same
-;;; as that tab-stop.
-;;;
-;;; <associate|zotero-BibliographyStyle_arrayList|("0.7000tab")>
-;;; <associate|zotero-BibliographyStyle_bodyIndent|0.7000tab>
-;;; <associate|zotero-BibliographyStyle_entrySpacing|0.0000tmpt>
-;;; <associate|zotero-BibliographyStyle_firstLineIndent|-0.7000tab>
-;;; <associate|zotero-BibliographyStyle_lineSpacing|1.0000tmpt>
-;;; <associate|zotero-BibliographyStyle_tabStopCount|1>
-;;;
-;;;
 (define (zt-zotero-tabstop-arrayList->tmlen-ls tab-ls)
   (let loop ((tab-ls tab-ls)
              (ret '()))
-       (cond
-         ((null? tab-ls)
-          (format #f "~s" (reverse! ret))) ; scheme reader syntax
-         (#t (loop (cdr tab-ls)
-                   (cons (format #f "~,4ftab"
-                                 (exact->inexact
-                                  (/ (car tab-ls) 360)))
-                         ret))))))
+    (cond
+     ((null? tab-ls)
+      (stree->tree `(tuple ,@(reverse! ret))))
+       ;;(format #f "~s" (reverse! ret))) ; scheme reader syntax
+      (#t (loop (cdr tab-ls)
+                (cons (format #f "~,4ftab"
+                              (exact->inexact
+                               (/ (car tab-ls) 360)))
+                      ret))))))
+
+(define (zt-read-zotero-tabstop-arrayList)
+  (with-input-from-string
+      (get-env "zotero-BibliographyStyle_arrayList")
+    (lambda () (read (current-input-port)))))
+
+(define (zt-read-zotero-tabStopCount)
+  (string->number
+   (get-env "ztbibItemIndentTabN")))
 
 
 (tm-define (zotero-Document_setBibliographyStyle tid documentID
             firstLineIndent bodyIndent
             lineSpacing entrySpacing
             arrayList tabStopCount)
-  (init-env "zotero-BibliographyStyle_firstLineIndent"
-            (zt-zotero-firstLineIndent->tmlen firstLineIndent))
-  (init-env "zotero-BibliographyStyle_bodyIndent"
-            (zt-zotero-bodyIndent->tmlen bodyIndent))
-  (init-env "zotero-BibliographyStyle_lineSpacing"
-            (zt-zotero-lineSpacing->tmlen lineSpacing))
-  (init-env "zotero-BibliographyStyle_entrySpacing"
-            (zt-zotero-entrySpacing->tmlen entrySpacing))
-  (init-env "zotero-BibliographyStyle_arrayList"
-            (zt-zotero-tabstop-arrayList->tmlen-ls arrayList))
-  (init-env "zotero-BibliographyStyle_tabStopCount"
-            (format #f "~s" tabStopCount))
+  (set-init-env "zotero-BibliographyStyle_firstLineIndent"
+                (zt-zotero-firstLineIndent->tmlen firstLineIndent))
+  (set-init-env "zotero-BibliographyStyle_bodyIndent"
+                (zt-zotero-bodyIndent->tmlen bodyIndent))
+  (set-init-env "zotero-BibliographyStyle_lineSpacing"
+                (zt-zotero-lineSpacing->tmlen lineSpacing))
+  (set-init-env "zotero-BibliographyStyle_entrySpacing"
+                (zt-zotero-entrySpacing->tmlen entrySpacing))
+  (set-init-env "zotero-BibliographyStyle_arrayList"
+                (zt-zotero-tabstop-arrayList->tmlen-ls arrayList))
+  (set-init-env "zotero-BibliographyStyle_tabStopCount"
+                (format #f "~s" tabStopCount))
   ;;
   (zotero-write tid (safe-scm->json-string '())))
 
@@ -1813,33 +1925,43 @@ including parentheses and <less> <gtr> around the link put there by some styles.
          (is-doi? (and (string? pre-lnk-str)
                        (or (string-suffix? "doi:" pre-lnk-str)
                            (string-suffix? "doi: " pre-lnk-str)
-                           (string-suffix? "doi: " pre-lnk-str)
-                           (string-suffix? "http://doi.org/" pre-lnk-str)
-                           (string-suffix? "http://dx.doi.org/" pre-lnk-str)))))
+                           (string-suffix? "doi: " pre-lnk-str)))))
     (zt-format-debug "Debug:lnk before: ~s\n" lnk)
     (zt-format-debug "Debug:pre-lnk-str: ~s\n" pre-lnk-str)
     (zt-format-debug "Debug:post-lnk-str: ~s\n" post-lnk-str)
     (unless is-doi?
       (when (string? pre-lnk-str)
-        (if (and (string? post-lnk-str)
-                 (string-suffix? "<less>" pre-lnk-str)
-                 (string-prefix? "<gtr>" post-lnk-str))
-            (begin
-              ;; Keep link wrapped in <less> <gtr> and put on it's own line
-              (set! pre-lnk-str (substring pre-lnk-str
-                                           0
-                                           (- (string-length pre-lnk-str)
-                                              6)))
-              (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-              (set! post-lnk-str (substring post-lnk-str
-                                            5
-                                            (string-length post-lnk-str)))
-              (tree-set! post-lnk-txt (stree->tree post-lnk-str))
-              (tree-set! lnk (stree->tree
-                              `(concat (next-line)
-                                       (smaller (concat "<less>" ,lnk "<gtr>"))))))
-            (begin
-              (tree-set! lnk (stree->tree `(concat (next-line) (smaller ,lnk))))))
+        (cond
+          ((and (string? post-lnk-str)
+                (string-suffix? "<less>" pre-lnk-str)
+                (string-prefix? "<gtr>" post-lnk-str))
+           ;; Keep link wrapped in <less> <gtr> and put on it's own line
+           (set! pre-lnk-str (substring pre-lnk-str
+                                        0
+                                        (- (string-length pre-lnk-str)
+                                           (string-length "<less>"))))
+           (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
+           (set! post-lnk-str (substring post-lnk-str
+                                         (string-length "<gtr>")
+                                         (string-length post-lnk-str)))
+           (tree-set! post-lnk-txt (stree->tree post-lnk-str))
+           (tree-set! lnk (stree->tree
+                           `(concat (next-line)
+                                    (smaller (concat "<less>" ,lnk "<gtr>"))))))
+          ((or (and (string-suffix? "http://doi.org/"    pre-lnk-str) "http://doi.org/")
+               (and (string-suffix? "http://dx.doi.org/" pre-lnk-str) "http://dx.doi.org/"))
+           => (lambda (lnstr)
+                ;; Keep link next to the prefix text.
+                (set! pre-lnk-str (substring pre-lnk-str
+                                             0
+                                             (- (string-length pre-lnk-str)
+                                                (string-length lnstr))))
+                (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
+                (tree-set! lnk (stree->tree
+                                `(concat (next-line)
+                                         (smaller (concat ,lnstr ,lnk)))))))
+          (#t
+           (tree-set! lnk (stree->tree `(concat (next-line) (smaller ,lnk))))))
         (when (or (string-suffix? " " pre-lnk-str)
                   (string-suffix? " " pre-lnk-str))
           (set! pre-lnk-str (substring pre-lnk-str
@@ -1873,6 +1995,19 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   lnk)
 
 
+(tm-define (zt-delete-one-space-to-left-of lnk)
+  (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
+         (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt))))
+    (when (or (string-suffix? " " pre-lnk-str)
+              (string-suffix? " " pre-lnk-str))
+      (set! pre-lnk-str (substring pre-lnk-str
+                                   0
+                                   (- (string-length pre-lnk-str)
+                                      1)))
+      (tree-set! pre-lnk-txt (stree->tree pre-lnk-str)))))
+
+
+
 (tm-define (zt-make-href-note-for-hlink lnk)
   ;;
   ;; (and is-hlink? (not (or is-note? is-bib?)))
@@ -1880,13 +2015,6 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   (zt-format-debug "Debug:STUB:zt-make-href-note-for-hlink: ~s\n" lnk)
   lnk)
 
-
-(tm-define (zt-move-in-text-href-to-note lnk)
-  ;;
-  ;; (and is-href? (not (or is-note? is-bib?)))
-  ;;
-  (zt-format-debug "Debug:STUB:zt-move-in-text-href-to-note: ~s\n" lnk)
-  lnk)
 
 
 ;;;
@@ -1898,13 +2026,17 @@ including parentheses and <less> <gtr> around the link put there by some styles.
     (buffer-set-body b t)
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
-    (let* ((lt (select t '(:* (:or hlink href)))))
+    (let* ((lt (select t '(:* (:or ztHref hlink href)))))
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t before: ~s\n" t)
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
       (let loop ((lt2 lt))
         (let* ((lnk (and (pair? lt2) (car lt2))) ; lnk will be bool or tree
                (is-hlink? (and lnk (tm-is? lnk 'hlink)))
-               (is-href? (and lnk (tm-is? lnk 'href))))
+               (is-href? (or (and lnk (tm-is? lnk 'ztHref))
+                             (and lnk (tm-is? lnk 'href))
+                             (and lnk (tm-is? lnk 'hlink)
+                                  (string=? (tree->string (tree-ref lnk 0))
+                                            (tree->string (tree-ref lnk 1)))))))
           (cond
            ((null? lt2) #t)
            ((and (or is-hlink? is-href?) (or is-note? is-bib?))
@@ -1912,9 +2044,6 @@ including parentheses and <less> <gtr> around the link put there by some styles.
             (loop (cdr lt2)))
            ((and is-hlink? (not (or is-note? is-bib?)))
             (zt-make-href-note-for-hlink lnk)
-            (loop (cdr lt2)))
-           ((and is-href? (not (or is-note? is-bib?)))
-            (zt-move-in-text-href-to-note lnk)
             (loop (cdr lt2))))))
       (tree-simplify t)
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
@@ -2051,6 +2180,10 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 
 
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Local Variables:
-;;; fill-column: 120
+;;; fill-column: 132
+;;; truncate-lines: t
 ;;; End:
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
