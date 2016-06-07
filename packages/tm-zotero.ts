@@ -287,8 +287,12 @@
 
   <assign|zt-option-zbib-font-size|0.84>
 
+  <assign|IDEA-FOR-WITH-WRAP-zt-extra-surround-before|<macro|<page-break*>>>
+
+  <assign|zt-extra-surround-before|<macro|>>
+
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
-    <\surround|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
+    <\surround|<zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
       <principal-section*|<bibliography-text>>
 
       <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|<arg|fieldText>>

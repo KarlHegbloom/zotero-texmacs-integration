@@ -18,4 +18,8 @@
 ;;
 (when (supports-zotero?)
   (lazy-keyboard (zotero-kbd) in-tm-zotero-style?)
-  (lazy-menu (zotero-menu) in-tm-zotero-style?))
+  (lazy-menu (zotero-menu) in-tm-zotero-style?)
+  (extend-table style-menu-name
+    ("tm-zotero" "Zotero Integration"))
+  (extend-table style-synopsis
+    ("tm-zotero" "TeXmacs Integration with Juris-M/Zotero Reference Manager")))
