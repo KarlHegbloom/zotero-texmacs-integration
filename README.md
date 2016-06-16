@@ -25,7 +25,21 @@ NEWS
     * It will only work when you have the settings shown below that
       allow an unsigned plugin.
       
-    * I don't know if it will work right without that.
+    * With propachi-texmacs, remove the git clone installs of Juris-M
+      and of Better BibTeX for Zotero. Install the release version of
+      Juris-M, but disable or uninstall Better BibTeX for Zotero for
+      the time being. It overrides the necessary support for TeXmacs
+      provided by the propachi-texmacs plugin.
+      
+    * On the bright side, you no longer need to run this from a git
+      clone. It can be installed by anyone in default Juris-M. Steps:
+      Install Juris-M, install propachi-texmacs, clone this
+      repository, symlink to it from ~/.TeXmacs/plugins, start
+      working.
+
+
+OLD NEWS (ignore below here for now; will rewrite later)
+--------------------------------------------------------
 
   * I had to change the outputFormat again. See below for how to run
     Better BibTeX for Zotero from a git clone.
