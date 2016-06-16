@@ -24,6 +24,8 @@
         ))
 
 
+;;; (setlocale LC_ALL "en_US.UTF-8")
+
 ;;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 (use-modules (json))
 (use-modules (ice-9 format))
@@ -132,11 +134,11 @@
 (define zt-zfield-tags '(zcite zbibliography))
 
 
-(tm-define (zt-insert-new-field tag)
+(tm-define (zt-insert-new-field tag placeholder)
   (if (not (in-zfield?))
-      (let ((id (zt-get-new-fieldID)))
-        (set! zt-new-fieldID id)
-        (insert `(,tag ,id "" "{Citation}"))
+      (let ((id-str (zt-get-new-fieldID)))
+        (set! zt-new-fieldID id-str)
+        (insert `(,tag ,id-str "" ,placeholder))
         ;; Perhaps add it to the cache here
         )
       (begin
@@ -186,6 +188,7 @@
 (tm-define (zt-zfield-ID t)
   (tree-ref t 0))
 
+
 ;;; I decided I like them better without the raw-data wrapper.
 ;;; (tm-define (zt-zfield-Code t)
 ;;;   ;; upgrade old tags, also fixup hand-entered ones?
@@ -203,18 +206,7 @@
 
 (tm-define (zt-zfield-Code t)
   (tree-ref t 1))
-  ;; upgrade old tags, also fixup hand-entered ones?
-  ;; (let ((code (tree-ref t 1)))
-  ;;   (cond
-  ;;     ((tm-func? code 'raw-data)
-  ;;      (tree-set! code (tree-ref code 0))
-  ;;      code)
-  ;;     ;; ((and (not (tm-func? code 'raw-data))
-  ;;     ;;       (tm-atomic? code))
-  ;;     ;;  (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
-  ;;     ;;  (tree-ref code 0))
-  ;;     ((not (tm-func? code 'raw-data))
-  ;;      code))))
+
 
 ;;; For "note" styles, this reference binding links a citation field with
 ;;; the footnote number that it appears in.
@@ -838,11 +830,14 @@
                    (set! counter 40)
                    (set! wait 10))))
               (begin
-                (set! counter (- counter 1))       ;; Sometimes when Firefox is
-                (when (<= counter 0)               ;; stopped in the middle of
-                  (close-zt-zotero-socket-port!)      ;; it, char-ready? returns #t
-                  (set! wait 0)                    ;; but zotero-read does not
-                  (set! zotero-active? #f))))))))) ;; read anything.
+                ;; Sometimes when Firefox is stopped in the middle of it,
+                ;; char-ready? returns #t but zotero-read does not read
+                ;; anything... Perhaps look for eof-object?
+                (set! counter (- counter 1))
+                (when (<= counter 0)
+                  (close-zt-zotero-socket-port!)
+                  (set! wait 0) 
+                  (set! zotero-active? #f)))))))))
 
 
 ;;; Integration commands: TeXmacs -> Zotero, no reply, Zotero connects back with
@@ -874,7 +869,7 @@
 (tm-define (zotero-addCitation)
   (unless zt-new-fieldID ;; one at a time only
     (try-modification
-      (if (and (zt-insert-new-field 'zcite)
+      (if (and (zt-insert-new-field 'zcite "{Citation}")
                (zt-call-zotero-integration-command "addCitation"))
           #t
           (begin
@@ -891,7 +886,7 @@
   (unless zt-new-fieldID ;; one at a time only
     (try-modification
       ;; It is what Zotero expects. I'd expect to put {Bibliography} there.
-      (if (and (zt-insert-new-field 'zbibliography)
+      (if (and (zt-insert-new-field 'zbibliography "{Bibliography}")
                (zt-call-zotero-integration-command "addBibliography"))
           #t
           (begin
@@ -2015,14 +2010,58 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   (zt-format-debug "Debug:STUB:zt-make-href-note-for-hlink: ~s\n" lnk)
   lnk)
 
+;;; Debug: tid:10 len:190 cmdstr:"[\"Field_setText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\",\"\\\\textit{Statutes in derogation of
+;;; common law not strictly construed --- Rules of equity prevail.}, Title 68, Chapter 3 § 2 (2014).\",false]]"
+;;;
+;;; Debug: ("Field_setText" (10 "10724-(1)" "+3LuhRbmY22me9N" "\\textit{Statutes in derogation of common law not strictly construed
+;;; --- Rules of equity prevail.}, Title 68, Chapter 3 § 2 (2014)." #f))
+;;;
+;;; Debug:zt-zotero-str_text->texmacs:t before: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
+;;; construed \V Rules of equity prevail.>, Title 68, Chapter 3 � 2 (2014).>
+;;;
+;;; Debug:zt-zotero-str_text->texmacs:select lt: ()
+;;;
+;;; Debug:zt-zotero-str_text->texmacs:t after: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
+;;; construed \V Rules of equity prevail.>, Title 68, Chapter 3 � 2 (2014).>
+;;;
+;;; Debug: zotero-write: 10 "null"
+;;;
+;;; Debug: tid:11 len:49 cmdstr:"[\"Field_getText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\"]]"
+;;;
+;;; Debug: ("Field_getText" (11 "10724-(1)" "+3LuhRbmY22me9N"))
+;;;
+;;; Debug: zotero-write: 11 "\"(concat (with \\\"font-shape\\\" \\\"italic\\\" \\\"Statutes in derogation of common law not strictly
+;;; construed \\\\x16 Rules of equity prevail.\\\") \\\", Title 68, Chapter 3 � 2 (2014).\\\")\""
+;;;
+;;; JavaScript error:
+;;; file:///home/karlheg/.mozilla/firefox/yj3luajv.default/extensions/jurismOpenOfficeIntegration@juris-m.github.io/components/zoteroOpenOfficeIntegration.js,
+;;; line 257: NS_ERROR_ILLEGAL_INPUT: Component returned failure code: 0x8050000e (NS_ERROR_ILLEGAL_INPUT)
+;;; [nsIScriptableUnicodeConverter.ConvertToUnicode
+;;;
+;;;
+;;; The only way I could fix this, for now, was to add:
+;;;
+;;;    .replace(/\u00B6/g, "\\ParagraphSignGlyph")
+;;;    .replace(/\u00A7/g, "\\SectionSignGlyph")
+;;;
+;;; ... to the text_escape function for the bbl outputFormat in schomd.coffee, and then add matching macros to the tm-zotero.ts
+;;; style. I don't know where the problem occurs. Guile-2 has the ability to set the encoding of specific ports, and perhaps that
+;;; will fix it; but it might be another problem to do with how the text sent by Zotero is converted to TeXmacs and back.
+;;;
 
 
 ;;;
 ;;; This runs for both in-text or note citations as well as for the bibliography.
 ;;;
 (tm-define (zt-zotero-str_text->texmacs str_text is-note? is-bib?)
-  (let ((t (latex->texmacs (parse-latex str_text)))
-        (b (buffer-new)))
+  ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
+  ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
+  ;; strings in {\rtf ,Body}. This removes it when it has done that.
+  (let* ((str_text (if (string-prefix? "{\\rtf " str_text)
+                       (substring str_text 6 (1- (string-length str_text)))
+                       str_text))
+         (t (latex->texmacs (parse-latex str_text)))
+         (b (buffer-new)))
     (buffer-set-body b t)
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)

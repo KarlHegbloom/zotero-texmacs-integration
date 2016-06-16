@@ -32,6 +32,12 @@
 
   \;
 
+  <assign|ParagraphSignGlyph|<macro|\<paragraph\>>>
+
+  <assign|SectionSignGlyph|<macro|Ÿ>>
+
+  \;
+
   <assign|ztDebug|<macro|body|<extern|(lambda (body) (zt-format-debug
   "Debug:ztDebug: ~s\\n" body))|<arg|body>>>>
 
@@ -304,6 +310,8 @@
 
 <\initial>
   <\collection>
+    <associate|font|termes>
+    <associate|math-font|math-termes>
     <associate|preamble|true>
   </collection>
 </initial>
