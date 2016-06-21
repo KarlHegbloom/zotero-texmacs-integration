@@ -2073,6 +2073,8 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           pre "\\abbr{" 1 "}" post)
          ("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)"
           pre "\\abbr{" 1 "}" post)
+         ;; ("<abbr>([^<]+)</abbr>"
+         ;;  pre "\\abbr{" 1 "}" post)
          )))
 
 
