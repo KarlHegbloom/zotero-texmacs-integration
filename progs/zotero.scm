@@ -1,5 +1,7 @@
 ;;; -*- scheme -*-
 ;;;
+;;; file-encoding: UTF-8
+;;;
 ;;; MODULE      : zotero.scm
 ;;; DESCRIPTION : Zotero Connector Plugin
 ;;; COPYRIGHT   : (C) 2016  Karl M. Hegbloom <karl.hegbloom@gmail.com>
@@ -24,11 +26,19 @@
         ))
 
 
-;;; (setlocale LC_ALL "en_US.UTF-8")
+;; (define orig-locale-LC_ALL (setlocale LC_ALL))
+;; (define orig-locale-LC_CTYPE (setlocale LC_CTYPE))
+;; (unless (string-suffix? ".UTF-8" orig-locale-LC_CTYPE)
+;;   (setlocale LC_CTYPE (string-append (substring orig-locale-LC_CTYPE
+;;                                                 0
+;;                                                 (string-index orig-locale-LC_CTYPE
+;;                                                               (string->char-set ".")))
+;;                                      ".UTF-8")))
 
 ;;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 (use-modules (json))
 (use-modules (ice-9 format))
+(use-modules (ice-9 regex))
 
 (tm-define (zt-format-error . args)
   (:secure)
@@ -2049,6 +2059,35 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 ;;; will fix it; but it might be another problem to do with how the text sent by Zotero is converted to TeXmacs and back.
 ;;;
 
+;;; Todo: Perhaps this ought to be configurable, by making it possible for the
+;;; user to put their own ones into a separate configuration file?
+;;;
+(define zt-zotero-regex-replace-clauses
+  (map (lambda (elt)
+         (cons (make-regexp (car elt))
+               (cdr elt)))
+       ;; use \abbr{v.} to make the space after the period be a small sized one.
+       '((" (v\\.?s?\\.?) "
+          pre " \\abbr{v.} " post)
+         ("(U\\.S\\.C\\.)"
+          pre "\\abbr{" 1 "}" post)
+         ("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)"
+          pre "\\abbr{" 1 "}" post)
+         )))
+
+
+(define (zt-zotero-regex-transform str_text)
+  (let loop ((text str_text)
+             (rc zt-zotero-regex-replace-clauses))
+    ;; each is applied in turn, so later ones can modify results of earlier
+    ;; ones if you like.
+    (cond
+      ((null? rc) text)
+      (else
+        (loop (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))
+              (cdr rc))))))
+
+
 
 ;;;
 ;;; This runs for both in-text or note citations as well as for the bibliography.
@@ -2057,9 +2096,10 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
   ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
   ;; strings in {\rtf ,Body}. This removes it when it has done that.
-  (let* ((str_text (if (string-prefix? "{\\rtf " str_text)
-                       (substring str_text 6 (1- (string-length str_text)))
-                       str_text))
+  (let* ((str_text (zt-zotero-regex-transform
+                    (if (string-prefix? "{\\rtf " str_text)
+                        (substring str_text 6 (1- (string-length str_text)))
+                        str_text)))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
     (buffer-set-body b t)
@@ -2077,19 +2117,19 @@ including parentheses and <less> <gtr> around the link put there by some styles.
                                   (string=? (tree->string (tree-ref lnk 0))
                                             (tree->string (tree-ref lnk 1)))))))
           (cond
-           ((null? lt2) #t)
-           ((and (or is-hlink? is-href?) (or is-note? is-bib?))
-            (zt-move-link-to-own-line lnk)
-            (loop (cdr lt2)))
-           ((and is-hlink? (not (or is-note? is-bib?)))
-            (zt-make-href-note-for-hlink lnk)
-            (loop (cdr lt2))))))
-      (tree-simplify t)
-      (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
-      (buffer-pretend-autosaved b)
-      (buffer-pretend-saved b)
-      (buffer-close b)
-      t)))
+            ((null? lt2) #t)
+            ((and (or is-hlink? is-href?) (or is-note? is-bib?))
+             (zt-move-link-to-own-line lnk)
+             (loop (cdr lt2)))
+            ((and is-hlink? (not (or is-note? is-bib?)))
+             (zt-make-href-note-for-hlink lnk)
+             (loop (cdr lt2)))))))
+    (tree-simplify t)
+    (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
+    (buffer-pretend-autosaved b)
+    (buffer-pretend-saved b)
+    (buffer-close b)
+    t))
 
 ;;;
 ;;; Remember that there is a difference between the source document tree and
