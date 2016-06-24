@@ -153,7 +153,7 @@
 
   \;
 
-  <assign|ztHref|<macro|url|display|<if|<not|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>>|<hlink|<arg|display>|<arg|url>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<hlink|<arg|display>|<arg|url>>>|<zt-footnote|<hlink|<arg|display>|<arg|url>>>><rsup|)>>>>
+  <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<hlink|<arg|display>|<arg|url>>>|<zt-footnote|<hlink|<arg|display>|<arg|url>>>><rsup|)>|<hlink|<arg|display>|<arg|url>>>>>
 
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 
@@ -262,7 +262,9 @@
 
   \;
 
-  <assign|thebibliography|<macro|keywidth|body|<arg|body>>>
+  <assign|thebibliography|<\macro|keywidth|body>
+    <arg|body>
+  </macro>>
 
   <assign|bibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
   key))|<arg|key>>>>

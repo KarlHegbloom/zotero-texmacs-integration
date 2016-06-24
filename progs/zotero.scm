@@ -199,23 +199,23 @@
   (tree-ref t 0))
 
 
-;;; I decided I like them better without the raw-data wrapper.
-;;; (tm-define (zt-zfield-Code t)
-;;;   ;; upgrade old tags, also fixup hand-entered ones?
-;;;   (let ((code (tree-ref t 1)))
-;;;     (cond
-;;;       ((tm-func? code 'raw-data)
-;;;        (tree-ref code 0))
-;;;       ((and (not (tm-func? code 'raw-data))
-;;;             (tm-atomic? code))
-;;;        (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
-;;;        (tree-ref code 0))
-;;;       ((not (tm-func? code 'raw-data))
-;;;        (tree-set! code (stree->tree '(raw-data "")))
-;;;        (tree-ref code 0)))))
-
+;;; the raw-data wrapper hopefully helps with the unicode conversion problems
 (tm-define (zt-zfield-Code t)
-  (tree-ref t 1))
+  ;; upgrade old tags, also fixup hand-entered ones?
+  (let ((code (tree-ref t 1)))
+    (cond
+      ((tm-func? code 'raw-data)
+       (tree-ref code 0))
+      ((and (not (tm-func? code 'raw-data))
+            (tm-atomic? code))
+       (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
+       (tree-ref code 0))
+      ((not (tm-func? code 'raw-data))
+       (tree-set! code (stree->tree '(raw-data "")))
+       (tree-ref code 0)))))
+
+;; (tm-define (zt-zfield-Code t)
+;;   (tree-ref t 1))
 
 
 ;;; For "note" styles, this reference binding links a citation field with
@@ -338,9 +338,11 @@
 ;;; tree for a field with the sought-for fieldID, then update the cache.
 ;;;
 (tm-define (zt-set-zfield-Code-from-string field str_code)
-  (let ((code (zt-zfield-Code field)))
+  (let ((code (zt-zfield-Code field))
+        )
     (zt-parse-and-cache-zfield-Code field str_code)
-    (tree-set! code str_code)))
+    (tree-set! code (stree->tree str_code))))
+    
 
 ;;; It goes through here so that this can also be called from the
 ;;; Document_getFields...
@@ -1041,6 +1043,22 @@
   #f)
         
 
+;;; Todo: go to next similar tag does not work right with zcite. Why?
+;;; The following seems to have no effect...
+
+;;; Ok, it might not be zcite; it might be everything. Tried with a \strong text block and got the same error.  Fails when there's
+;;; only 1 \paragraph, but works when there's 2, but trying to go past last one gives same error.  I think this used to work, but
+;;; now it does not. I can't fix it today.
+
+;; (tm-define (similar-to lab)
+;;   (:require (in-zcite?))
+;;   (list 'zcite))
+
+;; (tm-define (similar-to lab)
+;;   (:require (in-zbibliography?))
+;;   (list 'zbibliography))
+
+
 (define (zt-notify-debug-trace var val)
   (set! zt-debug-trace? (== val "on")))
 
@@ -1160,8 +1178,9 @@
               (not
                (and (in-text?)
                     (not (in-math?))
-                    (let ((t (inside-which zt-zfield-tags)))
-                      (zt-format-debug "Debug: zotero-Document_canInsertField (inside-which zt-zfield-tags) => ~s\n" t)
+                    (in-zfield?)
+                    (let ((t (focus-tree)))
+                      ;; (zt-format-debug "Debug:zotero-Document_canInsertField: (focus-tree) => ~s\n" t)
                       (or (not t)
                           (and zt-new-fieldID
                                (string=? zt-new-fieldID
@@ -1205,17 +1224,18 @@
 ;;;
 (tm-define (zotero-Document_cursorInField tid documentID str_fieldType)
   (let ((ret
-         (if (tree-in? (cursor-tree) zt-zfield-tags)
-             ;; Q: Do I need to canonicalize the cursor location by moving it?
-             (let* ((t (cursor-tree))
-                    (id (as-string (zt-zfield-ID t))))
-               (if (not (and zt-new-fieldID
-                             (string=? zt-new-fieldID id)))
-                   (begin
-                     (list id
-                           (zt-get-zfield-Code-string t)
-                           (as-string (zt-zfield-NoteIndex t))))
-                   '())) ;; is the new field not finalized by Document_insertField
+         (if (in-zfield?)
+             (begin
+               ;; (zt-format-debug "Debug:zotero-Document_cursorInField: in-zfield? => #t\n")
+               (let* ((t (focus-tree))
+                      (id (as-string (zt-zfield-ID t))))
+                 (if (not (and zt-new-fieldID
+                               (string=? zt-new-fieldID id)))
+                     (begin
+                       (list id
+                             (zt-get-zfield-Code-string t)
+                             (as-string (zt-zfield-NoteIndex t))))
+                     '()))) ;; is the new field not finalized by Document_insertField
              '()))) ;; not tree-in? zt-zfield-tags
     (zotero-write tid (safe-scm->json-string ret))))
 
@@ -2013,13 +2033,6 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 
 
 
-(tm-define (zt-make-href-note-for-hlink lnk)
-  ;;
-  ;; (and is-hlink? (not (or is-note? is-bib?)))
-  ;;
-  (zt-format-debug "Debug:STUB:zt-make-href-note-for-hlink: ~s\n" lnk)
-  lnk)
-
 ;;; Debug: tid:10 len:190 cmdstr:"[\"Field_setText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\",\"\\\\textit{Statutes in derogation of
 ;;; common law not strictly construed --- Rules of equity prevail.}, Title 68, Chapter 3 § 2 (2014).\",false]]"
 ;;;
@@ -2066,17 +2079,30 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   (map (lambda (elt)
          (cons (make-regexp (car elt))
                (cdr elt)))
-       ;; use \abbr{v.} to make the space after the period be a small sized one.
-       '((" (v\\.?s?\\.?) "
+       '(("(¶)"
+          pre "\\ParagraphSignGlyph{}" post)
+         ("(§)"
+          pre "\\SectionSignGlyph{}" post)
+         ;; use \abbr{v.} to make the space after the period be a small sized one.
+         (" (v\\.?s?\\.?) "
           pre " \\abbr{v.} " post)
-         ("(U\\.S\\.C\\.)"
-          pre "\\abbr{" 1 "}" post)
+         ("(U\\.?S\\.?C\\.?)"
+          pre "\\abbr{U.S.C.}" post)
          ("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)"
+          pre "\\abbr{" 1 "}" post)
+         ("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.)"
           pre "\\abbr{" 1 "}" post)
          ;; ("<abbr>([^<]+)</abbr>"
          ;;  pre "\\abbr{" 1 "}" post)
+         ("(X-X-X([  ]?|\\hspace.[^}+].))"
+          pre post)
+         ("(([  ]?|\\hspace.[^}+].)\\(\\))"
+          pre post)
          )))
 
+;;; What this suggests the need for is a way to add new ones to it on-the-fly,
+;;; with no need to reload the editor extension. It might also be useful to
+;;; have something like the regexp-opt that there is in GNU Emacs.
 
 (define (zt-zotero-regex-transform str_text)
   (let loop ((text str_text)
@@ -2111,20 +2137,11 @@ including parentheses and <less> <gtr> around the link put there by some styles.
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t before: ~s\n" t)
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
       (let loop ((lt2 lt))
-        (let* ((lnk (and (pair? lt2) (car lt2))) ; lnk will be bool or tree
-               (is-hlink? (and lnk (tm-is? lnk 'hlink)))
-               (is-href? (or (and lnk (tm-is? lnk 'ztHref))
-                             (and lnk (tm-is? lnk 'href))
-                             (and lnk (tm-is? lnk 'hlink)
-                                  (string=? (tree->string (tree-ref lnk 0))
-                                            (tree->string (tree-ref lnk 1)))))))
+        (let ((lnk (and (pair? lt2) (car lt2)))) ; lnk will be bool or tree
           (cond
             ((null? lt2) #t)
-            ((and (or is-hlink? is-href?) (or is-note? is-bib?))
+            ((or is-note? is-bib?)
              (zt-move-link-to-own-line lnk)
-             (loop (cdr lt2)))
-            ((and is-hlink? (not (or is-note? is-bib?)))
-             (zt-make-href-note-for-hlink lnk)
              (loop (cdr lt2)))))))
     (tree-simplify t)
     (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
