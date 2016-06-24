@@ -1184,7 +1184,7 @@
                       (or (not t)
                           (and zt-new-fieldID
                                (string=? zt-new-fieldID
-                                         (zt-zfield-ID t))))))))))
+                                         (as-string (zt-zfield-ID t)))))))))))
     (zotero-write tid (safe-scm->json-string ret))))
 
 
