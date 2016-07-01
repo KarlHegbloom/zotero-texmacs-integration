@@ -2092,6 +2092,8 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           pre "\\ParagraphSignGlyph{}" post)
          ("(§)"
           pre "\\SectionSignGlyph{}" post)
+         ("(\\)\\.,)"
+          pre ")," post) ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation)
          ;; use \abbr{v.} to make the space after the period be a small sized one.
          (" (v\\.?s?\\.?) "
           pre " \\abbr{v.} " post)
