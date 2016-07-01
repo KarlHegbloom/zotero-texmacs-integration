@@ -1,3 +1,6 @@
+;;; coding: utf-8
+
+
 (texmacs-module (zotero-menu)
   (:use (zotero)))
 

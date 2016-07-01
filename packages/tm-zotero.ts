@@ -153,7 +153,7 @@
 
   \;
 
-  <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<hlink|<arg|display>|<arg|url>>>|<zt-footnote|<hlink|<arg|display>|<arg|url>>>><rsup|)>|<hlink|<arg|display>|<arg|url>>>>>
+  <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
 
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 

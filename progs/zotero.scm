@@ -1,6 +1,4 @@
-;;; -*- scheme -*-
-;;;
-;;; file-encoding: UTF-8
+;;; coding: utf-8
 ;;;
 ;;; MODULE      : zotero.scm
 ;;; DESCRIPTION : Zotero Connector Plugin
@@ -834,11 +832,19 @@
                    (set! wait 0)
                    (set! zotero-active? #f))
                   (#t
-                   (apply (eval ;; to get the function itself
-                           (string->symbol 
-                            (string-append "zotero-"
-                                           editCommand)))
-                          (cons tid args))
+                   ;;; Todo: Also need to trap the event where there's a syntax or other error in the zotero.scm program itself, and
+                   ;;; send the ERR: message back to Zotero, and set! zotero-active? #f, etc. in an attempt to make it more robust,
+                   ;;; so that Firefox and TeXmacs don't both have to be restarted when this program doesn't work right.
+                   (catch #t
+                     (lambda ()
+                       (apply (eval ;; to get the function itself
+                               (string->symbol 
+                                (string-append "zotero-"
+                                               editCommand)))
+                              (cons tid args)))
+                     (lambda args
+                       (zotero-write tid (scm->json-string "ERR: TODO: Unspecified Error Caught."))
+                       (set! zotero-active? #f)))
                    (set! counter 40)
                    (set! wait 10))))
               (begin
@@ -1905,9 +1911,12 @@
 ;;;     them, and when there is more than one, listing them each with a letter,
 ;;;     superscripted next to the corresponding hlink text. They are like
 ;;;     footnotes of the footnote or endnote, but not smaller text than
-;;;     already... but footnotesize is the same size as "smaller" so even when
-;;;     the link is wrapped with "smaller" it is the same size as the rest of
-;;;     the footnote, so it doesn't need a special case around it.
+;;;     already... but footnotesize is normally the same size as "small" so
+;;;     even when the link is wrapped with "small" it is the same size as the
+;;;     rest of the footnote, so it doesn't need a special case around it. In
+;;;     my legal-brief.ts style, there's an option to make the footnotes be the
+;;;     same font-size as the rest of the text. It's still good to make the
+;;;     URL's be small, so they fit on the page.
 ;;;
 ;;;
 ;;; * Inside running text
@@ -1972,7 +1981,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
            (tree-set! post-lnk-txt (stree->tree post-lnk-str))
            (tree-set! lnk (stree->tree
                            `(concat (next-line)
-                                    (smaller (concat "<less>" ,lnk "<gtr>"))))))
+                                    (small (concat "<less>" ,lnk "<gtr>"))))))
           ((or (and (string-suffix? "http://doi.org/"    pre-lnk-str) "http://doi.org/")
                (and (string-suffix? "http://dx.doi.org/" pre-lnk-str) "http://dx.doi.org/"))
            => (lambda (lnstr)
@@ -1984,9 +1993,9 @@ including parentheses and <less> <gtr> around the link put there by some styles.
                 (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
                 (tree-set! lnk (stree->tree
                                 `(concat (next-line)
-                                         (smaller (concat ,lnstr ,lnk)))))))
+                                         (small (concat ,lnstr ,lnk)))))))
           (#t
-           (tree-set! lnk (stree->tree `(concat (next-line) (smaller ,lnk))))))
+           (tree-set! lnk (stree->tree `(concat (next-line) (small ,lnk))))))
         (when (or (string-suffix? " " pre-lnk-str)
                   (string-suffix? " " pre-lnk-str))
           (set! pre-lnk-str (substring pre-lnk-str
