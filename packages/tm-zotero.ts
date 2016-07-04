@@ -223,8 +223,18 @@
     <\src-comment>
       The indent will be the same as that set by the firstLineIndent and
       bodyIndent.
+
+      So, maxoffset could be used, but I don't think I need to worry about
+      it. If it turns out to need it, I will deal with it then.
+
+      Remember that there might, eventually, be more than one zbibliography
+      field in a document.
     </src-comment>
   </active*>
+
+  <assign|XXXzt-max-offset|0tab>
+
+  <assign|XXXbeginZtTheBibliography|<macro|maxoffset|>>
 
   <assign|AAAzt-left-margin-extra-indent|0tmpt>
 
@@ -250,6 +260,11 @@
     </with>
   </macro>>
 
+  <assign|XXXendZtTheBibliography|<macro|>>
+
+  <assign|ztbibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
+  key))|<arg|key>>>>
+
   <\active*>
     <\src-comment>
       Fix-ups for default macros for displaying the bib-list.
@@ -257,16 +272,19 @@
 
       This is so that the same bbl outputFormat from Better BibTeX for Zotero
       can be used for LaTeX and for TeXmacs.
+
+      The macros it outputs can be defined in LaTeX such that they create a
+      normal thebibliography environment, etc.
     </src-comment>
   </active*>
 
   \;
 
-  <assign|thebibliography|<\macro|keywidth|body>
+  <assign|XXthebibliography|<\macro|keywidth|body>
     <arg|body>
   </macro>>
 
-  <assign|bibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
+  <assign|XXbibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
   key))|<arg|key>>>>
 
   <\active*>

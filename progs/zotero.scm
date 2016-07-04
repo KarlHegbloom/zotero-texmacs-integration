@@ -24,14 +24,22 @@
         ))
 
 
-;; (define orig-locale-LC_ALL (setlocale LC_ALL))
-;; (define orig-locale-LC_CTYPE (setlocale LC_CTYPE))
-;; (unless (string-suffix? ".UTF-8" orig-locale-LC_CTYPE)
-;;   (setlocale LC_CTYPE (string-append (substring orig-locale-LC_CTYPE
-;;                                                 0
-;;                                                 (string-index orig-locale-LC_CTYPE
-;;                                                               (string->char-set ".")))
-;;                                      ".UTF-8")))
+(cond-expand
+ (guile-2
+  ;; In guile2 I'll need to set the port encoding.  There's still the problem where the part of TeXmacs that converts LaTeX into
+  ;; TeXmacs assumes cork encoding rather than UTF-8. It may be what causes problems for things like the paragraphsign and
+  ;; sectionsign glyphs, among others. Setting the locale as seen here does not affect that part of TeXmacs. Perhaps it should?
+  ;; Right now it's using heuristics and assumptions.
+  )
+ (else
+  (define orig-locale-LC_ALL (setlocale LC_ALL))
+  (define orig-locale-LC_CTYPE (setlocale LC_CTYPE))
+  (unless (string-suffix? ".UTF-8" orig-locale-LC_CTYPE)
+    (setlocale LC_CTYPE (string-append (substring orig-locale-LC_CTYPE
+                                                  0
+                                                  (string-index orig-locale-LC_CTYPE
+                                                                (string->char-set ".")))
+                                       ".UTF-8")))))
 
 ;;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 (use-modules (json))
@@ -282,7 +290,11 @@
   ;; Q: What about "save-excursion" or "save-buffer-excursion"?
   ;; A: This is searching the document tree, not moving the cursor.
   ;;
-  (let ((all-fields (tm-search
+  ;; What if I copy and paste a zcite from one location to another? The
+  ;; zfield-ID of the second one will need to be updated.
+  ;;
+  (let ((fields-tmp-ht (make-hash-table))
+        (all-fields (tm-search
                      (buffer-tree)
                      (lambda (t)
                        (and (tree-in? t zt-zfield-tags)
@@ -291,7 +303,29 @@
                                   (string=? (as-string
                                              (zt-zfield-ID t))
                                             zt-new-fieldID))))))))
-    all-fields))
+    (let loop ((in all-fields)
+               (out '()))
+      (cond
+        ((null? in)
+         (hash-for-each (lambda (key val)
+                          (when (not (hash-ref fields-tmp-ht key #f))
+                            (hash-remove! zt-zfield-Code-cache key)))
+                        zt-zfield-Code-cache)
+         (reverse! out))
+        (else
+          ;; fixup in case of copy + paste of zcite by tracking each ID and when one
+          ;; is seen twice, change the second one.
+          (let ((id-t (zt-zfield-ID (car in)))
+                (new-id ""))
+            (if (hash-ref fields-tmp-ht (as-string id-t) #f)
+                (begin
+                  (set! new-id (zt-get-new-fieldID))
+                  (tree-set! id-t (stree->tree new-id))
+                  (hash-set! fields-tmp-ht new-id #t)
+                  (zt-get-zfield-Code-string (car in)));; caches zfield-Code
+                (hash-set! fields-tmp-ht (as-string id-t) #t))
+            (loop (cdr in) (cons (car in) out))))))))
+            
 
 
 
@@ -319,8 +353,6 @@
 ;;; actually delete the tag from the document, it does not need to delete it
 ;;; from the cache.
 ;;;
-;;; Also handle empty string for zotero-Field_removeCode.
-;;;
 ;;; Also: What happens when I manually delete a zcite tag? How do I maintain the
 ;;; fieldCode and field positions cache?
 ;;;
@@ -345,6 +377,8 @@
 ;;; It goes through here so that this can also be called from the
 ;;; Document_getFields...
 ;;;
+;;; Also handle empty string for zotero-Field_removeCode.
+;;;
 (tm-define (zt-parse-and-cache-zfield-Code field str_code)
   (let* ((id (as-string (zt-zfield-ID field)))
          (code (zt-zfield-Code field))
@@ -362,8 +396,12 @@
          "ERR:zt-parse-and-cache-zfield-Code: Invalid JSON? : ~s\n"
          (car scm-code))
         (noop)) ;; silent error?
-      (when scm-code
-        (hash-set! zt-zfield-Code-cache id scm-code)))))
+      (cond
+       ((or (string=? "" str_code); str_code => ""
+            (not str_code)); str_code => #f
+        (hash-remove! zt-zfield-Code-cache id))
+       (scm-code
+        (hash-set! zt-zfield-Code-cache id scm-code))))))
 
 
 (tm-define (zt-get-orig-zfield-Text field_or_id)
@@ -597,6 +635,17 @@
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+(define (close-zt-zotero-socket-port!)
+  (if (and (port? zt-zotero-socket-port)
+           (not (port-closed? zt-zotero-socket-port)))
+      (begin
+        (close-port zt-zotero-socket-port)
+        (set! zt-zotero-socket-port #f))))
+
+;;; Idempotency: If this is reloaded while TeXmacs is running, close the port on reload.
+(when (defined? 'zt-zotero-socket-port)
+  (close-port zt-zotero-socket-port))
+
 (define zt-zotero-socket-port #f)
 (define zt-zotero-socket-inet-texmacs-port-number 23117)
 (define zt-zotero-socket-inet-zotero-port-number 23116)
@@ -686,13 +735,6 @@
        "System Error in get-zt-zotero-socket-port!")
       #f)))
 
-
-(define (close-zt-zotero-socket-port!)
-  (if (and (port? zt-zotero-socket-port)
-           (not (port-closed? zt-zotero-socket-port)))
-      (begin
-        (close-port zt-zotero-socket-port)
-        (set! zt-zotero-socket-port #f))))
 
 
 (sigaction SIGPIPE (lambda (sig)
@@ -832,19 +874,29 @@
                    (set! wait 0)
                    (set! zotero-active? #f))
                   (#t
-                   ;;; Todo: Also need to trap the event where there's a syntax or other error in the zotero.scm program itself, and
-                   ;;; send the ERR: message back to Zotero, and set! zotero-active? #f, etc. in an attempt to make it more robust,
-                   ;;; so that Firefox and TeXmacs don't both have to be restarted when this program doesn't work right.
-                   (catch #t
-                     (lambda ()
+                   ;; Todo: This traps the event where there's a syntax or other error in the zotero.scm program itself, and send
+                   ;; the ERR: message back to Zotero, and set! zotero-active? #f, etc. in an attempt to make it more robust, so
+                   ;; that Firefox and TeXmacs don't both have to be restarted when this program doesn't work right?
+                   ;;
+                   ;; It did not work right. It just sits there and never prints the backtrace from the error to the terminal the
+                   ;; way I expect, and so I can't debug it. Also, sending that ERR did not cause Juris-M to put up a dialog or
+                   ;; anything so there's no indication of the error and the network protocol does not reset to the starting state
+                   ;; anyway. Maybe the error condition needs to be noted and then handled with the next start of a command, so
+                   ;; noted but zotero-active? left #t until after the error handling?
+                   ;;
+                   ;; JavaScript error: file:///home/karlheg/.mozilla/firefox/yj3luajv.default/extensions/jurismOpenOfficeIntegration@juris-m.github.io/components/zoteroOpenOfficeIntegration.js, line 323: TypeError: can't access dead object
+                   ;;
+                   ;(catch #t
+                     ;(lambda ()
                        (apply (eval ;; to get the function itself
                                (string->symbol 
                                 (string-append "zotero-"
                                                editCommand)))
-                              (cons tid args)))
-                     (lambda args
-                       (zotero-write tid (scm->json-string "ERR: TODO: Unspecified Error Caught."))
-                       (set! zotero-active? #f)))
+                              (cons tid args))
+                       ;)
+                     ;(lambda args
+                       ;(zotero-write tid (scm->json-string "ERR: TODO: Unspecified Error Caught."))
+                       ;(set! zotero-active? #f)))
                    (set! counter 40)
                    (set! wait 10))))
               (begin
@@ -1184,13 +1236,14 @@
               (not
                (and (in-text?)
                     (not (in-math?))
-                    (in-zfield?)
-                    (let ((t (focus-tree)))
-                      ;; (zt-format-debug "Debug:zotero-Document_canInsertField: (focus-tree) => ~s\n" t)
-                      (or (not t)
-                          (and zt-new-fieldID
-                               (string=? zt-new-fieldID
-                                         (as-string (zt-zfield-ID t)))))))))))
+                    (if (in-zfield?)
+                        (let ((t (focus-tree)))
+                          (zt-format-debug "Debug:zotero-Document_canInsertField:in-zfield? => #t, (focus-tree) => ~s\n" t)
+                          (or (and zt-new-fieldID
+                                   (string=? zt-new-fieldID
+                                             (as-string (zt-zfield-ID t))))
+                              #f))
+                        #t))))))
     (zotero-write tid (safe-scm->json-string ret))))
 
 
@@ -2088,12 +2141,18 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   (map (lambda (elt)
          (cons (make-regexp (car elt))
                (cdr elt)))
-       '(("(¶)"
+       '(("(\r\n)"
+          pre "\n" post);; The standard "integration.js" sends RTF, which uses \r\n pairs. Turn them to \n only.
+         ("(¶)"
           pre "\\ParagraphSignGlyph{}" post)
          ("(§)"
           pre "\\SectionSignGlyph{}" post)
-         ("(\\)\\.,)"
-          pre ")," post) ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation)
+         ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation) When a legal case is cited twice in a row
+         ;; in a citation cluster, they are collapsed into a parallel citation. With Indigobook, the in-text citation looks perfect,
+         ;; but for some reason the one in the bibliography has a ., between the two different reporters, rather than only a , so
+         ;; this hack cleans that up.
+         ("(\\.,)"
+          pre "," post)
          ;; use \abbr{v.} to make the space after the period be a small sized one.
          (" (v\\.?s?\\.?) "
           pre " \\abbr{v.} " post)
@@ -2101,13 +2160,19 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           pre "\\abbr{U.S.C.}" post)
          ("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)"
           pre "\\abbr{" 1 "}" post)
-         ("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.)"
+         ("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.|Sup\\.|Ct\\.|App\\.|U\\.)"
           pre "\\abbr{" 1 "}" post)
+         ("(L\\. Rev\\.)"
+          pre "\\abbr{L.} \\abbr{Rev.}" post)
+         ("([A-Z]\\.)([  ])"
+          pre "\\abbr{" 1 "}" 2 post)
          ;; ("<abbr>([^<]+)</abbr>"
          ;;  pre "\\abbr{" 1 "}" post)
          ("(X-X-X([  ]?|\\hspace.[^}+].))"
           pre post)
-         ("(([  ]?|\\hspace.[^}+].)\\(\\))"
+         ("(@#[0-9][0-9]#@)" ;; Categorized sort hack utilizing Juris-M abbrevs mechanism.
+          pre post)
+         ("(([  ]?|\\hspace.[^}+].)\\(\\)\\.?)" ;; empty parentheses and space before them, period or space after.
           pre post)
          )))
 
