@@ -34,7 +34,7 @@ How to get this up and running:
   * Use Firefox "about:config" to set: xpinstall.signatures.required
     to false. Alternatively, with Firefox not running, you can run:
 
-    echo 'user_pref("xpinstall.signatures.required", false);' >> prefs.js
+        echo 'user_pref("xpinstall.signatures.required", false);' >> prefs.js
     
     Make sure you use two ">" there, to append to the file, or you'll
     blow away your prefs.js. I recommend using about:config. The
@@ -57,17 +57,18 @@ How to get this up and running:
     source code directory and use a symlink from the TeXmacs
     directory:
 
-    cd ~/src
-    git clone https://github.com/KarlHegbloom/zotero-texmacs-integration.git
-    cd ~/.TeXmacs/plugins
-    ln -s ~/src/zotero-texmacs-integration zotero
+        cd ~/src;
+        git clone https://github.com/KarlHegbloom/zotero-texmacs-integration.git;
+        cd ~/.TeXmacs/plugins;
+        ln -s ~/src/zotero-texmacs-integration zotero;
     
     You could download a zip from github, but then you won't have the
     easy update functionality you get by using git. To update the code
     when I change it, you run:
     
-    cd ~/src/zotero-texmacs-integration
-    git pull
+ 
+        cd ~/src/zotero-texmacs-integration;
+        git pull;
     
     You may also need to update the propachi-texmacs from time to
     time. It does not presently upgrade automatically when I release a
