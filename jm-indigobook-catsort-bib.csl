@@ -1931,9 +1931,9 @@
       <else-if type="article-journal" match="any">
         <text value="05"/>
       </else-if>
-      <else-if type="chapter article-newspaper article-magazine" match="any">
-        <text value="06"/>
-      </else-if>
+      <!-- <else-if type="chapter article-newspaper article-magazine" match="any"> -->
+      <!--   <text value="06"/> -->
+      <!-- </else-if> -->
       <else>
         <text value="07"/>
       </else>
