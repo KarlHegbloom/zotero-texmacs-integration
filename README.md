@@ -91,6 +91,10 @@ hybrid LaTeX-like commands:
     
     \Cert-of-Service
 
+The jm-indigobook-catsort-bib.csl can be dropped onto Firefox from
+Nautilus or added using the Juris-M preferences dialog on the Cite |
+Styles tab. I'll add a sample document that uses it after a while.
+
 Please use the Github issue tracker to report any problems. That will
 assist me in not losing any trouble-tickets:
 
