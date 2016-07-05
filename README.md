@@ -2,231 +2,96 @@ Zotero - TeXmacs integration plugin and citation styles.
 ========================================================
 
 This is a work in progress, but it is working. I am now using it to
-write a document with. You must run it from a git clone for
-now. Instructions are below.
+write a document with.
 
-Not all of the CSL styles produce good results at this point. In
-particular, ones that display URL's are not quite right yet. I will
-work on that as time permits. For the time being, my primary focus is
-on having this work for jm-indigobook in-text legal citations, with a
-formatted bibliography at the end of the document. I need to write a
-couple of important lawsuits. I will keep track of the issue tracker,
-and try to fix things when requests come it, but be aware that it's
-secondary priority... though often a welcome break from the writing.
+How to get this up and running:
+-------------------------------
 
-NEWS
-----
-
-  * For best results, you need to install my monkey-patched
-    citeproc.js:
+  * Install a recent (development snapshot of) TeXmacs. This program
+    is untested with older versions of TeXmacs. If you can not build
+    your own copy or use the Ubuntu deb package of TeXmacs that I have
+    available, you'll have to use whatever version is available to
+    you... let me know if it works alright. I think it will be
+    compatible with the last official release version of TeXmacs, as
+    long as it's built with Guile 1.8. I doubt it will work with older
+    versions of Guile.
     
-    https://github.com/KarlHegbloom/propachi-texmacs/releases/
-
-    * It will only work when you have the settings shown below that
-      allow an unsigned plugin.
-      
-    * With propachi-texmacs, remove the git clone installs of Juris-M
-      and of Better BibTeX for Zotero. Install the release version of
-      Juris-M, but disable or uninstall Better BibTeX for Zotero for
-      the time being. It overrides the necessary support for TeXmacs
-      provided by the propachi-texmacs plugin.
-      
-    * On the bright side, you no longer need to run this from a git
-      clone. It can be installed by anyone in default Juris-M. Steps:
-      Install Juris-M, install propachi-texmacs, clone this
-      repository, symlink to it from ~/.TeXmacs/plugins, start
-      working.
-
-
-OLD NEWS (ignore below here for now; will rewrite later)
---------------------------------------------------------
-
-  * I had to change the outputFormat again. See below for how to run
-    Better BibTeX for Zotero from a git clone.
-
-
-  * The name of the branch of my clone of Juris-M / Zotero that you
-    need to checkout has changed. I've edited the instructions
-    below to reflect that. The branch is called:
+    https://github.com/KarlHegbloom/texmacs/releases
     
-    karlhegbloom-integration-for-texmacs
+    If you have trouble with one build, try an older one. I'll try and
+    keep them fresh and remove ones that are not working right. They
+    are reasonably stable, but under development right now.
+    
+    (We need somebody to build OS-X and Windows packages.)
+
+  * Install Juris-M from:
   
-  * (see above) Release 1.6.60 of Better BibTeX for Zotero is
-    out. This contains the necessary support for this TeXmacs
-    integration with Zotero.
-        
-  * The pull-request for my changes to Juris-M are under review.
+    https://juris-m.github.io
 
-----------------------------------------------------------------------
-
-Requirements
-------------
-
-  * **TeXmacs** <http://www.texmacs.org/>
-
-    * Pre-release snapshot builds: <https://github.com/KarlHegbloom/texmacs/releases>
-
-  * **Juris-M** <http://juris-m.github.io/>
-
-    * Until and unless they accept the modification that makes it
-      useable from TeXmacs, you'll need to run a patched copy of
-      Juris-M / Zotero. Instructions are below. I will maintain this
-      README file, and when they accept the patch, I'll note it
-      here. At that point, a new release of Juris-M or Zotero will
-      contain the modification that this connector for TeXmacs
-      requires.
-  
-    * You can see exactly what I've modified using the Github commit
-      viewer. You'll see that I've not monkeyed with anything that
-      might affect the integrity of your references collection.
+    * I've tested this with the Juris-M plugin in Firefox, but I think
+      it will work fine using the standalone version.
       
-    * I will try to be diligent with regards to keeping this up to
-      date relative to ongoing development of Juris-M.
-      
-  * **Better BibTeX for Zotero** <https://github.com/retorquere/zotero-better-bibtex/wiki/Installation>
-  
-    * I had to change the outputFormat again, so for a short time(?)
-      you will need to run from a github checkout of my fork of
-      Better BibTeX for Zotero. See instructions below.
+  * Use Firefox "about:config" to set: xpinstall.signatures.required
+    to false. Alternatively, with Firefox not running, you can run:
 
-    * OLD: (but will become new again, so leaving it here.)
-
-      * In order for the bbl output format to be defined, you must
-      install a recent release of Better BibTeX for Zotero. You'll
-      need at least version 1.6.60.
-      
-      * If you were running from a github checkout, then you can keep
-      using it if you like, or:
-
-
-    cd ~/.mozilla/firefox/*.default/extensions;
-    rm better-bibtex@iris-advies.com
-
-
-    * Now start Firefox and install the new version of Better BibTeX
-      for Zotero.
-
-Setup and Options
------------------
-
-Uninstall or move aside your presently installed Juris-M. First, close
-Firefox. Then:
-
-    cd ~/.mozilla/firefox/*.default/extensions
-    mkdir ~/saved
-    mv juris-m@juris-m.github.io* ~/saved
-    echo ~/src/zotero > juris-m@juris-m.github.io
-    mv better-bibtex@iris-advies.com* ~/saved
-    echo ~/src/zotero-better-bibtex > better-bibtex@iris-advies.com
-    cd ..
-    cp -p prefs.js prefs-SAVED.js
     echo 'user_pref("xpinstall.signatures.required", false);' >> prefs.js
-    echo 'user_pref("extensions.zotero.integration.outputFormat", "bbl");' >> prefs.js
-    echo 'user_pref("extensions.zotero.integration.maxmaxOffset", 16);' >> prefs.js
+    
+    Make sure you use two ">" there, to append to the file, or you'll
+    blow away your prefs.js. I recommend using about:config. The
+    reason for this is that this next part is not signed since I don't
+    know how to do that yet...
 
-Don't start Firefox yet. Next, clone the modified version of Juris-M:
+  * Install the propachi-texmacs xpi from:
+ 
+    https://github.com/KarlHegbloom/propachi-texmacs/releases
+    
+    This monkey-patch loads a citeproc into Juris-M that has the right
+    outputFormat defined for the TeXmacs integration. It also ensures
+    that the integration uses that outputFormat by monkey-patching
+    it. You can disable propachi-texmacs and restart Firefox or
+    Juris-M when you want to use the OpenOffice plugin instead of
+    TeXmacs... (as if, right?)
 
-    cd ~
-    mkdir src || true
-    cd ~/src
-    git clone https://github.com/KarlHegbloom/zotero.git
-    cd zotero
-    git checkout karlhegbloom-integration-for-texmacs
-    cd ..
-    git clone https://github.com/KarlHegbloom/zotero-better-bibtex.git
-    cd zotero-better-bibtex
-    git checkout KarlHegbloom-bbl-outputFormat
-    sudo date
-    bundle update
-    sudo -k
-    TRAVIS_PULL_REQUEST=false rake
-
-Starting Firefox should give you your normal Juris-M, and you should
-notice no changes (unless you try to use the LibreOffice connector
-without first setting the `extensions.zotero.integration.outputFormat`
-to "rtf"). (Later I will put a configuration panel onto the
-configuration dialog. That's slated for a future development
-iteration, pending acceptance of my patch to `integration.js`.)
-
-Now clone this repository, and then symlink to it from your TeXmacs
-home directory to enable it:
+  * Now clone this repository, and then symlink to it from your
+    TeXmacs home directory to enable it. I normally clone it into a
+    source code directory and use a symlink from the TeXmacs
+    directory:
 
     cd ~/src
     git clone https://github.com/KarlHegbloom/zotero-texmacs-integration.git
     cd ~/.TeXmacs/plugins
     ln -s ~/src/zotero-texmacs-integration zotero
+    
+    You could download a zip from github, but then you won't have the
+    easy update functionality you get by using git. To update the code
+    when I change it, you run:
+    
+    cd ~/src/zotero-texmacs-integration
+    git pull
+    
+    You may also need to update the propachi-texmacs from time to
+    time. It does not presently upgrade automatically when I release a
+    new version.
 
-Now when you start TeXmacs, it will find the style and the scheme
-program that makes it work. Start a new document, and add the
-`tm-zotero` package. A **Zotero** menu will appear on the TeXmacs menu
-bar. Try adding a citation. If I've done my job right, and you've
-followed the instructions correctly, it ought to work.
+
+Now when you start TeXmacs, it will be able to find the style and the
+scheme program that makes it work. Start a new document, and add the
+`tm-zotero` style package. (Document menu, or bottom left toolbar
+icons.) A **Zotero** menu will appear on the TeXmacs menu bar. Try
+adding a citation. If I've done my job right, and you've followed the
+instructions correctly, it ought to work.
+
+I've also included my `legal-brief` style for people to try. Open a
+new document, and set the main document style to that. Then try the
+hybrid LaTeX-like commands:
+
+    \Legal-Heading
+    
+    or
+    
+    \Cert-of-Service
 
 Please use the Github issue tracker to report any problems. That will
 assist me in not losing any trouble-tickets:
 
 <https://github.com/KarlHegbloom/zotero-texmacs-integration/issues>
-
-
-
-References
-----------
-
-  * <https://en.wikibooks.org/wiki/LaTeX/Bibliography_Management#Natbib>
-
-
-Todo
-----
-
-  * Setting: Zotero zcite and bibliograph by default in all new documents?
-  
-  * Any ideas?
-
-
-Extras
-------
-
-This package also contains a drop-in for `bibtex` that performs a
-`jsonrpc` call to a running **Juris-M** or **Zotero** with the
-**Better BibTeX for Zotero** plugin (extended with new methods for the
-purpose; pull request pending). Despite that I developed it with
-**TeXmacs** in mind, this utility will be generally useful as a
-drop-in replacement for `bibtex` to anyone using **LaTeX**. It parses
-a `.aux` file, uses `jsonrpc` to talk to the `schomd` interface of
-**Better BibTeX for Zotero** (extended to have a `.bbl` output form),
-and writes the `.bbl` file for **TeXmacs** or **LaTeX** to include.
-
-I think that in order to support in-text citation styles and create
-the actual in-text citations, that it will need to be able to print
-out **BibLaTeX** bbl files and be used with a **BibLaTeX** style, or
-else it will need to print out the stuff that **lexitex** needs. I
-have not studied that system. I'm working more with **TeXmacs** and so
-I will be focused on that more than on a drop-in for `bibtex`.
-
-
-Ideas
------
-
-*Haec verba* to case law citation in document tracking, so like when I
-reference a piece of caselaw, maybe highlight the citation and text
-around it, and execute a menu function, and have it put that as a note
-into zotero with this document's tag associated with it?
-
-In general, perhaps each document ought to have an entry in Zotero for
-the purpose of associating it with everything cited by it, for both
-semantic / searching and for reference / citation usage mapping?
-
-**Semantic Web** of documents? Explore: semantic mediawiki, org-mode,
-etc.
-
-For citations within a single document, I don't expect that there's
-ever going to be a need for more than one citation style per
-document. But some documents may want to have all of the citations in
-one big bibliography, and others might want a separate one for
-caselaw, perhaps broken down by jurisdiction according to some
-configurable grouping, and then journal articles, then textbooks,
-etc. The McGill style already sorts the bibliography according to
-that. I don't know (as of this writing) if the CSL citeproc produces
-sub-section headings or anything for that... So **support for multiple
-bibliographies or for classification-grouped ones**; per-chapter,
-per-document, footnote, endnote...
