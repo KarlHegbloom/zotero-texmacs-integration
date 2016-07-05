@@ -1821,9 +1821,8 @@
 
 ;;; Deletes a field from the document (both its code and its contents).
 ;;;
-;;; Note: I thought this should just remove the entire tag but IIRC it did not
-;;; work right. I think that Zotero expected to just clear the fields, leaving
-;;; the tag there for reuse? Need to look into this.
+;;; When I choose addCitation and then cancel without selecting one, it returns
+;;; and immediately calls this function.
 ;;;
 ;;; fieldID as originally returned by Document_cursorInField,
 ;;; Document_insertField, or Document_getFields.
@@ -1834,9 +1833,10 @@
   (let* ((field (zt-find-zfield fieldID))
          (code (zt-zfield-Code field))
          (text (zt-zfield-Text field)))
-    (tree-set! code "")
-    (zt-set-zfield-Code-from-string field "") ;; does not remove from document!
-    (tree-set! text ""))
+    ;; clear from zt-zfield-Code-cache via the function in case it needs to
+    ;; anything special later on.
+    (zt-set-zfield-Code-from-string field "")
+    (tree-set! field ""))
   (zotero-write tid (safe-scm->json-string '())))
 
 
@@ -2139,40 +2139,45 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 ;;;
 (define zt-zotero-regex-replace-clauses
   (map (lambda (elt)
-         (cons (make-regexp (car elt))
+         (cons (apply make-regexp `,(car elt))
                (cdr elt)))
-       '(("(\r\n)"
+       `((("(\r\n)")
           pre "\n" post);; The standard "integration.js" sends RTF, which uses \r\n pairs. Turn them to \n only.
-         ("(¶)"
+         (("(¶)")
           pre "\\ParagraphSignGlyph{}" post)
-         ("(§)"
+         (("(§)")
           pre "\\SectionSignGlyph{}" post)
          ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation) When a legal case is cited twice in a row
          ;; in a citation cluster, they are collapsed into a parallel citation. With Indigobook, the in-text citation looks perfect,
          ;; but for some reason the one in the bibliography has a ., between the two different reporters, rather than only a , so
          ;; this hack cleans that up.
-         ("(\\.,)"
+         (("(\\.,)")
           pre "," post)
          ;; use \abbr{v.} to make the space after the period be a small sized one.
-         (" (v\\.?s?\\.?) "
+         ((" (v\\.?s?\\.?) ")
           pre " \\abbr{v.} " post)
-         ("(U\\.?S\\.?C\\.?)"
+         (("(U\\.?S\\.?C\\.?)")
           pre "\\abbr{U.S.C.}" post)
-         ("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)"
+         (("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)")
           pre "\\abbr{" 1 "}" post)
-         ("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.|Sup\\.|Ct\\.|App\\.|U\\.)"
+         (("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.|Sup\\.|Ct\\.|App\\.|U\\.|Mass\\.|Const\\.|Art\\.)")
           pre "\\abbr{" 1 "}" post)
-         ("(L\\. Rev\\.)"
+         (("(L\\. Rev\\.)")
           pre "\\abbr{L.} \\abbr{Rev.}" post)
-         ("([A-Z]\\.)([  ])"
+         (("([A-Z]\\.)([  ])")
           pre "\\abbr{" 1 "}" 2 post)
          ;; ("<abbr>([^<]+)</abbr>"
          ;;  pre "\\abbr{" 1 "}" post)
-         ("(X-X-X([  ]?|\\hspace.[^}+].))"
+         (("([0-9][0-9]#@)") ;; Categorized sort hack utilizing Juris-M abbrevs mechanism.
           pre post)
-         ("(@#[0-9][0-9]#@)" ;; Categorized sort hack utilizing Juris-M abbrevs mechanism.
+         (("((.*)\\2X-X-X([  ]?|\\hspace.[^}+].))") ;; RepeatRepeatX-X-X to delete. Hopefully won't affect sort-order much.
           pre post)
-         ("(([  ]?|\\hspace.[^}+].)\\(\\)\\.?)" ;; empty parentheses and space before them, period or space after.
+         (("(X-X-X([  ]?|\\hspace.[^}+].))")
+          pre post)
+         ;; \\ztbibItemText{\\zbibCitationItemID{3573}\\ztbibitem{sys_id_3573}\\textit{03#@000000000@#\\ztbibSubHeading{United States Code}} (01#@US).}%
+         (("(.ztbibItemText.*000000000@#(.ztbibSubHeading.*})}.*\\.?}%)" ,regexp/newline)
+          pre 2 post) ;; Category heading dummy entries.
+         (("(([  ]?|\\hspace.[^}+].)\\(\\)\\.?)") ;; empty parentheses and space before them, period or space after.
           pre post)
          )))
 

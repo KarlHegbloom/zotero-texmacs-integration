@@ -265,6 +265,10 @@
   <assign|ztbibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
   key))|<arg|key>>>>
 
+  <assign|ztbibSubHeadingTextSize|1>
+
+  <assign|ztbibSubHeading|<macro|body|<with|font-family|rm|font-shape|right|font-series|bold|font-size|<value|ztbibSubHeadingTextSize>|<vspace*|0.5fn><arg|body>>>>
+
   <\active*>
     <\src-comment>
       Fix-ups for default macros for displaying the bib-list.
