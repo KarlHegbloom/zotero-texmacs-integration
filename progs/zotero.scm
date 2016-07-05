@@ -23,6 +23,7 @@
         ;; (convert rtf rtftm)
         ))
 
+(debug-set! stack 0)
 
 (cond-expand
  (guile-2
@@ -2205,10 +2206,12 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
   ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
   ;; strings in {\rtf ,Body}. This removes it when it has done that.
-  (let* ((str_text (zt-zotero-regex-transform
-                    (if (string-prefix? "{\\rtf " str_text)
-                        (substring str_text 6 (1- (string-length str_text)))
-                        str_text)))
+  (let* ((str_text (string-convert
+                    (zt-zotero-regex-transform
+                     (if (string-prefix? "{\\rtf " str_text)
+                         (substring str_text 6 (1- (string-length str_text)))
+                         str_text))
+                    "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
     (buffer-set-body b t)
@@ -2319,8 +2322,10 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   (let* ((field (zt-find-zfield fieldID)))
     (zotero-write tid
                   (safe-scm->json-string
-                   (format #f "~s" (tree->stree
-                                    (zt-zfield-Text field)))))))
+                   (string-convert
+                    (format #f "~s" (tree->stree
+                                     (zt-zfield-Text field)))
+                    "Cork" "UTF-8")))))
 
 
 
