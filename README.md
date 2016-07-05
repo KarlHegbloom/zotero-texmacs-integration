@@ -7,6 +7,8 @@ bit about what this is and how to use it:
 
 [Juris-M / Zotero and TeXmacs Integration Screencast 01](https://www.youtube.com/watch?v=4Ssik5qyt5w)
 
+RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/master/doc/tm-zotero-tutorial.en.pdf)
+
 How to get this up and running:
 -------------------------------
 
