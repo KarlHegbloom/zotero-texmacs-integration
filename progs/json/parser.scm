@@ -1,4 +1,5 @@
 ;;; coding: utf-8
+;;; ¶
 ;;; (json parser) --- Guile JSON implementation.
 
 ;; Copyright (C) 2013 Aleix Conchillo Flaque <aconchillo@gmail.com>
