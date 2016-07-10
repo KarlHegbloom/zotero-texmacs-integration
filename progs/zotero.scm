@@ -405,34 +405,69 @@
         (hash-set! zt-zfield-Code-cache id scm-code))))))
 
 
-(tm-define (zt-get-orig-zfield-Text field_or_id)
-  (let* ((id (or (and (string? field_or_id)
-                      field_or_id)
-                 (as-string
-                  (zt-zfield-ID field_or_id))))
-         (scm-code (hash-ref zt-zfield-Code-cache id #f))
-         (props (and scm-code
-                     (hash-ref scm-code "properties" #f)))
-         (plainCitation (and props
-                             (hash-ref props "plainCitation" #f))))
-    plainCitation))
+;;; Memoization cache for zt-ext-flag-if-modified, fieldID -> boolean-modified?
+;;;
+(define zt-zfield-modified?-cache (make-hash-table))
+(define zt-zfield-disactivated? (make-hash-table))
 
+(tm-define (zt-get-orig-zfield-Text fieldID-str)
+  (let ((scm-code (hash-ref zt-zfield-Code-cache fieldID-str #f)))
+    (let* ((scm-code (or scm-code
+                         ;; trigger parsing and caching of zfield-Code data.
+                         (and (zt-get-zfield-Code-string (zt-find-zfield fieldID-str))
+                              ;; access it.
+                              (hash-ref zt-zfield-Code-cache fieldID-str #f))))
+           (props (and scm-code
+                       (hash-ref scm-code "properties" #f)))
+           (plainCitation (and props
+                               (hash-ref props "plainCitation" #f))))
+      (zt-format-debug
+       "Debug:zt-get-orig-zfield-Text:fieldID-str:~s\n\nscm-code:~s\n\nprops:~s\n\nplainCitation:~s\n"
+       fieldID-str scm-code props plainCitation)
+      plainCitation)))
 
+(define (zt-set-zfield-modified?! fieldID-str)
+  (let* ((field (or (zt-find-zfield fieldID-str) #f))
+         (text (and field (format #f "~s" (tree->stree (zt-zfield-Text field)))))
+         (orig-text (and text (zt-get-orig-zfield-Text fieldID-str)))
+         (zfield-modified? (and text
+                                orig-text
+                                (not (string=? text orig-text)))))
+    (zt-format-debug
+     "Debug:zt-set-zfield-modified?!:fieldID-str:~s\n\ntext:~s\n\norig-text:~s\n\nzfield-modified?:~s\n"
+     fieldID-str text orig-text zfield-modified?)
+    (hash-set! zt-zfield-modified?-cache fieldID-str zfield-modified?)
+    zfield-modified?))
 
+(define (zt-zfield-modified?-or-undef fieldID-str)
+  (hash-ref zt-zfield-modified?-cache fieldID-str 'undef))
+
+;;; When the debug print statements are enabled and debugging is on, whenever I
+;;; type anything in the same paragraph right after a citation, this function
+;;; is run every time I press a key. So instead of it having to do all the work
+;;; every time, it needs to memoize the answer... The field can not be modified
+;;; unless the tag is disactivated first. This is good, since then the
+;;; deactivation of the tag can trigger clearing the memoized status for this
+;;; flag. So, see: notify-disactivated in this file.
+;;;
+;;; fieldID is handed in from the tm-zotero.ts and will be a tree. Also accept
+;;; a string.
+;;;
 (tm-define (zt-ext-flag-if-modified fieldID)
   (:secure)
-  (let* ((fieldID (as-string fieldID))
-         (field (zt-find-zfield fieldID))
-         (text (format #f "~s" (tree->stree (zt-zfield-Text field))))
-         (orig-text (zt-get-orig-zfield-Text fieldID)))
-    (if (and orig-text
-             (not (string=? text orig-text)))
-        (begin
-          (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
-          '(concat (flag "Modified!" "red")))
-        (begin
-          (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
-          '(concat (flag "Not Modified." "green"))))))
+  (let ((fieldID-str (as-string fieldID)))
+    (when (not (hash-ref zt-zfield-disactivated? fieldID-str #f))
+      (case (zt-zfield-modified?-or-undef fieldID-str)
+        ((undef)
+         (zt-format-debug "Debug:zt-ext-flag-if-modified:undef:~s\n" fieldID)
+         (zt-set-zfield-modified?! fieldID-str)
+         (zt-ext-flag-if-modified fieldID-str)) ;; tail-call
+        ((#t)
+         (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
+         '(concat (flag "Modified!" "red")))
+        ((#f)
+         (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
+         '(concat (flag "Not Modified." "green")))))))
 
 
 
@@ -1008,16 +1043,57 @@
 (tm-define (notify-activated t)
   (:require (and (in-tm-zotero-style?)
                  (in-zcite?)))
-  ;; do something when activating a tag that's just like
-  ;; using the menus or toolbar?
-  (zotero-refresh))
+  ;;
+  ;; When activating a zcite tag, call the same zotero-refresh called from the
+  ;; Zotero menu. This does not happen when the tag is initially inserted,
+  ;; since the LaTeX style hybrid shortcut command activates an insertion of
+  ;; the entire tag in already activated state. So this routine is only called
+  ;; on when the user has pressed Backspace or used the toolbar to disactivate
+  ;; the tag, potentially editted it's accessible fields (zcite-Text), and then
+  ;; re-activated it by pressing Enter or using the toolbar.
+  ;;
+  ;; If this routine is ever extended to do anything else special, consider
+  ;; whether that initial insertion of the citation should do that special
+  ;; thing as well.
+  ;;
+  ;; We only need to run the zotero-refresh when the contents of the zcite-Text
+  ;; have been hand-modified while the tag was in the disactive state.
+  ;;
+  (let ((fieldID-str (as-string (zt-zfield-ID t))))
+    (hash-remove! zt-zfield-disactivated? fieldID-str)
+    (when (case (zt-zfield-modified?-or-undef t)
+            ((undef)
+             (zt-set-zfield-modified?! fieldID-str)) ;; returns boolean
+            ((#t) #t)
+            ((#f) #f))
+      (zotero-refresh))))
                  
+
 (tm-define (notify-disactivated t)
   (:require (and (in-tm-zotero-style?)
                  (in-zcite?)))
-  ;; do something when activating a tag that's just like
-  ;; using the menus or toolbar.
-  (zotero-refresh))
+  (let ((fieldID-str (as-string (zt-zfield-ID t))))
+    (hash-set! zt-zfield-disactivated? fieldID-str #t)
+    ;;
+    ;; When the tag is disactivated, and the zcite-Text has not been modified
+    ;; from the original text that was set by Juris-M / Zotero, then this
+    ;; refresh will catch any modifications to the reference database made
+    ;; there. So if you modify the reference database item for the citation
+    ;; cluster of this zcite tag and disactivate the tag, you'll see the
+    ;; zcite-Text update.
+    ;;
+    (when (not (eq? #t (zt-zfield-modified?-or-undef fieldID-str)));; might be 'undef
+      (zotero-refresh))
+    ;;
+    ;; When the tag is disactivated, the user might hand-modify the
+    ;; zfield-Text. In that case, the flag must be turned red to make it
+    ;; visually apparent. The comparison is more expensive than the quick
+    ;; lookup of a boolean, so that status is cached, but cleared here when the
+    ;; tag is disactivated. It is done after the zotero-refresh since that will
+    ;; update the contents of unmodified zfield-Text when the reference
+    ;; database items for a zcite citation cluster have changed.
+    ;;
+    (hash-remove! zt-zfield-modified?-cache fieldID-str)))
 
 
 
@@ -1118,8 +1194,10 @@
 ;;   (list 'zbibliography))
 
 
+
 (define (zt-notify-debug-trace var val)
   (set! zt-debug-trace? (== val "on")))
+
 
 (define-preferences
   ("zt-debug-trace?" "off" zt-notify-debug-trace)
@@ -2309,6 +2387,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
          (is-bib? (zt-zfield-IsBib? field))
          (tmtext
           (zt-zotero-str_text->texmacs str_text is-note? is-bib?)))
+    (hash-remove! zt-zfield-modified?-cache fieldID)
     (tree-set! text tmtext))
   (zotero-write tid (safe-scm->json-string '())))
 

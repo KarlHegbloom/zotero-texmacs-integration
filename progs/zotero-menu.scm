@@ -15,7 +15,9 @@
 
   ;; ("Remove Codes" (zotero-removeCodes))
   ---
-  ("Set Document Prefs" (zotero-setDocPrefs)))
+  ("Set Document Prefs" (zotero-setDocPrefs))
+  ---
+  ("Debug: Protocol trace to stdout?" (toggle-preference "zt-debug-trace?")))
 
 
 ;; The tm-zotero.ts will load the zotero.scm module.
