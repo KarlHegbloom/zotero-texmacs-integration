@@ -179,11 +179,10 @@
     same source is cited twice in a row, most styles will return an
     <with|font-shape|italic|ibib> form. Some have a first-citation form as
     well as a hereinafter form. The <menu|Refresh> menu item will cause any
-    moved citations as well as the bibliography to be updated. A keyboard
-    shortcut for doing that is to use <key|Backspace> followed by <key|Enter>
-    to disactivate and then reactivate the tag, which will trigger the
-    refresh. The refresh is fairly efficient, selectively changing only the
-    few that must be changed.
+    moved citations as well as the bibliography to be updated. The refresh is
+    fairly efficient, selectively changing only the few that must be changed.
+    You may also use <key|M-C-r> (or <key|Esc C-r>) to call for the refresh
+    operation.
 
     <item>When the citation dialog is open, there is an <menu|Abbrevs> button
     available that will open up the abbreviation editor. There are some
@@ -294,7 +293,7 @@
     <ztbibSubHeading|United States Code>\ 
 
     <ztbibItemText|<zbibCitationItemID|3434><ztbibitem|sys<rsub|i>d<rsub|3>434><with|font-shape|italic|Definition
-    of \Pscheme or artifice to defraud,''> 18 <abbr|<abbr|U.>S.C.>>
+    of \0\0scheme or artifice to defraud,''> 18 <abbr|<abbr|U.>S.C.>>
 
     <ztbibSubHeading|Constitution of Utah>\ 
 
@@ -337,7 +336,7 @@
     <emdash> Determinations by court <emdash> Pretrial protective order>
     (2010).>
 
-    <ztbibSubHeading|Utah Rules of Criminal Procedure>\ 
+    <ztbibSubHeading|Utah Rules of Civil Procedure>\ 
 
     <ztbibItemText|<zbibCitationItemID|3461><ztbibitem|sys<rsub|i>d<rsub|3>461><with|font-shape|italic|URCrP
     7>, <with|font-shape|italic|Proceedings before a magistrate> (2014).>
@@ -622,12 +621,12 @@
     the Drug War Disappeared the Jury Trial (<abbr|Jan.> 15,
     2014),<next-line><small|<ztHref|http://www.outsidethebeltway.com/how-the-drug-war-disappeared-the-jury-trial/|http://www.outsidethebeltway.com/how-the-drug-war-disappeared-the-jury-trial/>>.>
 
-    <ztbibItemText|<zbibCitationItemID|2883><ztbibitem|sys<rsub|i>d<rsub|2>883><with|font-shape|small-caps|Wikipedia,
-    the free encyclopedia> <with|font-shape|italic|Self-fulfilling prophecy>
+    <ztbibItemText|<zbibCitationItemID|2883><ztbibitem|sys<rsub|i>d<rsub|2>883><with|font-shape|small-caps|Wikipedia>
+    <with|font-shape|italic|Self-fulfilling prophecy>
     (2015),<next-line><small|<ztHref|https://en.wikipedia.org/w/index.php?title=Self-fulfilling_prophecy&oldid=688780424|https://en.wikipedia.org/w/index.php?title=Self-fulfilling_prophecy&oldid=688780424>>.>
 
-    <ztbibItemText|<zbibCitationItemID|2962><ztbibitem|sys<rsub|i>d<rsub|2>962><with|font-shape|small-caps|Wikipedia,
-    the free encyclopedia> <with|font-shape|italic|Streetlight effect>
+    <ztbibItemText|<zbibCitationItemID|2962><ztbibitem|sys<rsub|i>d<rsub|2>962><with|font-shape|small-caps|Wikipedia>
+    <with|font-shape|italic|Streetlight effect>
     (2015),<next-line><small|<ztHref|https://en.wikipedia.org/w/index.php?title=Streetlight_effect&oldid=683183525|https://en.wikipedia.org/w/index.php?title=Streetlight_effect&oldid=683183525>>.>
 
     <ztbibItemText|<zbibCitationItemID|751><ztbibitem|sys<rsub|i>d<rsub|7>51>Teague
@@ -656,7 +655,7 @@
     <associate|zotero-BibliographyStyle_lineSpacing|1.0000>
     <associate|zotero-BibliographyStyle_tabStopCount|0>
     <associate|zotero-data-data-version|3>
-    <associate|zotero-data-zotero-version|4.0.29.10m85>
+    <associate|zotero-data-zotero-version|4.0.29.10m88alpha>
     <associate|zotero-pref-automaticJournalAbbreviations|true>
     <associate|zotero-pref-citationAffixes|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|>
     <associate|zotero-pref-citationLangPrefsInstitutions|orig>
@@ -678,13 +677,13 @@
     <associate|zotero-pref-projectName|>
     <associate|zotero-pref-storeReferences|true>
     <associate|zotero-pref-suppressTrailingPunctuation|false>
-    <associate|zotero-session-id|4QPCF5zW>
+    <associate|zotero-session-id|c8cbCZXT>
     <associate|zotero-style-bibliographyStyleHasBeenSet|1>
     <associate|zotero-style-hasBibliography|1>
     <associate|zotero-style-id|http://juris-m.github.io/styles/jm-indigobook-catsort-bib>
     <associate|zotero-style-locale|en-US>
     <associate|zoteroDocumentData|\<data data-version="3"
-    zotero-version="4.0.29.10m85"\>\<session id="4QPCF5zW"/\>\<style
+    zotero-version="4.0.29.10m88alpha"\>\<session id="c8cbCZXT"/\>\<style
     id="http://juris-m.github.io/styles/jm-indigobook-catsort-bib"
     locale="en-US" hasBibliography="1" bibliographyStyleHasBeenSet="1"/\>\<prefs\>\<pref
     name="citationTransliteration" value="en"/\>\<pref

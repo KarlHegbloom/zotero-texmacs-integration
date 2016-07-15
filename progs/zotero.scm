@@ -913,6 +913,7 @@
                    (set! counter 40)
                    (set! wait 10)) ;; keep listening
                   ((string=? editCommand "Document_complete")
+                   (set-message "Zotero Document_complete." "Zotero integration")
                    (zotero-write tid (scm->json-string '()))
                    ;;(close-zt-zotero-socket-port!)
                    (set! wait 0)
@@ -962,6 +963,8 @@
 ;;;
 (define (zt-call-zotero-integration-command cmd)
   (when (not zotero-active?) ;; one at a time only
+    (set-message (string-append "Calling Zotero integration command: " cmd)
+                 "Zotero Integration")
     (let ((zp (get-zt-zotero-socket-port!)))
       (if (and (port? zp)
                (catch 'system-error
@@ -1051,6 +1054,7 @@
 (tm-define (notify-activated t)
   (:require (and (in-tm-zotero-style?)
                  (in-zcite?)))
+  (set-temporary-message "zcite activated." "Zotero Integration" 2500)
   ;;
   ;; When activating a zcite tag, call the same zotero-refresh called from the
   ;; Zotero menu. This does not happen when the tag is initially inserted,
@@ -1080,6 +1084,7 @@
 (tm-define (notify-disactivated t)
   (:require (and (in-tm-zotero-style?)
                  (in-zcite?)))
+  (set-temporary-message "zcite disactivated." "Zotero integration" 2500)
   (let ((fieldID-str (as-string (zt-zfield-ID t))))
     (hash-set! zt-zfield-disactivated? fieldID-str #t)
     ;;
@@ -1204,6 +1209,8 @@
 
 
 (define (zt-notify-debug-trace var val)
+  (set-message (string-append "zt-debug-trace? set to " val)
+               "Zotero integration")
   (set! zt-debug-trace? (== val "on")))
 
 
@@ -1245,6 +1252,7 @@
 ;;; ["Application_getActiveDocument", [int_protocolVersion]] -> [int_protocolVersion, documentID]
 ;;;
 (tm-define (zotero-Application_getActiveDocument tid pv)
+  (set-temporary-message "Zotero Application_getActiveDocument..." "Zotero integration" 2500)
   (zotero-write tid (safe-scm->json-string (list pv (zt-get-DocumentID)))))
 
 
@@ -1300,6 +1308,7 @@
 ;;; ["Document_displayAlert", [documentID, str_dialogText, int_icon, int_buttons]] -> int_button_pressed
 ;;;
 (tm-define (zotero-Document_displayAlert tid documentID str_dialogText int_icon int_buttons)
+  (set-temporary-message "Zotero Document_displayAlert..." "Zotero integration" 2500)
   (dialogue-window (zotero-display-alert documentID str_dialogText int_icon int_buttons)
                    (lambda (val)
                      (zotero-write tid (safe-scm->json-string val)))
@@ -1311,6 +1320,7 @@
 ;;; ["Document_activate", [documentID]] -> null
 ;;;
 (tm-define (zotero-Document_activate tid documentID)
+  (set-temporary-message "Zotero Document_activate..." "Zotero integration" 2500)
   (zotero-write tid (safe-scm->json-string '())))
 
 
@@ -1319,6 +1329,7 @@
 ;;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
 ;;;
 (tm-define (zotero-Document_canInsertField tid documentID str_fieldType)
+  (set-temporary-message "Zotero Document_canInsertField..." "Zotero integration" 2500)
   (let ((ret (not
               (not
                (and (in-text?)
@@ -1340,6 +1351,7 @@
 ;;; ["Document_getDocumentData", [documentID]] -> str_dataString
 ;;;
 (tm-define (zotero-Document_getDocumentData tid documentID)
+  (set-temporary-message "Zotero Document_getDocumentData..." "Zotero integration" 2500)
   (zotero-write tid (safe-scm->json-string (zt-get-DocumentData documentID))))
 
 
@@ -1350,6 +1362,7 @@
 ;;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
 ;;;
 (tm-define (zotero-Document_setDocumentData tid documentID str_dataString)
+  (set-temporary-message "Zotero Document_setDocumentData..." "Zotero integration" 2500)
   (zt-set-DocumentData documentID str_dataString)
   (zotero-write tid (safe-scm->json-string '())))
 
@@ -1369,6 +1382,7 @@
 ;;; ["Document_cursorInField", [documentID, str_fieldType]] -> null || [fieldID, fieldCode, int_noteIndex]
 ;;;
 (tm-define (zotero-Document_cursorInField tid documentID str_fieldType)
+  (set-temporary-message "Zotero Document_cursorInField..." "Zotero integration" 2500)
   (let ((ret
          (if (in-zfield?)
              (begin
@@ -1401,6 +1415,7 @@
 ;;; Ignore: str_fieldType
 ;;;
 (tm-define (zotero-Document_insertField tid documentID str_fieldType int_noteType)
+  (set-temporary-message "Zotero Document_insertField..." "Zotero integration" 2500)
   (let ((field (zt-find-zfield zt-new-fieldID))
         (id zt-new-fieldID))
     (set! zt-new-fieldID #f)
@@ -1435,6 +1450,7 @@
 ;;; that the BIBL field is also sent as one of the fields in this list.
 ;;;
 (tm-define (zotero-Document_getFields tid documentID str_fieldType)
+  (set-temporary-message "Zotero Document_getFields..." "Zotero integration" 2500)
   (let ((ret
          (let loop ((zcite-fields (zt-get-zfields-list
                                    documentID str_fieldType))
@@ -1464,6 +1480,7 @@
 ;;; Maybe we could repurpose this for TeXmacs?  Better to make a new flag; and just ignore this one.
 ;;;
 (tm-define (zotero-Document_convert tid . args)
+  (set-temporary-message "Zotero Document_convert..." "Zotero integration" 2500)
   (zotero-write tid (safe-scm->json-string '())))
 
 
@@ -1864,6 +1881,7 @@
             firstLineIndent bodyIndent
             lineSpacing entrySpacing
             arrayList tabStopCount)
+  (set-temporary-message "Zotero Document_setBibliographyStyle..." "Zotero integration" 2500)
   (set-init-env "zotero-BibliographyStyle_firstLineIndent"
                 (zt-zotero-firstLineIndent->tmlen firstLineIndent))
   (set-init-env "zotero-BibliographyStyle_bodyIndent"
@@ -1885,6 +1903,7 @@
 ;;; connector. It appears to do nothing there either.
 ;;;
 (tm-define (zotero-Document_cleanup tid documentID)
+  (set-temporary-message "Zotero Document_cleanup..." "Zotero integration" 2500)
   (zt-format-debug "Debug:STUB:zotero-Document_cleanup: ~s\n" documentID)
   (zotero-write tid (safe-scm->json-string '())))
   
@@ -1917,6 +1936,7 @@
 ;;; ["Field_delete", [documentID, fieldID]] -> null
 ;;;
 (tm-define (zotero-Field_delete tid documentID fieldID)
+  (set-temporary-message "Zotero Field_delete..." "Zotero integration" 2500)
   (let* ((field (zt-find-zfield fieldID))
          (code (zt-zfield-Code field))
          (text (zt-zfield-Text field)))
@@ -1937,6 +1957,7 @@
 ;;; light blue box, after it.... (writing this comment prior to testing. FLW.)
 ;;;
 (tm-define (zotero-Field_select tid documentID fieldID)
+  (set-temporary-message "Zotero Field_select..." "Zotero integration" 2500)
   (zt-go-to-zfield documentID fieldID)
   (zotero-write tid (safe-scm->json-string '())))
 
@@ -1946,6 +1967,7 @@
 ;;; ["Field_removeCode", [documentID, fieldID]] -> null
 ;;;
 (tm-define (zotero-Field_removeCode tid documentID fieldID)
+  (set-temporary-message "Zotero Field_removeCode..." "Zotero integration" 2500)
   (let* ((field (zt-find-zfield fieldID))
          (code (zt-zfield-Code field)))
     (tree-set! code ""))
@@ -2409,6 +2431,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 ;;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;;
 (tm-define (zotero-Field_setText tid documentID fieldID str_text isRich)
+  (set-temporary-message "Zotero Field_setText..." "Zotero integration" 2500)
   (let* ((field   (zt-find-zfield fieldID)) ;; zcite tree
          (text    (zt-zfield-Text field)) ;; string
          (is-note? (zt-zfield-IsNote? field))
@@ -2426,6 +2449,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 ;;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;;
 (tm-define (zotero-Field_getText tid documentID fieldID)
+  (set-temporary-message "Zotero Field_getText..." "Zotero integration" 2500)
   (let* ((field (zt-find-zfield fieldID)))
     (zotero-write tid
                   (safe-scm->json-string
@@ -2441,6 +2465,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 ;;; ["Field_setCode", [documentID, fieldID, str_code]] -> null
 ;;;
 (tm-define (zotero-Field_setCode tid documentID fieldID str_code)
+  (set-temporary-message "Zotero Field_setCode..." "Zotero integration" 2500)
   (let* ((field (zt-find-zfield fieldID)))
     (zt-set-zfield-Code-from-string field str_code))
   (zotero-write tid (safe-scm->json-string '())))
@@ -2452,6 +2477,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 ;;; ["Field_getCode", [documentID, fieldID]] -> str_code
 ;;;
 (tm-define (zotero-Field_getCode tid documentID fieldID)
+  (set-temporary-message "Zotero Field_getCode..." "Zotero integration" 2500)
   (let* ((field (zt-find-zfield fieldID)))
     (zotero-write tid (zt-get-zfield-Code-string field))))
 
@@ -2464,6 +2490,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 ;;;
 (tm-define (zotero-Field_convert tid documentID
                                  fieldID str_fieldType int_noteType)
+  (set-temporary-message "Zotero Field_convert..." "Zotero integration" 2500)
   (zt-format-debug "Debug:STUB:zotero-Field_convert: ~s ~s ~s ~s\n"
                    documentID fieldID
                    str_fieldType int_noteType)

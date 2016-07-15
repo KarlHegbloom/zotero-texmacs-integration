@@ -24,6 +24,10 @@
   ("zbibliography" "Insert Zotero Bibliography"
    (when (in-tm-zotero-style?) (zotero-addBibliography))))
 
+(kbd-map
+ (:mode in-tm-zotero-style?)
+ ("M-C-r" (zotero-refresh)))
+
 
 ;; (tm-define (kbd-tab)
 ;;   (:require (in-tm-zotero-style?))
