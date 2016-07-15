@@ -679,8 +679,16 @@
         (set! zt-zotero-socket-port #f))))
 
 ;;; Idempotency: If this is reloaded while TeXmacs is running, close the port on reload.
-(when (defined? 'zt-zotero-socket-port)
-  (close-port zt-zotero-socket-port))
+;;; I often reload this file during development by having developer-mode turned on:
+;;; (set! developer-mode? #t) is in ~/.TeXmacs/progs/my-init-texmacs.scm
+;;; and then using the Debug -> Execute -> Evaluate scheme expression... menu to execute:
+;;; (load-from-path "zotero.scm")
+;;;
+(when (and (defined? 'zt-zotero-socket-port)
+           (port? zt-zotero-socket-port)
+           (not (port-closed? zt-zotero-socket-port)))
+  (close-port zt-zotero-socket-port) ;; free the IP port for re-use
+  (set! zt-zotero-socket-port #f))   ;; should allow gc of the port object now.
 
 (define zt-zotero-socket-port #f)
 (define zt-zotero-socket-inet-texmacs-port-number 23117)
@@ -2220,6 +2228,10 @@ including parentheses and <less> <gtr> around the link put there by some styles.
   (map (lambda (elt)
          (cons (apply make-regexp `,(car elt))
                (cdr elt)))
+       ;;
+       ;; Remember that these execute one after the next, and are applied using regexp-substitute/global, so they must contain
+       ;; 'post' as an element in order to have them work on the entire string.
+       ;;
        `((("(\r\n)")
           pre "\n" post);; The standard "integration.js" sends RTF, which uses \r\n pairs. Turn them to \n only.
          (("(¶)")
@@ -2245,9 +2257,22 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           pre "\\abbr{L.} \\abbr{Rev.}" post)
          (("([A-Z]\\.)([  ])")
           pre "\\abbr{" 1 "}" 2 post)
-         ;; ("<abbr>([^<]+)</abbr>"
-         ;;  pre "\\abbr{" 1 "}" post)
-         (("([0-9][0-9]#@)") ;; Categorized sort hack utilizing Juris-M abbrevs mechanism.
+         ;;
+         ;; Categorized sort hack utilizing Juris-M abbrevs mechanism. 03#@18#@00241#@
+         ;; (for Title 18 U.S.C. §241, where federal laws are the 03'd category in the larger category of items of type "statute")
+         ;;
+         ;; For: Privacy and civil liberties officers, Title 42 U.S.C. §2000ee-1
+         ;; Title: 03#@42#@02000ee1#@Privacy and civil liberties officers.
+         ;;
+         ;; Perhaps ideally the CSL should sort them according to a special sort macro designed for sorting the USC laws into the
+         ;; correct order, and then the Juris-M / Zotero user interface ought to be able to sort them in the same order. But for
+         ;; now, it doesn't do that, but this makes sorting them by title group them together and in the expected (defined) order.
+         ;;
+         ;; All this does is strip the prefix off of the title of the item, so the prefix is used for sorting, in both the
+         ;; user-interface and bibliography, but not for rendering the citation. It of course assumes that normally titles don't
+         ;; contain strings that match this pattern.
+         ;;
+         (("([0-9][0-9a-zA-Z]+#@)")
           pre post)
          (("((.*)\\2X-X-X([  ]?|\\hspace.[^}+].))") ;; RepeatRepeatX-X-X to delete. Hopefully won't affect sort-order much.
           pre post)
@@ -2259,6 +2284,9 @@ including parentheses and <less> <gtr> around the link put there by some styles.
          (("(([  ]?|\\hspace.[^}+].)\\(\\)\\.?)") ;; empty parentheses and space before them, period or space after.
           pre post)
          )))
+
+         ;; ("<abbr>([^<]+)</abbr>"
+         ;;  pre "\\abbr{" 1 "}" post)
 
 ;;; What this suggests the need for is a way to add new ones to it on-the-fly,
 ;;; with no need to reload the editor extension. It might also be useful to
