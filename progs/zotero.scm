@@ -1,4 +1,5 @@
 ;;; coding: utf-8
+;;; ✠ ✞ ♼ ☮ ☯ ☭ ☺
 ;;;
 ;;; MODULE      : zotero.scm
 ;;; DESCRIPTION : Zotero Connector Plugin
@@ -19,28 +20,38 @@
         (generic generic-edit)
         (generic format-edit)
         (generic document-edit)
-        (convert tools sxml)
-        ;; (convert rtf rtftm)
-        ))
+        (convert tools sxml)))
 
+;;; With a very large bibliography, I had it stop with a Guile stack overflow. The manual for Guile-2.2 says that they've fixed the
+;;; problem by making the stack dynamically extendable... but I think that this may still be required then because it's a setting
+;;; designed more for checking programs that recurse "too deeply" rather than to guard against actual stack overflow.
+;;;
+;;; When it happened, it was not a crash, but instead was something inside of Guile-1.8 counting the stack depth, and throwing an
+;;; error when the depth went past some default limit. Setting this to 0 removes the limit, and so if it runs out of stack this
+;;; time, expect an operating system level crash or something... It depends on how the Scheme stack is allocated, and perhaps on
+;;; per-user ulimit settings. (On Ubuntu, see: /etc/security/limits.conf owned by the libpam-modules package.) I don't know if
+;;; ulimit settings affect available stack depth in this program. If you have a very large bibliography and it crashes TeXmacs, try
+;;; extending your ulimit stack or heap limits.
+;;;
 (debug-set! stack 0)
 
 (cond-expand
  (guile-2
-  ;; In guile2 I'll need to set the port encoding.  There's still the problem where the part of TeXmacs that converts LaTeX into
-  ;; TeXmacs assumes cork encoding rather than UTF-8. It may be what causes problems for things like the paragraphsign and
-  ;; sectionsign glyphs, among others. Setting the locale as seen here does not affect that part of TeXmacs. Perhaps it should?
-  ;; Right now it's using heuristics and assumptions.
+  ;; In guile2 I think I'll need to set the port encoding.  There's still the problem where the part of TeXmacs that converts LaTeX
+  ;; into TeXmacs assumes cork encoding rather than UTF-8. That is solved by using string-convert.
   )
  (else
-  (define orig-locale-LC_ALL (setlocale LC_ALL))
-  (define orig-locale-LC_CTYPE (setlocale LC_CTYPE))
-  (unless (string-suffix? ".UTF-8" orig-locale-LC_CTYPE)
-    (setlocale LC_CTYPE (string-append (substring orig-locale-LC_CTYPE
-                                                  0
-                                                  (string-index orig-locale-LC_CTYPE
-                                                                (string->char-set ".")))
-                                       ".UTF-8")))))
+   ;; My personal locale was already set to a UTF-8 one, and everything worked fine. The socket read and write routines are using u8
+   ;; vectors, and so it ought to be fine with any encoding, since it's not trying to do any conversions at that layer. Just to be
+   ;; sure though, I'm setting this here. If it causes problems for anyone, send me a github issue ticket.
+   (define orig-locale-LC_ALL (setlocale LC_ALL))
+   (define orig-locale-LC_CTYPE (setlocale LC_CTYPE))
+   (unless (string-suffix? ".UTF-8" orig-locale-LC_CTYPE)
+     (setlocale LC_CTYPE (string-append (substring orig-locale-LC_CTYPE
+                                                   0
+                                                   (string-index orig-locale-LC_CTYPE
+                                                                 (string->char-set ".")))
+                                        ".UTF-8")))))
 
 ;;; Ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
 (use-modules (json))
@@ -304,6 +315,9 @@
                                   (string=? (as-string
                                              (zt-zfield-ID t))
                                             zt-new-fieldID))))))))
+    
+    (set! zt-zfield-Code-cache (make-ahash-table))
+
     (let loop ((in all-fields)
                (out '()))
       (cond
@@ -325,7 +339,11 @@
                   (hash-set! fields-tmp-ht new-id #t)
                   (zt-get-zfield-Code-string (car in)));; caches zfield-Code
                 (hash-set! fields-tmp-ht (as-string id-t) #t))
-            (loop (cdr in) (cons (car in) out))))))))
+            (loop (cdr in) (cons
+                            (begin
+                              (zt-get-zfield-Code-string (car in));; caches zfield-Code
+                              (car in))
+                            out))))))))
             
 
 
@@ -344,7 +362,7 @@
   (let ((id (as-string (zt-zfield-ID field)))
         (str_code (as-string (zt-zfield-Code field))))
     ;; So that Document_getFields causes this to happen.
-    (when (and (not (ahash-ref zt-zfield-Code-cache id #f))
+    (when (and (not (hash-ref zt-zfield-Code-cache id #f))
                (not (and zt-new-fieldID
                          (string=? zt-new-fieldID id))))
       (zt-parse-and-cache-zfield-Code field str_code))
@@ -405,6 +423,157 @@
         (hash-set! zt-zfield-Code-cache id scm-code))))))
 
 
+(tm-define (zt-get-zfield-Code-cache-ht-by-fieldID fieldIDstr)
+  (hash-ref zt-zfield-Code-cache fieldIDstr #f))
+
+;;(tm-define (zt-get-zfield-Code-cache-
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; zt-ztbibItemRefs, \ztHrefFromCiteToBib{#zbibSysID1234}{text}
+;;;
+;;; List of refs / pagerefs to referring citations for the end of each
+;;; bibliography entry. Compute them once, memoized, and so when the
+;;; in-document tag is actually expanded, the operation is a fast hashtable
+;;; lookup returning the pre-computed 'concat tree. The typesetter is run very
+;;; often while using TeXmacs, and so if the full computation had to be run
+;;; each time the tag is re-typeset (e.g. the user is typing on the page just
+;;; above the zbibliography) it would be very slow.
+;;;
+;;;
+(define zt-ztbibItemRefs-ht (make-ahash-table))
+
+(define (zt-ztbibItemRefs-ht-reset!)
+  (set! zt-ztbibItemRefs-ht (make-ahash-table)))
+
+
+
+;;;
+;;; Returns list of trees that are like:
+;;;                        "zciteBibLabel" "displayed text"
+;;;  '(ztHrefFromCiteToBib "#zbibSysID696" "text")
+;;;
+(define (zt-ztbibItemRefs-get-all-refs)
+  (let ((refs (tm-search-tag (buffer-tree) 'ztHrefFromCiteToBib)))
+    (zt-format-debug "zt-ztbibItemRefs-get-all-refs:refs: ~S\n" (map tree->stree refs))
+    refs))
+
+
+
+;;;
+;;; In each of the following, t is an element of the list returned by
+;;; zt-ztbibItemRefs-get-all-refs and so it is a tree like
+;;; '(ztHrefFromCiteToBib "#zbibSysID696" "text").
+;;;
+(define (zt-ztbibItemRefs-get-zciteBibLabel t)
+  (as-string (tree-ref t 0)))
+
+
+;;;
+;;; Typically, this will be 1 to 4 characters of text without any special
+;;; formatting inside of it. (Formatting may surround this chunk, but inside of
+;;; it, there's not anything expected but an atomic string.
+;;;
+(define (zt-ztbibItemRefs-get-ztHrefFromCiteToBib-text t)
+  (as-string (tree-ref t 1)))
+
+
+
+(define zt-ztbibItemRefs-prefix-len (string-length "#zbibSysID"))
+;;;
+;;; This will be the hash key since the sysID is what's known to the macro
+;;; being expanded after the end of each bibliography entry.
+;;;
+(define (zt-ztbibItemRefs-get-subcite-sysID t)
+  (substring (zt-ztbibItemRefs-get-zciteBibLabel t)
+             zt-ztbibItemRefs-prefix-len))
+
+
+(define (zt-ztbibItemRefs-get-zfieldID t)
+  (let loop ((t t))
+    (cond
+      ((eqv? t #f) "")
+      ((tree-func? t 'zcite) (as-string (zt-zfield-ID t)))
+      (else (loop (tree-outer t))))))
+
+
+
+(define (zt-ztbibItemRefs-get-target-label t)
+  (string-concatenate/shared
+   (list "zciteID"
+         (zt-ztbibItemRefs-get-zfieldID t)
+         (zt-ztbibItemRefs-get-zciteBibLabel t))))
+
+
+(define (zt-ztbibItemRefs-cache-1-zbibItemRef t)
+  (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
+         (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
+         (new (and key `((hlink
+                          ,(list 'pageref (zt-ztbibItemRefs-get-target-label t))
+                          ,(string-concatenate/shared
+                            (list "#" (zt-ztbibItemRefs-get-target-label t))))))))
+    (hash-set! zt-ztbibItemRefs-ht key (append lst new))))
+
+
+
+(define (zt-ztbibItemRefs-to-tree key)
+  (let* ((lst (hash-ref zt-ztbibItemRefs-ht key #f))
+         (first-item #t)
+         (comma-sep (and lst
+                         (apply append
+                                (map (lambda (elt)
+                                       (if first-item
+                                           (begin
+                                             (set! first-item #f)
+                                             (list elt))
+                                           (begin
+                                             (list ", " elt))))
+                                     lst))))
+         (t (stree->tree (or (and comma-sep `(concat " [" ,@comma-sep "]"))
+                             '(concat "")))))
+    (zt-format-debug "zt-ztbibItemRefs-to-tree:lst: ~S\n" lst)
+    (zt-format-debug "zt-ztbibItemRefs-to-tree:comma-sep: ~S\n" lst)
+    (zt-format-debug "zt-ztbibItemRefs-to-tree:t: ~S\n" (tree->stree t))
+    t))
+
+
+
+(define (zt-ztbibItemRefs-parse-all)
+  ;; find all citations that reference sysID, list their pagerefs here.
+  (zt-ztbibItemRefs-ht-reset!)
+  (map zt-ztbibItemRefs-cache-1-zbibItemRef (zt-ztbibItemRefs-get-all-refs))
+  (let ((keys '()))
+    (hash-for-each (lambda (key val)
+                     (when (not (string-suffix? "-t" (as-string key)))
+                       (set! keys (append keys (list (as-string key))))))
+                   zt-ztbibItemRefs-ht)
+    (zt-format-debug "zt-ztbibItemRefs-parse-all:keys: ~S\n" keys)
+    (let loop ((keys keys))
+      (cond
+        ((null? keys) #t)
+        (else
+          (hash-set! zt-ztbibItemRefs-ht
+                     (string-concatenate/shared (list (car keys) "-t"))
+                     (zt-ztbibItemRefs-to-tree (car keys)))
+          (loop (cdr keys)))))))
+
+
+
+
+(tm-define (zt-ext-ztbibItemRefsList sysID)
+  (:secure)
+  (let* ((sysID (as-string sysID))
+         (key-t (string-concatenate/shared (list sysID "-t"))))
+    (cond
+      ((hash-ref zt-ztbibItemRefs-ht key-t #f) => identity)
+    (else
+      (zt-ztbibItemRefs-parse-all)
+      (hash-ref zt-ztbibItemRefs-ht key-t (stree->tree '(concat "")))))))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; Memoization cache for zt-ext-flag-if-modified, fieldID -> boolean-modified?
 ;;;
 (define zt-zfield-modified?-cache (make-hash-table))
@@ -514,9 +683,10 @@
 ;;; word or two, or obtain semantic information from either the fieldCode JSON
 ;;; object (with the 
 ;;;
-(tm-define (zt-ext-zbibCitationItemID itemID)
+(tm-define (zt-ext-zbibCitationItemID sysID)
   (:secure)
-  (zt-format-debug "Debug:STUB:zt-ext-zbibCitationItemID: ~s\n" itemID)
+  (zt-format-debug "Debug:STUB:zt-ext-zbibCitationItemID: ~s\n\n" sysID)
+  ;;(zt-format-debug "Debug:STUB:zt-ext-zbibCitationItemID:scm->json-string:Code-cache[sysID]: ~s\n\n" (scm->json-string ((hash-ref zt-zfield-Code-cache sysID '())))
   '(concat ""))
 
 (tm-define (zt-ext-bibitem key)

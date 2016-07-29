@@ -107,7 +107,11 @@
 
   <assign|zt-orig-footnote|<value|footnote>>
 
+  \;
+
   <assign|zt-footnote|<macro|body|<style-with|src-compact|none|<next-footnote><with|zt-not-inside-note|false|zt-in-footnote|true|<render-footnote|<the-footnote>|<arg|body>>><space|0spc><label|<merge|footnr-|<the-footnote>>><rsup|<with|font-shape|right|<reference|<merge|footnote-|<the-footnote>>>>>>>>
+
+  \;
 
   <assign|footnote|<value|zt-footnote>>
 
@@ -155,7 +159,15 @@
 
   <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
 
+  \;
+
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
+
+  \;
+
+  <assign|ztHrefFromBibToURL|<macro|url|display|<hlink|<arg|display>|<arg|url>>>>
+
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|display|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>>>
 
   <\active*>
     <\src-comment>
@@ -169,11 +181,15 @@
   <assign|zt-flag-modified|<macro|fieldID|<extern|(lambda (id)
   (zt-ext-flag-if-modified id))|<arg|fieldID>>>>
 
-  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>
+  <assign|zt-zciteID|0>
 
-  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>
 
-  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><zt-flag-modified|<arg|fieldID>><arg|citebody>>>>
+  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
+
+  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
+
+  \;
 
   <assign|render-zcite|<macro|fieldID|citebody|<case|<or|<value|zotero-pref-noteType0>|<value|zt-option-this-zcite-in-text>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType1>|<value|zt-not-inside-note>>|<zt-zcite-as-footnote|<arg|fieldID>|<arg|citebody>>|<and|<value|zotero-pref-noteType2>|<value|zt-not-inside-note>>|<zt-zcite-as-endnote|<arg|fieldID>|<arg|citebody>>|<zt-zcite-in-text|<arg|fieldID>|<arg|citebody>>>>>
 
@@ -240,56 +256,59 @@
 
   <assign|AAAztNewBlock|<macro|body|<arg|body><next-line><assign|zt-left-margin-extra-indent|1tab>>>
 
+  \;
+
   <assign|ztNewBlock|<macro|body|<arg|body><next-line>>>
+
+  \;
 
   <assign|ztbibIndent|<macro|body|<arg|body>>>
 
+  \;
+
   <assign|AAAztLeftMargin|<macro|body|<ztRigidHspace|<value|zt-left-margin-extra-indent>><arg|body><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<ztRawWidth|<arg|body>>>|<ztRawWidth|<ztRigidHspace|<value|item-hsep>>>>>|<value|item-hsep>>>>>>
+
+  \;
 
   <assign|ztLeftMargin|<macro|body|<arg|body><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<ztRawWidth|<arg|body>>>|<ztRawWidth|<ztRigidHspace|<value|item-hsep>>>>>|<value|item-hsep>>>>>>
 
+  \;
+
   <assign|ztRightInline|<value|identity>>
 
-  <assign|ztbibItemText|<\macro|body>
+  \;
+
+  <assign|ztbibItemText|<\macro|sysID|insert|citekey|body>
     <\with|par-sep|<times|<value|par-sep>|<value|zotero-BibliographyStyle_lineSpacing>>|ztbibItem-vsep|<times|<value|ztbibItem-vsep>|<value|zotero-BibliographyStyle_entrySpacing>>>
       <\surround|<vspace*|<value|item-vsep>>|<right-flush>>
         <\with|par-no-first|false|par-first|<value|zotero-BibliographyStyle_firstLineIndent>|par-left|<value|zotero-BibliographyStyle_bodyIndent>>
-          <arg|body>
+          <label|<merge|zbibSysID|<arg|sysID>>><arg|body><ztbibItemRefsList|<arg|sysID>>
         </with>
       </surround>
     </with>
   </macro>>
 
+  \;
+
+  <assign|ztbibItemRefsList|<macro|sysID|<extern|(lambda (sysID)
+  (zt-ext-ztbibItemRefsList sysID))|<arg|sysID>>>>
+
+  \;
+
   <assign|XXXendZtTheBibliography|<macro|>>
+
+  \;
 
   <assign|ztbibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
   key))|<arg|key>>>>
 
-  <assign|ztbibSubHeadingTextSize|1>
-
-  <assign|ztbibSubHeading|<macro|body|<with|font-family|rm|font-shape|right|font-series|bold|font-size|<value|ztbibSubHeadingTextSize>|<vspace*|0.5fn><arg|body>>>>
-
-  <\active*>
-    <\src-comment>
-      Fix-ups for default macros for displaying the bib-list.
-      <with|color|red|This is a work in progress and not final.>
-
-      This is so that the same bbl outputFormat from Better BibTeX for Zotero
-      can be used for LaTeX and for TeXmacs.
-
-      The macros it outputs can be defined in LaTeX such that they create a
-      normal thebibliography environment, etc.
-    </src-comment>
-  </active*>
-
   \;
 
-  <assign|XXthebibliography|<\macro|keywidth|body>
-    <arg|body>
-  </macro>>
+  <assign|ztbibSubHeadingTextSize|1>
 
-  <assign|XXbibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
-  key))|<arg|key>>>>
+  <assign|XXXXztbibSubHeading|<macro|name|<with|font-family|rm|font-shape|right|font-series|bold|font-size|<value|ztbibSubHeadingTextSize>|<vspace*|0.5fn><arg|name>>>>
+
+  <assign|ztbibSubHeading|<macro|name|<with|font-size|<value|ztbibSubHeadingTextSize>|<sectional-normal-bold|<arg|name>>>>>
 
   <\active*>
     <\src-comment>
@@ -313,13 +332,25 @@
 
   <assign|zcite|<macro|fieldID|fieldCode|fieldText|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>
 
+  \;
+
+  <drd-props|render-zcite|accessible|1>
+
   <drd-props|zcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
+
+  \;
 
   <assign|zt-option-zbib-font-size|0.84>
 
-  <assign|IDEA-FOR-WITH-WRAP-zt-extra-surround-before|<macro|<page-break*>>>
+  \;
 
-  <assign|zt-extra-surround-before|<macro|>>
+  <assign|zt-option-zbib-zt-wrap-with-page-break-before|false>
+
+  <assign|zt-option-zbib-zt-wrap-with-new-double-page-before|false>
+
+  <assign|zt-extra-surround-before|<macro|<case|<value|zt-option-zbib-zt-wrap-with-page-break-before>|<page-break*>|<value|zt-option-zbib-zt-wrap-with-new-double-page-before>|<new-dpage*>>>>
+
+  \;
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <\surround|<zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
@@ -328,6 +359,8 @@
       <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|<arg|fieldText>>
     </surround>
   </macro>>
+
+  \;
 
   <drd-props|zbibliography|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
 </body>

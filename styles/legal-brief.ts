@@ -43,6 +43,10 @@
 
   <assign|page-type|letter>
 
+  <assign|page-medium|paper>
+
+  <assign|page-screen-margin|false>
+
   <assign|page-width-margin|false>
 
   <assign|page-height-margin|false>
@@ -62,6 +66,8 @@
   <assign|font-base-size|12>
 
   <assign|XXXfont-base-size|13>
+
+  <assign|font|TeX Gyre Termes>
 
   \;
 
@@ -129,7 +135,7 @@
 
   <assign|page-fnote-barlen|1par>
 
-  <assign|XXXpage-fnote-sep|1fn>
+  <assign|page-fnote-sep|1.5fn>
 
   <assign|par-fnote-sep|0.5fn>
 
