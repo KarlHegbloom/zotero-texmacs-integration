@@ -57,6 +57,7 @@
 (use-modules (json))
 (use-modules (ice-9 format))
 (use-modules (ice-9 regex))
+(use-modules (ice-9 common-list))
 
 (tm-define (zt-format-error . args)
   (:secure)
@@ -504,6 +505,21 @@
          (zt-ztbibItemRefs-get-zfieldID t)
          (zt-ztbibItemRefs-get-zciteBibLabel t))))
 
+;;;
+;;; For some reason there can be more than one the same in a citation cluster,
+;;; probably only for parallel citations. Just for that, make sure the lists
+;;; are uniq-equal? (since uniq uses memq, and this uses member, and we need to
+;;; compare using equal? to make it recurse through list structure.
+;;;
+(define (uniq-equal? l)
+  (let loop ((acc '())
+             (l l))
+    (if (null? l)
+        (reverse! acc)
+        (loop (if (member (car l) acc)
+                  acc
+                  (cons (car l) acc))
+              (cdr l)))))
 
 (define (zt-ztbibItemRefs-cache-1-zbibItemRef t)
   (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
@@ -512,7 +528,7 @@
                           ,(list 'pageref (zt-ztbibItemRefs-get-target-label t))
                           ,(string-concatenate/shared
                             (list "#" (zt-ztbibItemRefs-get-target-label t))))))))
-    (hash-set! zt-ztbibItemRefs-ht key (append lst new))))
+      (hash-set! zt-ztbibItemRefs-ht key (uniq-equal? (append lst new)))))
 
 
 
