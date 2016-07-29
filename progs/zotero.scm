@@ -528,12 +528,13 @@
                           ,(list 'pageref (zt-ztbibItemRefs-get-target-label t))
                           ,(string-concatenate/shared
                             (list "#" (zt-ztbibItemRefs-get-target-label t))))))))
-      (hash-set! zt-ztbibItemRefs-ht key (uniq-equal? (append lst new)))))
+    (hash-set! zt-ztbibItemRefs-ht key (append lst new))))
 
 
 
 (define (zt-ztbibItemRefs-to-tree key)
-  (let* ((lst (hash-ref zt-ztbibItemRefs-ht key #f))
+  (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
+         (lst (and lst1 (uniq-equal? lst1)))
          (first-item #t)
          (comma-sep (and lst
                          (apply append
@@ -547,9 +548,9 @@
                                      lst))))
          (t (stree->tree (or (and comma-sep `(concat " [" ,@comma-sep "]"))
                              '(concat "")))))
-    (zt-format-debug "zt-ztbibItemRefs-to-tree:lst: ~S\n" lst)
-    (zt-format-debug "zt-ztbibItemRefs-to-tree:comma-sep: ~S\n" lst)
-    (zt-format-debug "zt-ztbibItemRefs-to-tree:t: ~S\n" (tree->stree t))
+    ;; (zt-format-debug "zt-ztbibItemRefs-to-tree:lst: ~S\n" lst)
+    ;; (zt-format-debug "zt-ztbibItemRefs-to-tree:comma-sep: ~S\n" lst)
+    ;; (zt-format-debug "zt-ztbibItemRefs-to-tree:t: ~S\n" (tree->stree t))
     t))
 
 
@@ -1418,7 +1419,8 @@
     (cursor-after
      (when (or (== what "all")
                (== what "bibliography"))
-       (zotero-refresh))
+       (zotero-refresh)
+       (zt-ztbibItemRefs-parse-all))
      (unless (== what "bibliography")
        (former what)))))
 
