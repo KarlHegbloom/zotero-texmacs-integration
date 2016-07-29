@@ -57,6 +57,10 @@ How to get this up and running:
     Juris-M when you want to use the OpenOffice plugin instead of
     TeXmacs... (as if, right?)
 
+    Whenever you update zotero-texmacs-integration, be sure to check
+    for an update to the propachi-texmacs also. They are inter-
+    dependent.
+
   * Now clone this repository, and then symlink to it from your
     TeXmacs home directory to enable it. I normally clone it into a
     source code directory and use a symlink from the TeXmacs
