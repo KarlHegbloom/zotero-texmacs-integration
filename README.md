@@ -1,6 +1,35 @@
 Zotero - TeXmacs integration plugin and citation styles.
 ========================================================
 
+NEWS
+----
+
+  * 2016-07-30: The first 4 characters of each citation are now a link
+    to the bibliography entry. Each bibliography entry has a list of
+    pagerefs appended to it, so that you can click to the point in the
+    document where the citation appears. The first 4 characters of
+    each bibliography entry are a hyperlink to the DOI or URL
+    associated with that zotero item.
+    
+    * To fix up the pagerefs & etc., use the Document->Update... menu.
+    
+    * It only uses the first 4 characters because the hlink loci do
+      not line-break, and so when they are long, they can either mess
+      up the paragraph line-breaking, or even stick out into the
+      margin. By using a shorter one, it avoids this.
+    
+    * By the way, it's faster when you don't put a bibliography into
+      the document until finishing stages. Just insert citations as
+      needed, and when it's close to done, insert a bibliography and
+      check it over.
+    
+TODO
+----
+
+  * There should only be a hyperlink to the bibliography entry when
+    the document contains a bibliography. So when it has a
+    bibliography,
+
 This is a work in progress, but it is working. I am now using it to
 write a document with. You can watch this screencast to learn a little
 bit about what this is and how to use it:
