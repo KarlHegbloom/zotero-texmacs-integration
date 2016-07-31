@@ -157,6 +157,12 @@
 
   <assign|appendix-text|Exhibit>
 
+  \;
+
+  <assign|hide-redacted|false>
+
+  <assign|redact|<macro|body|<with|hide-redactions|<value|hide-redacted>|<if*|<not|<value|hide-redactions>>|<arg|body>>>>>
+
   <\active*>
     <\src-comment>
       This must be part of the style sheet unless there's a reliable way to
