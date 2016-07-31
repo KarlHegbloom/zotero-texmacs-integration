@@ -296,6 +296,7 @@
 ;;;
 
 (tm-define (zt-get-zfields-list documentID fieldType)
+  (set-temporary-message "zt-get-zfields-list." "Zotero Integration" 2500)
   ;;
   ;; Maybe ensure active document is documentID? For now assume it is.
   ;; Also for now assume fieldType is always "ReferenceMark", so ignore it.
@@ -407,6 +408,8 @@
                         (substring str_code brace-idx)))
          (scm-code (and str_json
                         (safe-json-string->scm str_json))))
+    (set-temporary-message (string-append "zt-parse-and-cache-zfield-Code " id ".")
+                           "Zotero Integration" 2500)
     (if (and (pair? scm-code)
              (string? (car scm-code))
              (>= (string-length (car scm-code)) 4)
@@ -556,6 +559,7 @@
 
 
 (define (zt-ztbibItemRefs-parse-all)
+  (set-temporary-message "zt-ztbibItemRefs-parse-all." "Zotero Integration" 2500)
   ;; find all citations that reference sysID, list their pagerefs here.
   (zt-ztbibItemRefs-ht-reset!)
   (map zt-ztbibItemRefs-cache-1-zbibItemRef (zt-ztbibItemRefs-get-all-refs))
@@ -586,6 +590,7 @@
     (else
       (zt-ztbibItemRefs-parse-all)
       (hash-ref zt-ztbibItemRefs-ht key-t (stree->tree '(concat "")))))))
+
 
 
 
@@ -2392,6 +2397,14 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 
 
 
+(tm-define (zt-fixup-embedded-slink-as-url lnk)
+  (cond
+    ((and (tree-is? lnk 'ztHrefFromBibToURL)
+          (tree-in? (tree-ref lnk 0) '(slink verbatim)))
+     (let ((slink-or-verbatim (tree-ref lnk 0)))
+       (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
+  lnk)
+
 ;;; Debug: tid:10 len:190 cmdstr:"[\"Field_setText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\",\"\\\\textit{Statutes in derogation of
 ;;; common law not strictly construed --- Rules of equity prevail.}, Title 68, Chapter 3 § 2 (2014).\",false]]"
 ;;;
@@ -2530,10 +2543,12 @@ including parentheses and <less> <gtr> around the link put there by some styles.
                     "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
-    (buffer-set-body b t)
+    (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
-    (let* ((lt (select t '(:* (:or ztHref hlink href)))))
+    (let* ((lt (select t '(:* (:or ztHrefFromCiteToBib ztHrefFromBibToURL ztHref hlink href)))))
+      ;; It turns out that tm-select will return these not in tree or document
+      ;; order.  For this function, that's alright.
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t before: ~s\n" t)
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
       (let loop ((lt2 lt))
@@ -2541,14 +2556,18 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           (cond
             ((null? lt2) #t)
             ((or is-note? is-bib?)
+             (zt-fixup-embedded-slink-as-url lnk)
              (zt-move-link-to-own-line lnk)
-             (loop (cdr lt2)))))))
+             (loop (cdr lt2)))
+            (else
+              (zt-fixup-embedded-slink-as-url lnk)
+              (loop (cdr lt2))))))
     (tree-simplify t)
     (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
     (buffer-close b)
-    t))
+    t)))
 
 ;;;
 ;;; Remember that there is a difference between the source document tree and

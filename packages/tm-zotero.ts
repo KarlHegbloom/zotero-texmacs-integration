@@ -88,6 +88,8 @@
 
   <assign|zt-not-inside-zbibliography|true>
 
+  <assign|zt-zbibliography-two-columns|false>
+
   <\active*>
     <\src-comment>
       Per zcite option, to force an in-text citation when using a CSL "note"
@@ -155,15 +157,18 @@
     </src-comment>
   </active*>
 
-  \;
-
   <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
 
   \;
 
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 
-  \;
+  <\active*>
+    <\src-comment>
+      Make these zt-ext- functions to pull the text out of the inner slink or
+      verbatim tags?
+    </src-comment>
+  </active*>
 
   <assign|ztHrefFromBibToURL|<macro|url|display|<hlink|<arg|display>|<arg|url>>>>
 
@@ -356,7 +361,7 @@
     <\surround|<zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
       <principal-section*|<bibliography-text>>
 
-      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|<arg|fieldText>>
+      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<if|<value|zt-zbibliography-two-columns>|2|1>|dummy|<value|zt-zbibliography-two-columns>|<arg|fieldText>>
     </surround>
   </macro>>
 
