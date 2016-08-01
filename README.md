@@ -4,6 +4,11 @@ Zotero - TeXmacs integration plugin and citation styles.
 NEWS
 ----
 
+  * 2016-07-31: For some reason the github releases list for
+    propachi-texmacs does not put the actually latest ones at the top
+    as expected. I just added v1.1.113beta3, today, but it thinks I
+    published it on April 27, and so it's listed at the bottom.
+
   * 2016-07-30: The first 4 characters of each citation are now a link
     to the bibliography entry. Each bibliography entry has a list of
     pagerefs appended to it, so that you can click to the point in the
