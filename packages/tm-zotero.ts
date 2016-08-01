@@ -303,12 +303,18 @@
 
   <assign|zbibItemRefsList-sep|, >
 
-  <assign|zbibItemRefsList-left| \ [<with|font-shape|italic|refs:> >
+  <assign|XXXzbibItemRefsList-left| \ [<with|font-shape|italic|refs:> >
+
+  <assign|zbibItemRefsList-left| \ [>
 
   <assign|zbibItemRefsList-right|]>
 
-  <assign|zbibItemRef|<macro|label|<if|<equal||<reference|<arg|label>>>||<SectionSignGlyph><reference|<arg|label>>
+  \;
+
+  <assign|XXXzbibItemRef|<macro|label|<if|<equal||<reference|<arg|label>>>||<SectionSignGlyph><reference|<arg|label>>
   on >p.<space|0.1spc><pageref|<arg|label>>>>
+
+  <assign|zbibItemRef|<macro|label|<pageref|<arg|label>>>>
 
   \;
 
