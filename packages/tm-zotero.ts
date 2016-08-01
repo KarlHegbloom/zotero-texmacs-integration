@@ -307,8 +307,8 @@
 
   <assign|zbibItemRefsList-right|]>
 
-  <assign|zbibItemRef|<macro|label|<SectionSignGlyph><reference|<arg|label>>
-  on p.<space|0.1spc><pageref|<arg|label>>>>
+  <assign|zbibItemRef|<macro|label|<if|<equal||<reference|<arg|label>>>||<SectionSignGlyph><reference|<arg|label>>
+  on >p.<space|0.1spc><pageref|<arg|label>>>>
 
   \;
 
