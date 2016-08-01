@@ -528,28 +528,31 @@
   (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
          (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
          (new (and key `((hlink
-                          ,(list 'pageref (zt-ztbibItemRefs-get-target-label t))
+                          ,(list 'zbibItemRef (zt-ztbibItemRefs-get-target-label t))
                           ,(string-concatenate/shared
                             (list "#" (zt-ztbibItemRefs-get-target-label t))))))))
     (hash-set! zt-ztbibItemRefs-ht key (append lst new))))
 
 
 
-(define (zt-ztbibItemRefs-to-tree key)
+(define-public (zt-ztbibItemRefs-to-tree key)
   (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
          (lst (and lst1 (uniq-equal? lst1)))
          (first-item #t)
-         (comma-sep (and lst
-                         (apply append
-                                (map (lambda (elt)
-                                       (if first-item
-                                           (begin
-                                             (set! first-item #f)
-                                             (list elt))
-                                           (begin
-                                             (list ", " elt))))
-                                     lst))))
-         (t (stree->tree (or (and comma-sep `(concat " [" ,@comma-sep "]"))
+         (comma-like-sep (and lst
+                              (apply append
+                                     (map (lambda (elt)
+                                            (if first-item
+                                                (begin
+                                                  (set! first-item #f)
+                                                  (list elt))
+                                                (begin
+                                                  (list (list 'zbibItemRefsList-sep) elt))))
+                                          lst))))
+         (t (stree->tree (or (and comma-like-sep
+                                  `(concat (zbibItemRefsList-left)
+                                           ,@comma-like-sep
+                                           (zbibItemRefsList-right)))
                              '(concat "")))))
     ;; (zt-format-debug "zt-ztbibItemRefs-to-tree:lst: ~S\n" lst)
     ;; (zt-format-debug "zt-ztbibItemRefs-to-tree:comma-sep: ~S\n" lst)
@@ -661,6 +664,14 @@
          '(concat (flag "Not Modified." "green")))))))
 
 
+
+(tm-define (zt-ext-document-has-zbibliography?)
+  (:secure)
+  (let ((zbibs (tm-search-tag (buffer-tree) 'zbibliography)))
+    (if (null? zbibs)
+        "false"
+        "true")))
+    
 
 ;;; ztShowID
 ;;;
@@ -1344,6 +1355,7 @@
                          "zt-in-endnote"
                          "zt-not-inside-zbibliography"
                          "zt-option-this-zcite-in-text"
+                         "zt-extra-surround-before"
                          "endnote-nr" "footnote-nr"
                          "zt-endnote" "zt-footnote"))
             ;; Sometimes the footnote related items belong here.
@@ -1358,8 +1370,43 @@
 (tm-define (parameter-show-in-menu? l)
   (:require
    (and (in-zbibliography?)
-        (in? l (list "zt-option-zbib-font-size"))))
+        (in? l (list "zt-option-zbib-font-size"
+                     "zt-bibliography-two-columns"
+                     "ztbibSubHeadingVspace*"
+                     "zt-link-BibToURL"
+                     "zt-render-bibItemRefsLists"
+                     "zbibItemRefsList-sep"
+                     "zbibItemRefsList-left"
+                     "zbibItemRefsList-right"))))
   #t)
+
+
+(tm-define (parameter-choice-list var)
+  (:require (and (in-zbibliography?)
+                 (== var "zbibColumns")))
+  (list "1" "2"))
+
+(tm-define (parameter-choice-list var)
+  (:require (and (in-zbibliography?)
+                 (== var "zbibPageBefore")))
+  (list "0" "1" "2"))
+
+
+(tm-define (focus-tag-name l)
+  (:require (in-zfield?))
+  (case l
+    (("zt-option-zbib-font-size")   "Bibliography font size")
+    (("zbibColumns")                "Number of columns")
+    (("zbibPageBefore")             "Page break or double page before?")
+    (("ztbibSubHeadingVspace*")     "Vspace before ztbibSubHeading")
+    (("zt-link-BibToURL")           "Link bibitem to URL?")
+    (("zt-link-FromCiteToBib")      "Link from citation to bib item?")
+    (("zt-render-bibItemRefsLists") "Render bib item refs lists?")
+    (("zbibItemRefsList-sep")       "Refs list sep")
+    (("zbibItemRefsList-left")      "Refs list surround left")
+    (("zbibItemRefsList-right")     "Refs list surround right")
+    (else
+      (former l))))
 
 
 (tm-define (customizable-parameters t)
@@ -1369,7 +1416,8 @@
                      (== (get-env "zotero-pref-noteType2") "true"))
                  (!= (get-env "zt-in-footnote") "true")
                  (!= (get-env "zt-in-endnote") "true")))
-  (list (list "zt-option-this-zcite-in-text" "Force in-text?")))
+  (list (list "zt-option-this-zcite-in-text" "Force in-text?")
+        ))
 
 
 (tm-define (parameter-choice-list var)
@@ -2546,7 +2594,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
-    (let* ((lt (select t '(:* (:or ztHrefFromCiteToBib ztHrefFromBibToURL ztHref hlink href)))))
+    (let ((lt (select t '(:* (:or ztHref hlink href)))))
       ;; It turns out that tm-select will return these not in tree or document
       ;; order.  For this function, that's alright.
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t before: ~s\n" t)
@@ -2556,18 +2604,23 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           (cond
             ((null? lt2) #t)
             ((or is-note? is-bib?)
-             (zt-fixup-embedded-slink-as-url lnk)
              (zt-move-link-to-own-line lnk)
              (loop (cdr lt2)))
             (else
-              (zt-fixup-embedded-slink-as-url lnk)
-              (loop (cdr lt2))))))
+              (loop (cdr lt2)))))))
+    (let ((lt (select t '(:* ztHrefFromBibToURL))))
+      (let loop ((lt2 lt))
+        (let ((lnk (and (pair? lt2) (car lt2))))
+          (cond
+            ((null? lt2) #t)
+            (else
+              (zt-fixup-embedded-slink-as-url lnk))))))
     (tree-simplify t)
     (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
     (buffer-close b)
-    t)))
+    t))
 
 ;;;
 ;;; Remember that there is a difference between the source document tree and

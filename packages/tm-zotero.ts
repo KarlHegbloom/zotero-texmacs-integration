@@ -88,8 +88,6 @@
 
   <assign|zt-not-inside-zbibliography|true>
 
-  <assign|zt-zbibliography-two-columns|false>
-
   <\active*>
     <\src-comment>
       Per zcite option, to force an in-text citation when using a CSL "note"
@@ -170,9 +168,13 @@
     </src-comment>
   </active*>
 
-  <assign|ztHrefFromBibToURL|<macro|url|display|<hlink|<arg|display>|<arg|url>>>>
+  <assign|zt-link-BibToURL|true>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|display|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>>>
+  <assign|ztHrefFromBibToURL|<macro|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+
+  <assign|zt-link-FromCiteToBib|true>
+
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|<if|<and|<value|link-FromCiteToBib>|<zt-has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<arg|display>>>>>
 
   <\active*>
     <\src-comment>
@@ -295,8 +297,25 @@
 
   \;
 
-  <assign|ztbibItemRefsList|<macro|sysID|<extern|(lambda (sysID)
+  \;
+
+  <assign|zt-render-bibItemRefsLists|true>
+
+  <assign|zbibItemRefsList-sep|, >
+
+  <assign|zbibItemRefsList-left| \ [<with|font-shape|italic|refs:> >
+
+  <assign|zbibItemRefsList-right|]>
+
+  <assign|zbibItemRef|<macro|label|<SectionSignGlyph><reference|<arg|label>>
+  on p.<space|0.1spc><pageref|<arg|label>>>>
+
+  \;
+
+  <assign|zt-render-bibItemRefsList|<macro|sysID|<extern|(lambda (sysID)
   (zt-ext-ztbibItemRefsList sysID))|<arg|sysID>>>>
+
+  <assign|ztbibItemRefsList|<macro|sysID|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<zt-render-bibItemRefsList|<arg|sysID>>>>>>
 
   \;
 
@@ -311,9 +330,11 @@
 
   <assign|ztbibSubHeadingTextSize|1>
 
-  <assign|XXXXztbibSubHeading|<macro|name|<with|font-family|rm|font-shape|right|font-series|bold|font-size|<value|ztbibSubHeadingTextSize>|<vspace*|0.5fn><arg|name>>>>
+  <assign|ztbibSubHeadingVspace*|1fn>
 
-  <assign|ztbibSubHeading|<macro|name|<with|font-size|<value|ztbibSubHeadingTextSize>|<sectional-normal-bold|<arg|name>>>>>
+  \;
+
+  <assign|ztbibSubHeading|<macro|name|<with|subheading-vspace|<value|ztbibSubHeadingVspace*>|font-size|<value|ztbibSubHeadingTextSize>|<sectional-normal-bold|<vspace*|<value|subheading-vspace>><arg|name>>>>>
 
   <\active*>
     <\src-comment>
@@ -335,7 +356,7 @@
     </src-comment>
   </active*>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>
 
   \;
 
@@ -347,27 +368,30 @@
 
   <assign|zt-option-zbib-font-size|0.84>
 
-  \;
+  <assign|zbibColumns|1>
 
   <assign|zt-option-zbib-zt-wrap-with-page-break-before|false>
 
   <assign|zt-option-zbib-zt-wrap-with-new-double-page-before|false>
 
-  <assign|zt-extra-surround-before|<macro|<case|<value|zt-option-zbib-zt-wrap-with-page-break-before>|<page-break*>|<value|zt-option-zbib-zt-wrap-with-new-double-page-before>|<new-dpage*>>>>
+  <assign|zt-extra-surround-before|>
 
   \;
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
-    <\surround|<zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
+    <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
       <principal-section*|<bibliography-text>>
 
-      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<if|<value|zt-zbibliography-two-columns>|2|1>|dummy|<value|zt-zbibliography-two-columns>|<arg|fieldText>>
+      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|<arg|fieldText>>
     </surround>
   </macro>>
 
   \;
 
   <drd-props|zbibliography|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
+
+  <assign|zt-has-zbibliography?|<macro|<extern|(lambda ()
+  (zt-ext-document-has-zbibliography?))>>>
 </body>
 
 <\initial>
