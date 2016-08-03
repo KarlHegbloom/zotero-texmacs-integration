@@ -59,6 +59,12 @@
 (use-modules (ice-9 regex))
 (use-modules (ice-9 common-list))
 
+(use-modules (md5))
+(define (md5-string str)
+  (with-input-from-string str
+    (md5)))
+
+
 (tm-define (zt-format-error . args)
   (:secure)
   (apply format (cons (current-error-port) args)))
@@ -111,8 +117,8 @@
 (tm-define (zt-get-DocumentID)
   (string-append
    (if (defined? 'getpid)
-       (as-string (getpid))
-       (random 32768))
+       (as-string (getpid)) ;; ephemeral - don't store in document.
+       (random 32768)) ;; ditto
    "-"
    (format #f "~a" (buffer-path))))
 
@@ -124,6 +130,7 @@
 (define-public zt-new-fieldID #f)
 
 (tm-define (zt-get-new-fieldID)
+  
   (as-string (create-unique-id)))
 
 (tm-define (zt-field-refbinding-key fieldID)
@@ -2447,9 +2454,9 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 
 (tm-define (zt-fixup-embedded-slink-as-url lnk)
   (cond
-    ((and (tree-is? lnk 'ztHrefFromBibToURL)
-          (tree-in? (tree-ref lnk 0) '(slink verbatim)))
-     (let ((slink-or-verbatim (tree-ref lnk 0)))
+    ((and (tree-in? lnk '(ztHrefFromBibToURL ztHrefFromCiteToBib))
+          (tree-in? (tree-ref lnk 1) '(slink verbatim)))
+     (let ((slink-or-verbatim (tree-ref lnk 1)))
        (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
   lnk)
 
@@ -2594,8 +2601,11 @@ including parentheses and <less> <gtr> around the link put there by some styles.
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
+    ;;
+    ;; Used from inside tm-zotero.ts
+    ;;
     (let ((lt (select t '(:* (:or ztHref hlink href)))))
-      ;; It turns out that tm-select will return these not in tree or document
+      ;; It turns out that tm-select will return these not in tree or document 
       ;; order.  For this function, that's alright.
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t before: ~s\n" t)
       (zt-format-debug "Debug:zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
@@ -2608,13 +2618,25 @@ including parentheses and <less> <gtr> around the link put there by some styles.
              (loop (cdr lt2)))
             (else
               (loop (cdr lt2)))))))
-    (let ((lt (select t '(:* ztHrefFromBibToURL))))
+    ;;
+    ;; from propachi-texmacs/bootstrap.js monkeypatch VariableWrapper
+    ;;
+    (let ((lt (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib)))))
       (let loop ((lt2 lt))
         (let ((lnk (and (pair? lt2) (car lt2))))
           (cond
             ((null? lt2) #t)
             (else
+              ;;
+              ;; juris-m citeproc.js propachi-texmacs monkeypatch
+              ;; VariableWrapper sends text of a URL inside of a \path{} tag so
+              ;; that the conversion inside of TeXmacs into a texmacs tree does
+              ;; not modify the URL. It creates an slink tag in TeXmacs, and
+              ;; that's unwrapped here to make the links function
+              ;; correctly. They don't like having their URL be an slink.
+              ;;
               (zt-fixup-embedded-slink-as-url lnk))))))
+    ;;
     (tree-simplify t)
     (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
     (buffer-pretend-autosaved b)
@@ -2710,13 +2732,13 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 ;;;
 (tm-define (zotero-Field_getText tid documentID fieldID)
   (set-temporary-message "Zotero Field_getText..." "Zotero integration" 2500)
-  (let* ((field (zt-find-zfield fieldID)))
-    (zotero-write tid
-                  (safe-scm->json-string
-                   (string-convert
-                    (format #f "~s" (tree->stree
-                                     (zt-zfield-Text field)))
-                    "Cork" "UTF-8")))))
+  (let* ((field (zt-find-zfield fieldID))
+         (str_text (format #f "~s" (tree->stree
+                                    (zt-zfield-Text field))))
+         (str_utf8 (string-convert str_text "Cork" "UTF-8"))
+         ;;(str_md5 (md5-string str_utf8))
+         )
+    (zotero-write tid (safe-scm->json-string str_utf8))));str_md5))))
 
 
 

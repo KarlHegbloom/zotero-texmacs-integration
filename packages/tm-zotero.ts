@@ -163,18 +163,18 @@
 
   <\active*>
     <\src-comment>
-      Make these zt-ext- functions to pull the text out of the inner slink or
-      verbatim tags?
+      hashLabel is not yet used by ztHrefFromBibToURL but available to it or
+      to code acting on it.
     </src-comment>
   </active*>
 
   <assign|zt-link-BibToURL|true>
 
-  <assign|ztHrefFromBibToURL|<macro|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|zt-link-FromCiteToBib|true>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|<if|<and|<value|link-FromCiteToBib>|<zt-has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<arg|display>>>>>
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<zt-has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <\active*>
     <\src-comment>
