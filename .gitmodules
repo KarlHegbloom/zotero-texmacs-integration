@@ -1,0 +1,7 @@
+[submodule "propachi-texmacs"]
+	path = propachi-texmacs
+	url = git@github.com:KarlHegbloom/propachi-texmacs.git
+[submodule "citeproc-js"]
+	path = citeproc-js
+	url = git@github.com:KarlHegbloom/citeproc-js.git
+	branch = KarlHegbloom-propachi-texmacs

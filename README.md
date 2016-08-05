@@ -4,10 +4,24 @@ Zotero - TeXmacs integration plugin and citation styles.
 NEWS
 ----
 
-  * 2016-07-31: For some reason the github releases list for
-    propachi-texmacs does not put the actually latest ones at the top
-    as expected. I just added v1.1.113beta3, today, but it thinks I
-    published it on April 27, and so it's listed at the bottom.
+  * 2016-08-04: I think that this will function on Mac OS-X and
+    Windows already because it's the LibreOffice Integration plugin
+    that opens the TCP port on localhost:23116 which is what
+    zotero.scm connects to. The code inside the Firefox LibreOffice
+    Integration plugin where it opens that port does not look to see
+    what OS it's running on first, so I think it opens that port no
+    matter what OS it's on.
+    
+    * If you run Mac OS-X or Windows, please test this and let me know
+      how it works. I have limited time and equipment and require this
+      small amount of assistance. Please use the "Issues" tracking
+      when you report a successful or failed test. Thanks.
+      
+      https://github.com/KarlHegbloom/zotero-texmacs-support/issues
+      
+      
+    * When a citation or the bibliography is in-focus, try the
+      "wrench" icon. There are a lot of settings available now.
 
   * 2016-07-30: The first 4 characters of each citation are now a link
     to the bibliography entry. Each bibliography entry has a list of
