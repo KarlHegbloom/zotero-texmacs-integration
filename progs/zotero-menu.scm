@@ -18,7 +18,12 @@
       ---
       ("Set Document Prefs" (zotero-setDocPrefs))
       ---
-      ("Debug: Protocol trace to stdout?" (toggle-preference "zt-debug-trace?"))))
+      ("Debug: Protocol trace to stdout?" (toggle-preference
+                                           "zt-debug-trace?"))))
+
+
+;;; How do I add to or replace a menu? Such as: Insert -> Link -> Citation
+
 
 
 ;; The tm-zotero.ts will load the zotero.scm module.
