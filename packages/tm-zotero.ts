@@ -9,11 +9,24 @@
     <\src-purpose>
       This package contains extended macros for citations and provides a
       <TeXmacs> integration with the Juris-M or Zotero reference manager for
-      Firefox. It utilizes the same wire-protocolinterface that is used by
-      the Zotero \<rightarrow\> OpenOffice.org integration;<compound|math|>
-      presently it only works with a patch applied to Juris-M/Zotero to allow
-      switching the output format, and with Better BibTeX for Zotero that is
-      extended to create a ".bbl" output formatter. (vs HTML or RTF).
+      Firefox.
+
+      \;
+
+      It utilizes the same wire-protocol interface that is used by the Zotero
+      \<rightarrow\> OpenOffice.org integration;<compound|math|>
+
+      \;
+
+      That works by applying a monkey-patch to Juris-M / Zotero that adds a
+      new outputFormat, which is roughly based on BibTeX's 'bbl' format, and
+      then switches the integration to use the new outputFormat.
+
+      \;
+
+      Thus while it's in use, the ordinary LibreOffice integration won't
+      work. In order to use Juris-M or Zotero with LibreOffice again, you
+      must uninstall or disable the Firefox propachi-texmacs addon.
     </src-purpose>
 
     <src-copyright|2016|Karl Martin Hegbloom>
@@ -157,8 +170,6 @@
 
   <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
 
-  \;
-
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 
   <\active*>
@@ -255,25 +266,11 @@
     </src-comment>
   </active*>
 
-  <assign|XXXzt-max-offset|0tab>
-
-  <assign|XXXbeginZtTheBibliography|<macro|maxoffset|>>
-
-  <assign|AAAzt-left-margin-extra-indent|0tmpt>
-
-  <assign|AAAztNewBlock|<macro|body|<arg|body><next-line><assign|zt-left-margin-extra-indent|1tab>>>
-
-  \;
-
   <assign|ztNewBlock|<macro|body|<arg|body><next-line>>>
 
   \;
 
   <assign|ztbibIndent|<macro|body|<arg|body>>>
-
-  \;
-
-  <assign|AAAztLeftMargin|<macro|body|<ztRigidHspace|<value|zt-left-margin-extra-indent>><arg|body><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<ztRawWidth|<arg|body>>>|<ztRawWidth|<ztRigidHspace|<value|item-hsep>>>>>|<value|item-hsep>>>>>>
 
   \;
 
@@ -325,10 +322,6 @@
 
   \;
 
-  <assign|XXXendZtTheBibliography|<macro|>>
-
-  \;
-
   <assign|ztbibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
   key))|<arg|key>>>>
 
@@ -348,10 +341,6 @@
       zbibliography macros must have the same arity, semantics, and order of
       arguments because Zotero treats them generically as "fields".
 
-      <with|color|red|This is a work in progress. Note: take care when
-      setting drd-props so that the cursor can be inside of the light-blue
-      box so that the "editCitation" thing will work properly.>
-
       The use of `surround' in the zbibliography forces it to be typeset in
       block context. Without that, the lines don't wrap properly and run off
       the right edge of the page. The zcite on the other hand must be in line
@@ -363,8 +352,6 @@
   </active*>
 
   <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>
-
-  \;
 
   <drd-props|render-zcite|accessible|1>
 
@@ -392,12 +379,14 @@
     </surround>
   </macro>>
 
-  \;
-
   <drd-props|zbibliography|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
+
+  \;
 
   <assign|zt-has-zbibliography?|<macro|<extern|(lambda ()
   (zt-ext-document-has-zbibliography?))>>>
+
+  \;
 </body>
 
 <\initial>
