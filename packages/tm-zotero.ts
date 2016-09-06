@@ -183,9 +183,13 @@
 
   <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
+  <assign|ztHrefFromBibToURL*|<value|ztHrefFromBibToURL>>
+
   <assign|zt-link-FromCiteToBib|true>
 
   <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<zt-has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+
+  <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
   <\active*>
     <\src-comment>
