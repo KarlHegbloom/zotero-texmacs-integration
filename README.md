@@ -4,6 +4,15 @@ Zotero - TeXmacs integration plugin and citation styles.
 NEWS
 ----
 
+  * 2016-09-28: propachi-texmacs is now a signed xpi, and so you no
+    longer need to use about:plugins to set
+    xpinstall.signatures.required. You can reset it to its default now
+    if you wish (unless you are running it from a git checkout rather
+    than by installing the xpi, but if you're running it that way, you
+    probably know what you're doing already.)
+    
+    * It is up-to-date with the latest citeproc-js and Juris-M.
+
   * 2016-08-04: I think that this will function on Mac OS-X and
     Windows already because it's the LibreOffice Integration plugin
     that opens the TCP port on localhost:23116 which is what
@@ -84,16 +93,9 @@ How to get this up and running:
     * I've tested this with the Juris-M plugin in Firefox, but I think
       it will work fine using the standalone version.
       
-  * Use Firefox "about:config" to set: xpinstall.signatures.required
-    to false. Alternatively, with Firefox not running, you can run:
-
-        echo 'user_pref("xpinstall.signatures.required", false);' >> prefs.js
-    
-    Make sure you use two ">" there, to append to the file, or you'll
-    blow away your prefs.js. I recommend using about:config. The
-    reason for this is that this next part is not signed since I don't
-    know how to do that yet...
-
+  * Install all of the additional support packages as recommended by
+    the Juris-M site. I recommend installing zotfile also.
+      
   * Install the propachi-texmacs xpi from:
  
     https://github.com/KarlHegbloom/propachi-texmacs/releases
