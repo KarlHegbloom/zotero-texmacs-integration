@@ -85,6 +85,24 @@
 
   <assign|par-first|0fn>
 
+  \;
+
+  <assign|section-display-numbers|<macro|true>>
+
+  <assign|subsection-display-numbers|<macro|true>>
+
+  <assign|subsubsection-display-numbers|<macro|true>>
+
+  <assign|paragraph-display-numbers|<macro|true>>
+
+  <assign|subparagraph-display-numbers|<macro|true>>
+
+  \;
+
+  <assign|paragraph-sep|<macro|<space|0.5spc>>>
+
+  <assign|subparagraph-sep|<macro|<space|0.5spc>>>
+
   <\active*>
     <\src-comment>
       par-sep is "interline separation"
@@ -93,7 +111,9 @@
 
   <assign|XXXpar-sep|0.2fn>
 
-  <assign|par-sep|0.5fn>
+  <assign|XXXXpar-sep|0.5fn>
+
+  <assign|par-sep|1.0fn>
 
   <\active*>
     <\src-comment>
@@ -113,7 +133,9 @@
 
   <assign|XXXpar-par-sep|0.5fns>
 
-  <assign|par-par-sep|0.25fn>
+  <assign|XXXXpar-par-sep|0.25fn>
+
+  <assign|par-par-sep|0.5fns>
 
   <\active*>
     <\src-comment>
@@ -147,6 +169,12 @@
 
   \;
 
+  <assign|sectional-short-style|<macro|true>>
+
+  <assign|heading-toc|<macro|name|<toc-normal-2|<arg|name>>>>
+
+  \;
+
   <assign|chapter-display-numbers|<macro|true>>
 
   <assign|chapter-title|<macro|name|<style-with|src-compact|none|<sectional-centered-bold|<vspace*|1.0fn><huge|<arg|name>><vspace|0.5fn>>>>>
@@ -157,11 +185,38 @@
 
   <assign|appendix-text|Exhibit>
 
-  \;
+  <\active*>
+    <\src-comment>
+      This <with|font-series|bold|<with|font-family|tt|redact>> macro does
+      not work right on block content. It only works right on in-line
+      content. I think that usually or normally you would not redact as you
+      write; it's something done later on\<ldots\> though perhaps for some
+      documents, if the plan includes a press release or whatever with names
+      hidden you might write the redact macro around things to start
+      with\<ldots\> The problem becomes that since it won't let you redact an
+      entire paragraph at once, you have to light up and wrap with a redact
+      each <with|font-series|bold|line> of the text,
+      <with|font-series|bold|after> the line-breaking has happened\<ldots\>
+      It would be better to have a way for this to work for both in-line and
+      block context content. How?
+    </src-comment>
+  </active*>
 
   <assign|hide-redacted|false>
 
-  <assign|redact|<macro|body|<with|hide-redactions|<value|hide-redacted>|<if*|<not|<value|hide-redactions>>|<arg|body>>>>>
+  <assign|redact|<macro|body|<active*|><with|hide-redactions|<value|hide-redacted>|<if|<value|hide-redactions>|<with|distorted-frequency|0.666|distorted-strength|6.66|gnawed-frequency|1.0|gnawed-strength|0.666|<gnawed|<distorted|<repeat|<style-with|src-compact|none|<arg|body>>|<with|font-series|bold|\<equiv\>>>>>>|<arg|body>>>>>
+
+  <assign|I_GIVE_UP_redact|<\macro|body>
+    <\with|distorted-frequency|0.666|distorted-strength|6.66|gnawed-frequency|1.0|gnawed-strength|0.666>
+      <style-with|src-compact|none|<datoms|<macro|x|<distorted|<repeat|<arg|x>|<with|font-series|bold|\<equiv\>>>>>|<phantom|<arg|body>>>>
+
+      \;
+    </with>
+
+    \;
+  </macro>>
+
+  \;
 
   <\active*>
     <\src-comment>
@@ -177,27 +232,11 @@
     </src-comment>
   </active*>
 
-  <assign|xinclude-pdfpages|<macro|incl|<page-break*><blanc-page><shift|<include|<arg|incl>>|<plus|1l|-1in>|<plus|1b|1.5in>>>>
+  <assign|XXXinclude-pdfpages|<macro|incl|<page-break*><blanc-page><shift|<include|<arg|incl>>|<plus|1l|-1in>|<plus|1b|1.5in>>>>
 
-  <assign|xxinclude-pdfpages|<macro|incl|<include|<arg|incl>>>>
+  <assign|XXXXinclude-pdfpages|<macro|incl|<include|<arg|incl>>>>
 
-  <assign|include-pdfpages|<value|include>>
-
-  <assign|par-fnote-sep|<macro|0.1fn>>
-
-  <assign|XXXfootnote|<macro|body|<next-footnote><render-footnote|<the-footnote>|<with|par-sep|0.12fn|<arg|body>>><space|0spc><label|<merge|footnr-|<the-footnote>>><rsup|<with|font-shape|right|<reference|<merge|footnote-|<the-footnote>>>>>>>
-
-  <assign|XXXrender-parnote*|<macro|sym|body|<style-with|src-compact|none|<\float|float|h>
-    <smaller|<with|par-mode|justify|par-sep|0.12fn|font-shape|right|dummy|<value|page-fnote-sep>|dummy|<value|page-fnote-barlen>|<arg|sym><footnote-sep><arg|body>>>
-  </float>>>>
-
-  <assign|XXXdagger-parnote|<macro|body|<compound|render-parnote*|\<dagger\>|<arg|body>><rsup|<with|font-shape|right|\<dagger\>>>>>
-
-  <assign|XXXddagger-parnote|<macro|body|<compound|render-parnote*|\<dagger\>\<dagger\>|<arg|body>><rsup|<with|font-shape|right|\<dagger\>\<dagger\>>>>>
-
-  <assign|XXXasterisk-parnote|<macro|body|<compound|render-parnote*|*|<arg|body>><rsup|<with|font-shape|right|*>>>>
-
-  <assign|XXXaasterisk-parnote|<macro|body|<compound|render-parnote*|**|<arg|body>><rsup|<with|font-shape|right|**>>>>
+  <assign|XXXinclude-pdfpages|<value|include>>
 
   \;
 
@@ -216,24 +255,6 @@
       </indent-both>
     </padded>
   </macro>>
-
-  \;
-
-  <assign|section-display-numbers|<macro|true>>
-
-  <assign|subsection-display-numbers|<macro|true>>
-
-  <assign|subsubsection-display-numbers|<macro|true>>
-
-  <assign|paragraph-display-numbers|<macro|true>>
-
-  <assign|subparagraph-display-numbers|<macro|true>>
-
-  \;
-
-  <assign|paragraph-sep|<macro|<space|0.5spc>>>
-
-  <assign|subparagraph-sep|<macro|<space|0.5spc>>>
 
   <\active*>
     <\src-comment>
@@ -297,7 +318,11 @@
 
   <assign|paragraph-clean|<macro|<reset-subparagraph><subparagraph-clean>>>
 
-  \;
+  <\active*>
+    <\src-comment>
+      Nested enumeration lists for legal documents.
+    </src-comment>
+  </active*>
 
   <assign|item-hsep|<macro|0.5tab>>
 
@@ -337,11 +362,17 @@
 
   \;
 
-  <assign|sectional-short-style|<macro|true>>
-
-  <assign|heading-toc|<macro|name|<toc-normal-2|<arg|name>>>>
-
-  \;
+  <\active*>
+    <\src-comment>
+      ltoc is for adding a table of contents entry for a nested itemized list
+      item. You have to add it manually only where you want it, since it's
+      not easy to write a program that can take the first sentence of the
+      list item and automatically turn it into a suitable label for the table
+      of contents entry. That's different from the section, subsection,
+      \<ldots\> since the same string can be the heading in the TOC and the
+      heading in-text.
+    </src-comment>
+  </active*>
 
   <assign|ltoc|<macro|name|<flag|ltoc|brown|<style-with|src-compact|all|name>><case|<style-with|src-compact|all|<equal|<value|enumerate-level>|1>>|<toc-normal-2|<the-item>.
   <arg|name>>|<equal|<value|enumerate-level>|2>|<toc-normal-3|<the-item>.
@@ -373,7 +404,7 @@
 
   <\active*>
     <\src-comment>
-      <inactive|<use-package|casenick>>\ 
+      <inactive|<use-package|casenick>>
     </src-comment>
   </active*>
 
@@ -383,17 +414,43 @@
     <\src-comment>
       This is from std-markup.ts and it shows how I can maybe make the Utah
       Code references into hyperlinks to the web site, with a little work...
-
-      This is from before tm-zotero.ts was developed. It is stale and left
-      here only so my old documents still work. I leave it here to show, to
-      give people ideas and perhaps so I can use it later, maybe integrated
-      with tm-zotero somehow, to make clickable links to the statutes?
     </src-comment>
   </active*>
 
   <assign|xxxhref|<macro|body|<hlink|<with|font-family|tt|language|verbatim|<arg|body>>|<arg|body>>>>
 
-  \;
+  <\active*>
+    <\src-comment>
+      This is from the early development of tm-zotero.ts. It is stale and
+      left here only so my old documents still work. I leave it here to show,
+      to give people ideas and perhaps so I can use it later, maybe
+      integrated with <with|font-series|bold|<with|font-family|tt|zotero-texmacs-integration>>
+      somehow, to make clickable links to the statutes?
+
+      The Utah Code is up on a web site managed by the legislature. There is
+      a URL scheme they use for the #anchors as well as for the URL itself,
+      such that if the program knows the Title, Chapter, Section, ... of the
+      statute, it ought to be able to generate the correct hyperlink URL to
+      it. The only problem that I <with|font-series|bold|foresee<with|font-series|bold|>>
+      (plenty will arise that I do not) is the part of the hyperlink that's
+      for choosing which <with|font-series|bold|version<with|font-series|bold|>>
+      of the law to reference. They have it set up so that today, in 2016, if
+      I cite the statutes, the link should not change if the statute is
+      amended, since the link will be to the 2016 version of that statute.
+      (Wikipedia does a similar thing, right?)
+
+      So, for the purpose of <with|font-family|tt|tm-zotero.ts>, when someone
+      inserts a zcite to a statute, it would be cool if it could use the
+      information that is handed back by Juris-M or Zotero to build that
+      link. Of course, there will need to be a customized one for each
+      jurisdiction, and thus, it can only be enabled when that exists and
+      it's not disabled via a per-document option setting. The Juris-M
+      modular style sheets use a scheme for automatically finding
+      jurisdiction-specific overrides for the modular CSL style sheets.
+      Perhaps the same jurisdiction strings or whatever can be used in order
+      to form predictable names for the routines that do this?
+    </src-comment>
+  </active*>
 
   <assign|dash-extra|<macro|x|<no-break>-<no-break><arg|x>>>
 
@@ -439,6 +496,7 @@
   <\collection>
     <associate|font|TeX Gyre Termes>
     <associate|page-type|letter>
+    <associate|preamble|true>
     <associate|src-style|angular>
   </collection>
 </initial>
