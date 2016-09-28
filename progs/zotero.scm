@@ -2591,14 +2591,13 @@ including parentheses and <less> <gtr> around the link put there by some styles.
          ;; user-interface and bibliography, but not for rendering the citation. It of course assumes that normally titles don't
          ;; contain strings that match this pattern.
          ;;
-         (("([0-9][0-9a-zA-Z]+#@)")
+         (("(([0-9][0-9a-zA-Z.]+#@)+)")
           pre post)
          (("((.*)\\2X-X-X([  ]?|\\hspace.[^}+].))") ;; RepeatRepeatX-X-X to delete. Hopefully won't affect sort-order much.
           pre post)
          (("(X-X-X([  ]?|\\hspace.[^}+].))")
           pre post)
-         ;; \\ztbibItemText{\\zbibCitationItemID{3573}\\ztbibitem{sys_id_3573}\\textit{03#@000000000@#\\ztbibSubHeading{United States Code}} (01#@US).}%
-         (("(.ztbibItemText.*000000000@#(.ztbibSubHeading.*})}.*\\.?}%)" ,regexp/newline)
+         (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
           pre 2 post) ;; Category heading dummy entries.
          (("(([  ]?|\\hspace.[^}+].)\\(\\)\\.?)") ;; empty parentheses and space before them, period or space after.
           pre post)
