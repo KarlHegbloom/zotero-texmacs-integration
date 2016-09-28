@@ -267,6 +267,10 @@
 
       Remember that there might, eventually, be more than one zbibliography
       field in a document.
+
+      Look at std-utils.ts for the indentation macros and see if they can be
+      used to improve this sometime when I'm not about to run out of
+      batteries.
     </src-comment>
   </active*>
 
