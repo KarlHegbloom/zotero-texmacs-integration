@@ -24,9 +24,11 @@
     README on my github page. As things progress, hopefully that will no
     longer be required.
 
-    At this time, it is only working on Linux. I don't have Windows or a Mac
-    to develop it on. I will accept pull-requests from anyone willing and
-    able to make it work on those platforms.
+    At this time, it is only <strong|verified> working on Linux. I don't have
+    Windows or a Mac to develop it on. I will accept pull-requests from
+    anyone willing and able to make it work on those platforms. Having said
+    that, it's possible that it might work on Windows or Mac OS-X as-is.
+    Somebody needs to try it.
 
     Someday this will all be an easily installable package for everyday
     people who don't have a degree or hobby in computer science. For now,
@@ -65,11 +67,11 @@
 
     <center|<slink|https://github.com/KarlHegbloom/propachi-texmacs/releases/>>
 
-    It will not auto-update, and from time to time, you may need to update it
-    by-hand. Because it is not signed, you must use <tt|about:config> in
-    Firefox to set <tt|xpinstall.signatures.required> to <tt|false> in order
-    for it to work. Someday perhaps it will be signed, or it's functionality
-    rolled into upstream Juris-M / Zotero.
+    It will probably not auto-update, and from time to time, you may need to
+    update it by-hand. <strong|The plugin is signed now, so you don't need to
+    make any special settings.> You can reset
+    <verbatim|xpinstall.signatures.required> to it's default now, if you had
+    it set for an earlier (pre-release) version.
 
     <item>Install the OpenOffice plugin for Juris-M / Zotero. This is only
     necessary because the integration.js in Juris-M / Zotero checks for the
