@@ -2553,14 +2553,32 @@ including parentheses and <less> <gtr> around the link put there by some styles.
        ;;
        `((("(\r\n)")
           pre "\n" post);; The standard "integration.js" sends RTF, which uses \r\n pairs. Turn them to \n only.
+         ;;
+         ;; Template
+         ;;
+         ;;(("")
+         ;; pre "" post);; comment
+         ;;
+         ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
+         ;; encoded) these characters won't work right for some reason. The macros I'm replacing them with below expand to the same
+         ;; glyphs, but wrapped in a `with' so that the font is for certain set to a UTF-8 encoded one there. They can, of course,
+         ;; be redefined... Perhaps when the document's main font is already a UTF-8 encoded font, these should be redefined too, so
+         ;; they expand without the `with' wrapper that changes the font the glyph is rendered from.
+         ;;
+         ;; By "won't work right", I mean that the wrong glyph is shown, or, in the pdf outlines, the paragraph sign does not show
+         ;; up as such, but instead as a ü... So first, these must be sent as UTF-8 encoded characters, to get the right glyph in
+         ;; the pdf outlines and in the running text.
+         ;;
          (("(¶)")
           pre "\\ParagraphSignGlyph{}" post)
          (("(§)")
           pre "\\SectionSignGlyph{}" post)
+         ;;
          ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation) When a legal case is cited twice in a row
          ;; in a citation cluster, they are collapsed into a parallel citation. With Indigobook, the in-text citation looks perfect,
          ;; but for some reason the one in the bibliography has a ., between the two different reporters, rather than only a , so
          ;; this hack cleans that up.
+         ;;
          (("(\\.,)")
           pre "," post)
          ;; use \abbr{v.} to make the space after the period be a small sized one.
