@@ -463,7 +463,7 @@
 ;;;
 (define (zt-ztbibItemRefs-get-all-refs)
   (let ((refs (tm-search-tag (buffer-tree) 'ztHrefFromCiteToBib)))
-    (zt-format-debug "zt-ztbibItemRefs-get-all-refs:refs: ~S\n" (map tree->stree refs))
+    ;;(zt-format-debug "zt-ztbibItemRefs-get-all-refs:refs: ~S\n" (map tree->stree refs))
     refs))
 
 
@@ -574,7 +574,7 @@
                      (when (not (string-suffix? "-t" (as-string key)))
                        (set! keys (append keys (list (as-string key))))))
                    zt-ztbibItemRefs-ht)
-    (zt-format-debug "zt-ztbibItemRefs-parse-all:keys: ~S\n" keys)
+    ;;(zt-format-debug "zt-ztbibItemRefs-parse-all:keys: ~S\n" keys)
     (let loop ((keys keys))
       (cond
         ((null? keys) #t)
@@ -618,9 +618,9 @@
                        (hash-ref scm-code "properties" #f)))
            (plainCitation (and props
                                (hash-ref props "plainCitation" #f))))
-      (zt-format-debug
-       "Debug:zt-get-orig-zfield-Text:fieldID-str:~s\n\nscm-code:~s\n\nprops:~s\n\nplainCitation:~s\n"
-       fieldID-str scm-code props plainCitation)
+      ;; (zt-format-debug
+      ;;  "Debug:zt-get-orig-zfield-Text:fieldID-str:~s\n\nscm-code:~s\n\nprops:~s\n\nplainCitation:~s\n"
+      ;;  fieldID-str scm-code props plainCitation)
       plainCitation)))
 
 (define (zt-set-zfield-modified?! fieldID-str)
@@ -630,9 +630,9 @@
          (zfield-modified? (and text
                                 orig-text
                                 (not (string=? text orig-text)))))
-    (zt-format-debug
-     "Debug:zt-set-zfield-modified?!:fieldID-str:~s\n\ntext:~s\n\norig-text:~s\n\nzfield-modified?:~s\n"
-     fieldID-str text orig-text zfield-modified?)
+    ;; (zt-format-debug
+    ;;  "Debug:zt-set-zfield-modified?!:fieldID-str:~s\n\ntext:~s\n\norig-text:~s\n\nzfield-modified?:~s\n"
+    ;;  fieldID-str text orig-text zfield-modified?)
     (hash-set! zt-zfield-modified?-cache fieldID-str zfield-modified?)
     zfield-modified?))
 
@@ -656,17 +656,19 @@
     (when (not (hash-ref zt-zfield-disactivated? fieldID-str #f))
       (case (zt-zfield-modified?-or-undef fieldID-str)
         ((undef)
-         (zt-format-debug "Debug:zt-ext-flag-if-modified:undef:~s\n" fieldID)
+         ;; (zt-format-debug "Debug:zt-ext-flag-if-modified:undef:~s\n" fieldID)
          (zt-set-zfield-modified?! fieldID-str)
          (zt-ext-flag-if-modified fieldID-str)) ;; tail-call
         ((#t)
-         (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
+         ;; (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
          '(concat (flag "Modified!" "red")))
         ((#f)
-         (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
+         ;; (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
          '(concat (flag "Not Modified." "green")))))))
 
 
+;;; Todo: Read the Google Keep note I made to myself regarding having it not include obtaining the rendering of the zbibliography
+;;; when that is inside of a hidden section.
 
 (tm-define (zt-ext-document-has-zbibliography?)
   (:secure)
@@ -722,7 +724,6 @@
 (tm-define (zt-ext-zbibCitationItemID sysID)
   (:secure)
   (zt-format-debug "Debug:STUB:zt-ext-zbibCitationItemID: ~s\n\n" sysID)
-  ;;(zt-format-debug "Debug:STUB:zt-ext-zbibCitationItemID:scm->json-string:Code-cache[sysID]: ~s\n\n" (scm->json-string ((hash-ref zt-zfield-Code-cache sysID '())))
   '(concat ""))
 
 (tm-define (zt-ext-bibitem key)
@@ -1048,7 +1049,7 @@
 
 
 (define (zotero-write tid cmd)
-  (zt-format-debug "Debug: zotero-write: ~s ~s\n" tid cmd)
+  ;; (zt-format-debug "Debug: zotero-write: ~s ~s\n" tid cmd)
   (let ((zp (get-zt-zotero-socket-port!)))
     (catch 'system-error
       ;;; This writes raw bytes. The string can be UTF-8.
@@ -1152,10 +1153,10 @@
       ;; Only run when data is ready to be read...
       (when (char-ready? zt-zotero-socket-port)
         (with (tid len cmdstr) (zotero-read)
-          (zt-format-debug "Debug: tid:~s len:~s cmdstr:~s\n" tid len cmdstr)
+          ;; (zt-format-debug "Debug: tid:~s len:~s cmdstr:~s\n" tid len cmdstr)
           (if (> len 0)
               (with (editCommand args) (safe-json-string->scm cmdstr)
-                (zt-format-debug "Debug: ~s\n" (list editCommand (cons tid args)))
+                ;; (zt-format-debug "Debug: ~s\n" (list editCommand (cons tid args)))
                 (cond
                   ((and (>= (string-length editCommand) 4)
                         (string=? (string-take editCommand 4) "ERR:"))
@@ -1620,7 +1621,7 @@
                     (not (in-math?))
                     (if (in-zfield?)
                         (let ((t (focus-tree)))
-                          (zt-format-debug "Debug:zotero-Document_canInsertField:in-zfield? => #t, (focus-tree) => ~s\n" t)
+                          ;; (zt-format-debug "Debug:zotero-Document_canInsertField:in-zfield? => #t, (focus-tree) => ~s\n" t)
                           (or (and zt-new-fieldID
                                    (string=? zt-new-fieldID
                                              (as-string (zt-zfield-ID t))))
@@ -2395,9 +2396,9 @@ including parentheses and <less> <gtr> around the link put there by some styles.
                        (or (string-suffix? "doi:" pre-lnk-str)
                            (string-suffix? "doi: " pre-lnk-str)
                            (string-suffix? "doi: " pre-lnk-str)))))
-    (zt-format-debug "Debug:lnk before: ~s\n" lnk)
-    (zt-format-debug "Debug:pre-lnk-str: ~s\n" pre-lnk-str)
-    (zt-format-debug "Debug:post-lnk-str: ~s\n" post-lnk-str)
+    ;; (zt-format-debug "Debug:lnk before: ~s\n" lnk)
+    ;; (zt-format-debug "Debug:pre-lnk-str: ~s\n" pre-lnk-str)
+    ;; (zt-format-debug "Debug:post-lnk-str: ~s\n" post-lnk-str)
     (unless is-doi?
       (when (string? pre-lnk-str)
         (cond
@@ -2476,7 +2477,8 @@ including parentheses and <less> <gtr> around the link put there by some styles.
                     (string-prefix? " " post-lnk-str))
             (set! post-lnk-str (substring post-lnk-str 1 (string-length post-lnk-str)))
             (tree-set! post-lnk-txt (stree->tree post-lnk-str))))))
-    (zt-format-debug "Debug:lnk after: ~s\n" lnk))
+    ;; (zt-format-debug "Debug:lnk after: ~s\n" lnk))
+    )
   lnk)
 
 
@@ -2559,6 +2561,36 @@ including parentheses and <less> <gtr> around the link put there by some styles.
          ;;(("")
          ;; pre "" post);; comment
          ;;
+         ;;
+         ;; Categorized sort hack utilizing Juris-M abbrevs mechanism. 03USC#@18#@00241#@
+         ;; (for Title 18 U.S.C. §241, where federal laws are the 03'd category in the larger category of items of type "statute")
+         ;;
+         ;; For: Privacy and civil liberties officers, Title 42 U.S.C. §2000ee-1
+         ;; Title: 03USC#@42#@02000ee1#@Privacy and civil liberties officers.
+         ;;
+         ;; Notice that using the prefix 03USC#@, I get sorting to 3rd category, and the string USC to search with for finding
+         ;; it. This stripping of the prefix must happen prior to the abbrev substitutions below or the USC will get replaced in the
+         ;; sorting prefix, leaving 03\abbrev{U.S.C.}#@ there, which is not what I want, obviously.
+         ;;
+         ;; Perhaps ideally the CSL should sort them according to a special sort macro designed for sorting the USC laws into the
+         ;; correct order, and then the Juris-M / Zotero user interface ought to be able to sort them in the same order. But for
+         ;; now, it doesn't do that, but this makes sorting them by title group them together and in the expected (defined) order.
+         ;;
+         ;; All this does is strip the prefix off of the title of the item, so the prefix is used for sorting, in both the
+         ;; user-interface and bibliography, but not for rendering the citation. It of course assumes that normally titles don't
+         ;; contain strings that match this pattern.
+         ;;
+         (("(([0-9][0-9a-zA-Z.]+#@)+)")
+          pre post)
+         (("((.*)\\2X-X-X([  ]?|\\hspace.[^}+].))") ;; RepeatRepeatX-X-X to delete. Hopefully won't affect sort-order much.
+          pre post)
+         (("(X-X-X([  ]?|\\hspace.[^}+].))")
+          pre post)
+         (("(([  ]?|\\hspace.[^}+].)\\(\\)\\.?)") ;; empty parentheses and space before them, period or space after.
+          pre post)
+         (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
+          pre 2 post) ;; Category heading dummy entries.
+         ;;
          ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
          ;; encoded) these characters won't work right for some reason. The macros I'm replacing them with below expand to the same
          ;; glyphs, but wrapped in a `with' so that the font is for certain set to a UTF-8 encoded one there. They can, of course,
@@ -2594,31 +2626,6 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           pre "\\abbr{L.} \\abbr{Rev.}" post)
          (("([A-Z]\\.)([  ])")
           pre "\\abbr{" 1 "}" 2 post)
-         ;;
-         ;; Categorized sort hack utilizing Juris-M abbrevs mechanism. 03#@18#@00241#@
-         ;; (for Title 18 U.S.C. §241, where federal laws are the 03'd category in the larger category of items of type "statute")
-         ;;
-         ;; For: Privacy and civil liberties officers, Title 42 U.S.C. §2000ee-1
-         ;; Title: 03#@42#@02000ee1#@Privacy and civil liberties officers.
-         ;;
-         ;; Perhaps ideally the CSL should sort them according to a special sort macro designed for sorting the USC laws into the
-         ;; correct order, and then the Juris-M / Zotero user interface ought to be able to sort them in the same order. But for
-         ;; now, it doesn't do that, but this makes sorting them by title group them together and in the expected (defined) order.
-         ;;
-         ;; All this does is strip the prefix off of the title of the item, so the prefix is used for sorting, in both the
-         ;; user-interface and bibliography, but not for rendering the citation. It of course assumes that normally titles don't
-         ;; contain strings that match this pattern.
-         ;;
-         (("(([0-9][0-9a-zA-Z.]+#@)+)")
-          pre post)
-         (("((.*)\\2X-X-X([  ]?|\\hspace.[^}+].))") ;; RepeatRepeatX-X-X to delete. Hopefully won't affect sort-order much.
-          pre post)
-         (("(X-X-X([  ]?|\\hspace.[^}+].))")
-          pre post)
-         (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
-          pre 2 post) ;; Category heading dummy entries.
-         (("(([  ]?|\\hspace.[^}+].)\\(\\)\\.?)") ;; empty parentheses and space before them, period or space after.
-          pre post)
          )))
 
          ;; ("<abbr>([^<]+)</abbr>"
@@ -2635,7 +2642,9 @@ including parentheses and <less> <gtr> around the link put there by some styles.
     ;; each is applied in turn, so later ones can modify results of earlier
     ;; ones if you like.
     (cond
-      ((null? rc) text)
+      ((null? rc)
+       (recall-message)
+       text)
       (else
         (loop (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))
               (cdr rc))))))
@@ -2667,8 +2676,8 @@ including parentheses and <less> <gtr> around the link put there by some styles.
     (let ((lt (select t '(:* (:or ztHref hlink href)))))
       ;; It turns out that tm-select will return these not in tree or document 
       ;; order.  For this function, that's alright.
-      (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t before: ~s\n" t)
-      (zt-format-debug "Debug:zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
+      ;; (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t before: ~s\n" t)
+      ;; (zt-format-debug "Debug:zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
       (let loop ((lt2 lt))
         (let ((lnk (and (pair? lt2) (car lt2)))) ; lnk will be bool or tree
           (cond
@@ -2698,7 +2707,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
               (zt-fixup-embedded-slink-as-url lnk))))))
     ;;
     (tree-simplify t)
-    (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
+    ;; (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
     (buffer-close b)
