@@ -49,6 +49,10 @@
         <single>para.</single>
         <multiple>paras.</multiple>
       </term>
+      <term form="symbol" name="paragraph">
+        <single>&#182;</single>
+        <multiple>&#182;&#182;</multiple>
+      </term>
       <term form="short" name="part">pt.</term>
       <term form="short" name="section">
         <single>sec.</single>
@@ -1990,11 +1994,11 @@
   </citation>
   <bibliography et-al-min="3" et-al-use-first="1">
     <sort>
-      <key macro="sort-by-type" suffix=" "/>
-      <key macro="sort-by-jurisdiction" suffix=" "/>
-      <key macro="sort-by-author-bib" suffix=" "/>
-      <key variable="title" suffix=" "/>
-      <key variable="issued" suffix=" "/>
+      <key macro="sort-by-type"/>
+      <key macro="sort-by-jurisdiction"/>
+      <key macro="sort-by-author-bib"/>
+      <key variable="title"/>
+      <key variable="issued"/>
     </sort>
     <layout suffix=".">
       <choose>
