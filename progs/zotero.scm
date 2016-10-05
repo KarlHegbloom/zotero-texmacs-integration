@@ -2584,9 +2584,9 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           pre post)
          (("((.*)\\2X-X-X([  ]?|\\hspace.[^}+].))") ;; RepeatRepeatX-X-X to delete. Hopefully won't affect sort-order much.
           pre post)
-         (("(X-X-X([  ]?|\\hspace.[^}+].))")
+         (("(X-X-X([  ]?|\\hspace.[^}]+.))")
           pre post)
-         (("(([  ]?|\\hspace.[^}+].)\\(\\)\\.?)") ;; empty parentheses and space before them, period or space after.
+         (("(([  ]?|\\hspace.[^}+].)\\(\\))") ;; empty parentheses and space before them (but NOT period or space after).
           pre post)
          (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
           pre 2 post) ;; Category heading dummy entries.
@@ -2620,7 +2620,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           pre "\\abbr{U.S.C.}" post)
          (("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)")
           pre "\\abbr{" 1 "}" post)
-         (("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.|Sup\\.|Ct\\.|App\\.|U\\.|Mass\\.|Const\\.|Art\\.)")
+         (("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.|Cir\\.|Sup\\.|Ct\\.|App\\.|U\\.|Mass\\.|Const\\.|art\\.|Art\\.|sec\\.|Sec\\.|ch\\.|Ch\\.|para\\.|Para\\.)")
           pre "\\abbr{" 1 "}" post)
          (("(L\\. Rev\\.)")
           pre "\\abbr{L.} \\abbr{Rev.}" post)
@@ -2637,6 +2637,7 @@ including parentheses and <less> <gtr> around the link put there by some styles.
 
 (define (zt-zotero-regex-transform str_text)
   (set-message "Zotero: regex transform..." "Zotero integration")
+  ;; (zt-format-debug "zt-zotero-regex-transform:before:str_text: ~S\n" str_text)
   (let loop ((text str_text)
              (rc zt-zotero-regex-replace-clauses))
     ;; each is applied in turn, so later ones can modify results of earlier
@@ -2644,8 +2645,10 @@ including parentheses and <less> <gtr> around the link put there by some styles.
     (cond
       ((null? rc)
        (recall-message)
+       ;; (zt-format-debug "zt-zotero-regex-transform:after:text: ~S\n" text)
        text)
       (else
+        ;; (zt-format-debug "zt-zotero-regex-transform:during:text: ~S\n" text)
         (loop (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))
               (cdr rc))))))
 
