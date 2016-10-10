@@ -14,13 +14,67 @@
 (texmacs-module (zotero)
   (:use (kernel texmacs tm-modes)
         (kernel library content)
+        (kernel library list)
         (utils base environment)
         (utils edit selections)
         (utils library cursor)
+        (generic document-edit)
+        (text text-structure)
+        (generic document-part)
         (generic generic-edit)
         (generic format-edit)
-        (generic document-edit)
         (convert tools sxml)))
+
+
+
+;;; From (generic document-part):
+;;;
+;;; Perhaps these should be exported from there?
+;;;
+(define buffer-body-paragraphs (@@ (generic document-part) buffer-body-paragraphs))
+;;;
+;;; (buffer-get-part-mode)
+;;;   modes are:  :preamble :all :several :one
+;;; (buffer-test-part-mode? mode)
+;;;
+(define buffer-get-part-mode (@@ (generic document-part) buffer-get-part-mode))
+(define buffer-test-part-mode? (@@ (generic document-part) buffer-test-part-mode?))
+;;;
+;;; When mode is :several or :one, then
+;;;   (tree-in? (car (buffer-body-paragraphs)) '(show-part hide-part))
+;;;    => #t
+;;; When mode is :all, that will => #f
+;;;
+;;; (buffer-go-to-part id) id is a natural number beginning at 1, counting each
+;;;   document part from the start of the document to the end.
+;;;
+;;; (buffer-show-part id)
+;;; (buffer-toggle-part id)
+;;;
+(define buffer-show-preamble (@@ (generic document-part) buffer-show-preamble))
+(define buffer-hide-preamble (@@ (generic document-part) buffer-hide-preamble))
+
+
+;;; When parts of the document are hidden, which is what we do when the
+;;; document is too large to easily edit, since TeXmacs slows way down to the
+;;; point of becoming unusable when the document is larger and especially as
+;;; it's structure becomes more complex... It defeats the purpose of hiding
+;;; sections if the zcite or zbibiliography fields that are in those hidden
+;;; sections are updated along with the rest of the document. It will be faster
+;;; and easier to use when there are fewer for it to keep track of at a
+;;; time... and so narrowing the view to only a single or a few sections will
+;;; speed up the zcite turnaround time by reducing the amount of work that it
+;;; has to do each time. For final document production, you must display all of
+;;; the sections and then Zotero refresh it.
+;;;
+;;;
+(define (zt-shown-buffer-body-paragraphs)
+  (let ((l (buffer-body-paragraphs))) ;; list of tree
+    (if (buffer-test-part-mode? :all)
+        l
+        (list-filter l (cut tree-is? <> 'show-part)))))
+    
+
 
 ;;; With a very large bibliography, I had it stop with a Guile stack overflow. The manual for Guile-2.2 says that they've fixed the
 ;;; problem by making the stack dynamically extendable... but I think that this may still be required then because it's a setting
@@ -184,6 +238,8 @@
 
 
 
+;;XXX(define (
+
 ;;; This young code says that it wants to be a GOOPS object someday. I'm not
 ;;; sure if that's right for it yet.
 
@@ -302,6 +358,17 @@
 ;;; "+hoOIoDn3p6FB0H"))
 ;;;
 
+(define (zt-zfield-search subtree)
+  (tm-search
+   subtree
+   (lambda (t)
+     (and (tree-in? t zt-zfield-tags)
+          (not
+           (and zt-new-fieldID
+                (string=? (as-string
+                           (zt-zfield-ID t))
+                          zt-new-fieldID)))))))
+
 (tm-define (zt-get-zfields-list documentID fieldType)
   ;;
   ;; Maybe ensure active document is documentID? For now assume it is.
@@ -313,45 +380,36 @@
   ;; What if I copy and paste a zcite from one location to another? The
   ;; zfield-ID of the second one will need to be updated.
   ;;
-  (let ((fields-tmp-ht (make-hash-table))
-        (all-fields (tm-search
-                     (buffer-tree)
-                     (lambda (t)
-                       (and (tree-in? t zt-zfield-tags)
-                            (not
-                             (and zt-new-fieldID
-                                  (string=? (as-string
-                                             (zt-zfield-ID t))
-                                            zt-new-fieldID))))))))
-    
-    (set! zt-zfield-Code-cache (make-ahash-table))
-
-    (let loop ((in all-fields)
-               (out '()))
-      (cond
-        ((null? in)
-         (hash-for-each (lambda (key val)
-                          (when (not (hash-ref fields-tmp-ht key #f))
-                            (hash-remove! zt-zfield-Code-cache key)))
-                        zt-zfield-Code-cache)
-         (reverse! out))
-        (else
-          ;; fixup in case of copy + paste of zcite by tracking each ID and when one
-          ;; is seen twice, change the second one.
-          (let ((id-t (zt-zfield-ID (car in)))
-                (new-id ""))
-            (if (hash-ref fields-tmp-ht (as-string id-t) #f)
-                (begin
-                  (set! new-id (zt-get-new-fieldID))
-                  (tree-set! id-t (stree->tree new-id))
-                  (hash-set! fields-tmp-ht new-id #t)
-                  (zt-get-zfield-Code-string (car in)));; caches zfield-Code
-                (hash-set! fields-tmp-ht (as-string id-t) #t))
-            (loop (cdr in) (cons
-                            (begin
-                              (zt-get-zfield-Code-string (car in));; caches zfield-Code
-                              (car in))
-                            out))))))))
+  (let* ((fields-tmp-ht (make-hash-table))
+         (l (zt-shown-buffer-body-paragraphs))
+         (all-fields (append-map zt-zfield-search l)))
+      (set! zt-zfield-Code-cache (make-ahash-table))
+      (let loop ((in all-fields)
+                 (out '()))
+        (cond
+          ((null? in)
+           (hash-for-each (lambda (key val)
+                            (when (not (hash-ref fields-tmp-ht key #f))
+                              (hash-remove! zt-zfield-Code-cache key)))
+                          zt-zfield-Code-cache)
+           (reverse! out))
+          (else
+            ;; fixup in case of copy + paste of zcite by tracking each ID and when one
+            ;; is seen twice, change the second one.
+            (let ((id-t (zt-zfield-ID (car in)))
+                  (new-id ""))
+              (if (hash-ref fields-tmp-ht (as-string id-t) #f)
+                  (begin
+                    (set! new-id (zt-get-new-fieldID))
+                    (tree-set! id-t (stree->tree new-id))
+                    (hash-set! fields-tmp-ht new-id #t)
+                    (zt-get-zfield-Code-string (car in)));; caches zfield-Code
+                  (hash-set! fields-tmp-ht (as-string id-t) #t))
+              (loop (cdr in) (cons
+                              (begin
+                                (zt-get-zfield-Code-string (car in));; caches zfield-Code
+                                (car in))
+                              out))))))))
             
 
 
