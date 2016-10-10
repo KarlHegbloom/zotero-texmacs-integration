@@ -9,8 +9,48 @@ also, it might be doing more work than it needs to, and so perhaps
 there's room for optimizations. I have to use it every day and I know
 it's too slow for most people! We are working on it. Any ideas?
 
+I am planning to perform some code profiling to try and find the
+bottlenecks and any wasted cycles.
+
 NEWS
 ----
+
+  * 2016-10-10: It now only sends information about the zcite or
+    zbibliography fields that are within the document parts selected
+    as visible when you use the Document -> Part ->
+    Show... menu. TeXmacs can slow down quite a lot when the document
+    is long and has complex structure. Narrowing the visible portion
+    of the document only to the part you are presently working in will
+    significantly improve interactive performance. (No more having to
+    pause 10 seconds to wait for keypress event queue to catch up...)
+    
+    * Prior to this last change, when the document was narrowed to
+      only display one or several parts of it, the zotero integration
+      code did not limit the zfields it gathered information to send
+      to zotero about to only the ones in the visible parts of the
+      document, and so it was taking quite a long time for turn-around
+      when a citation was inserted or the document was updated. It now
+      only finds and deals with zfields within the visible parts of
+      the document (inside show-part), bringing a performance
+      improvement.
+      
+    * You will need to make your entire document visible and then
+      refresh the zotero citations at least once as part of your final
+      production phase. It is possible to temporarily, if not
+      permanently, place your zbibliography inside of it's own
+      document part so that it can be kept hidden during production,
+      since regenerating the bibliography each time a citation is
+      added to the document is one of the long running operations, and
+      is not strictly necessary until later in the production
+      cycle...
+      
+      But sometimes you want to see what it's shaping up to look
+      like. If you insert it then delete it and insert it again, you
+      loose any customization you made using Zotero -> Edit
+      Bibliography. But putting it in it's own document part that you
+      can hide and show at will leaves those customizations in place
+      while at the same time having the advantage of not refreshing
+      the bibliography each time a citation is inserted or updated.
 
   * 2016-09-28: propachi-texmacs is now a signed xpi, and so you no
     longer need to use about:plugins to set
