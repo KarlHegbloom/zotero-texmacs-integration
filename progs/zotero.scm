@@ -2671,6 +2671,19 @@ including parentheses and <less> <gtr> around the link put there by some styles.
          ;;
          (("(\\.,)")
           pre "," post)
+         ;;
+         ;; Using the ibus mathwriter input method, I can type -> and get →. I can put that at the end of the suffix text, when I
+         ;; want the following semicolon or period to be deleted. For example:
+         ;;
+         ;; Giglio v. United States, 405 U. S. 150, 153 (1972), quoting→; Napue v. Illinois, 360 U. S. 264, 269 (1959).
+         ;;
+         ;; In the first citation of the citation cluster, the one to Giglio, the suffix text is ", quoting→". The processor returns
+         ;; the suffix text unchanged, and places the semicolon between the two citations in the citation cluster. Because of the
+         ;; arrow there, this hack removes that semicolon:
+         ;;
+         (("(→}*[;.])")
+          pre post)
+         ;;
          ;; use \abbr{v.} to make the space after the period be a small sized one.
          ((" (v\\.?s?\\.?) ")
           pre " \\abbr{v.} " post)
