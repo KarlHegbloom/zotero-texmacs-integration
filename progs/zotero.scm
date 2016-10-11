@@ -23,7 +23,9 @@
         (generic document-part)
         (generic generic-edit)
         (generic format-edit)
-        (convert tools sxml)))
+        (convert tools sxml)
+        ;; (zotero profile)
+        ))
 
 
 
@@ -2663,6 +2665,10 @@ including parentheses and <less> <gtr> around the link put there by some styles.
           pre "\\ParagraphSignGlyph{}" post)
          (("(§)")
           pre "\\SectionSignGlyph{}" post)
+         (("(&ldquo;)")
+          pre "“" post)
+         (("(&rdquo;)")
+          pre "”" post)
          ;;
          ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation) When a legal case is cited twice in a row
          ;; in a citation cluster, they are collapsed into a parallel citation. With Indigobook, the in-text citation looks perfect,
