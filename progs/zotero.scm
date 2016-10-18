@@ -113,7 +113,7 @@
 (use-modules (ice-9 format))
 (use-modules (ice-9 regex))
 (use-modules (ice-9 common-list))
-(use-modules (srfi srfi-1)) ;; for-each
+;; (use-modules (srfi srfi-1)) ;; for-each
 
 (use-modules (md5))
 (define (md5-string str)
