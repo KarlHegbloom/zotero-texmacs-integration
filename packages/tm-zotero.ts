@@ -1,4 +1,4 @@
-<TeXmacs|1.99.4>
+<TeXmacs|1.99.9>
 
 <style|source>
 
@@ -41,7 +41,7 @@
 
   <use-module|(zotero)>
 
-  <use-package|std-counter|std-utils|env-float|std-list>
+  <use-package|std-counter|std-utils|env-float|std-list|std-markup>
 
   \;
 
@@ -49,10 +49,32 @@
 
   <assign|SectionSignGlyph|<macro|Ÿ>>
 
+  <assign|ldquo|\P>
+
+  <assign|rdquo|\Q>
+
   \;
 
   <assign|ztDebug|<macro|body|<extern|(lambda (body) (zt-format-debug
   "Debug:ztDebug: ~s\\n" body))|<arg|body>>>>
+
+  \;
+
+  <assign|usepackage*|<macro|ign1|ign2|<concealed|<arg|ign1><arg|ign2>>>>
+
+  <assign|zttextit|<macro|body|<with|font-shape|italic|<arg|body>>>>
+
+  <assign|zttextsl|<macro|body|<with|font-shape|slanted|<arg|body>>>>
+
+  <assign|zttextup|<macro|body|<with|font-shape|right|<arg|body>>>>
+
+  <assign|zttextsc|<macro|body|<with|font-shape|small-caps|<arg|body>>>>
+
+  <assign|zttextnormal|<macro|body|<with|font-family|rm|font-shape|right|font-series|medium|<arg|body>>>>
+
+  <assign|zttextbf|<macro|body|<with|font-series|bold|<arg|body>>>>
+
+  <assign|zttextmd|<macro|body|<with|font-series|medium|<arg|body>>>>
 
   <\active*>
     <\src-comment>
@@ -401,7 +423,7 @@
 
 <\initial>
   <\collection>
-    <associate|font|termes>
+    <associate|font|TeX Gyre Termes>
     <associate|math-font|math-termes>
     <associate|preamble|true>
   </collection>
