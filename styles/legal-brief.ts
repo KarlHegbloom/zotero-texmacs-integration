@@ -1,4 +1,4 @@
-<TeXmacs|1.99.4>
+<TeXmacs|1.99.9>
 
 <style|source>
 
@@ -286,6 +286,10 @@
 
   \;
 
+  <assign|subsubparagraph-title|<macro|name|<style-with|src-compact|none|<sectional-short-bold|<vspace*|0.125fn><arg|name><subsubparagraph-sep>>>>>
+
+  \;
+
   <assign|section-title|<\macro|title>
     <\sectional-centered-bold>
       <vspace*|1fn><large|<arg|title>><vspace|0.3333fn>
@@ -294,7 +298,9 @@
 
   <assign|subsection-title|<macro|title|<sectional-centered-bold|<vspace*|0.75fn><arg|title><vspace|0.15fn>>>>
 
-  <assign|subsubsection-title|<macro|title|<sectional-centered|<vspace*|0.5fn><arg|title><vspace|0.25fn>>>>
+  <assign|XXsubsubsection-title|<macro|title|<sectional-centered|<vspace*|0.5fn><arg|title><vspace|0.25fn>>>>
+
+  <assign|subsubsection-title|<macro|title|<sectional-centered-bold|<vspace*|0.5fn><arg|title><vspace|0.15fn>>>>
 
   <assign|ORIG-generic-section-title|<macro|name|<style-with|src-compact|none|<sectional-normal-bold|<vspace*|1.5fn><very-large|<arg|name>><vspace|0.5fn>>>>>
 
