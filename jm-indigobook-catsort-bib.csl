@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" page-range-format="chicago" version="1.1mlz1" year-range-format="expanded">
   <info>
-    <title>JM Indigo Book (in-text with category-sorted bibliography)</title>
+    <title>JM Indigo Book (with category sorted bibliography)</title>
     <id>http://juris-m.github.io/styles/jm-indigobook-catsort-bib</id>
-    <link href="http://juris-m.github.io/styles/jm-indigobook" rel="self"/>
+    <link href="http://juris-m.github.io/styles/jm-indigobook-catsort-bib" rel="self"/>
     <link href="https://law.resource.org/pub/us/code/blue/IndigoBook.html" rel="documentation"/>
     <author>
       <name>Frank Bennett</name>
@@ -48,10 +48,6 @@
       <term form="short" name="paragraph">
         <single>para.</single>
         <multiple>paras.</multiple>
-      </term>
-      <term form="symbol" name="paragraph">
-        <single>&#182;</single>
-        <multiple>&#182;&#182;</multiple>
       </term>
       <term form="short" name="part">pt.</term>
       <term form="short" name="section">
@@ -1908,22 +1904,17 @@
       </else>
     </choose>
   </macro>
-  <macro name="sort-by-author-bib">
-    <names variable="author">
-      <name name-as-sort-order="first" and="symbol" sort-separator=", " delimiter-precedes-last="never"/>
-      <et-al term="et-al"/>
-      <label form="short" prefix=", "/>
-      <substitute>
-        <names variable="editor"/>
-      </substitute>
-    </names>
-  </macro>
   <macro name="sort-by-type">
     <!-- - -->
     <!-- Hypothetically, could match on jurisdiction first, and select -->
     <!-- the categories and ordering differently for each one.         -->
     <!--   Q: Can the Modular style automatic includes work for that?  -->
     <!-- - -->
+    <!-- a)(3) A table of authorities with cases alphabetically
+               arranged and with parallel citations, rules, statutes and
+               other authorities cited, with references to the pages of the
+               brief where they are cited.
+    -->
     <!-- Utah Court of Appeals, Checklist for Briefs, p3, Content Requirements -->
     <!-- Table of authorities with page references: -->
     <!--     o cases listed alphabetically with parallel citations -->
@@ -1944,10 +1935,10 @@
       <else-if type="hearing gazette report regulation" match="any">
         <text value="08"/>
       </else-if>
-      <else-if type="book thesis" match="any">
+      <else-if type="article-journal" match="any">
         <text value="10"/>
       </else-if>
-      <else-if type="article-journal" match="any">
+      <else-if type="book thesis" match="any">
         <text value="12"/>
       </else-if>
       <!-- <else-if type="chapter article-newspaper article-magazine" match="any"> -->
@@ -1960,6 +1951,16 @@
   </macro>
   <macro name="sort-by-jurisdiction">
     <text macro="std-authority-full"/>
+  </macro>
+  <macro name="sort-by-author-bib">
+    <names variable="author">
+      <name name-as-sort-order="first" and="symbol" sort-separator=", " delimiter-precedes-last="never"/>
+      <et-al term="et-al"/>
+      <label form="short" prefix=", "/>
+      <substitute>
+        <names variable="editor"/>
+      </substitute>
+    </names>
   </macro>
   <citation disambiguate-add-givenname="true" givenname-disambiguation-rule="by-cite" et-al-min="3" et-al-use-first="1" near-note-distance="5">
     <layout delimiter="; " suffix=".">
