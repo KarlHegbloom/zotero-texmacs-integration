@@ -108,61 +108,65 @@
                                                                  (string->char-set ".")))
                                         ".UTF-8")))))
 
-;;; This copy of json was ported from Guile 2.0 to Guile 1.8 by Karl M. Hegbloom.
+;;; This copy of json was ported from Guile 2.0 to Guile 1.8
+;;; by Karl M. Hegbloom.
+;;;
 (use-modules (json))
+
 (use-modules (ice-9 format))
 (use-modules (ice-9 regex))
 (use-modules (ice-9 common-list))
-;; (use-modules (srfi srfi-1)) ;; for-each
 
-(use-modules (md5))
-(define (md5-string str)
-  (with-input-from-string str
-    (md5)))
+;; (use-modules (md5))
+;; (define (md5-string str)
+;;   (with-input-from-string str
+;;     (md5)))
 
 
-;; (define last-time 0)
+;;; This will print a warning about replacing current-time in module zotero.
+;;; Overriding current-time is intentional. It only affects this module's
+;;; namespace.
+;;;
+(use-modules (srfi srfi-19));; Time
 
-;; (define (timestamp time)
-;;   "@time is a time as returned by current-time."
-;;   (let ((ret (string-concatenate
-;;               (list
-;;                (strftime "%T:" (localtime time))
-;;                (format #f "(~s):"  (- time last-time))))))
-;;     (set! last-time time)
-;;     ret))
+(define last-time (current-time))
 
-;; (tm-define (zt-format-error . args)
-;;   (:secure)
-;;   (apply format (cons (current-error-port)
-;;                       (cons
-;;                        (string-concatenate
-;;                         (list (timestamp (current-time))
-;;                               (car args)))
-;;                        (cdr args)))))
+(define (timestamp time)
+  "@time is a time-utc as returned by srfi-19:current-time."
+  (let* ((td (time-difference time last-time))
+         (ret (format #f "~10,,,'0@s:~10,,,'0@s:(~10,,,'0@s:~10,,,'0@s):"
+                      (time-second time)
+                      (time-nanosecond time)
+                      (time-second td)
+                      (time-nanosecond td))))
+    (set! last-time time)
+    ret))
+
+(tm-define (zt-format-error . args)
+  (:secure)
+  (apply format (cons (current-error-port)
+                      (cons
+                       (string-concatenate
+                        (list
+                         (timestamp (current-time))
+                         (car args)))
+                       (cdr args)))))
 
 
 (define-public zt-debug-trace? #f)
 ;;; (define-public zt-debug-trace? #t)
 
-;; (tm-define (zt-format-debug . args)
-;;   (:secure)
-;;   (when zt-debug-trace?
-;;     (apply format (cons (current-output-port)
-;;                         (cons
-;;                          (string-concatenate
-;;                           (list (timestamp (current-time))
-;;                                 (car args)))
-;;                          (cdr args))))))
-
-(tm-define (zt-format-error . args)
-  (:secure)
-  (apply format (cons (current-error-port) args)))
-
 (tm-define (zt-format-debug . args)
   (:secure)
   (when zt-debug-trace?
-    (apply format (cons (current-output-port) args))))
+    (apply format (cons (current-output-port)
+                        (cons
+                         (string-concatenate
+                          (list
+                           (timestamp (current-time))
+                           (car args)))
+                         (cdr args))))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -715,7 +719,7 @@
            (plainCitation (and props
                                (hash-ref props "plainCitation" #f))))
       ;; (zt-format-debug
-      ;;  "Debug:zt-get-orig-zfield-Text:fieldID-str:~s\n\nscm-code:~s\n\nprops:~s\n\nplainCitation:~s\n"
+      ;;  "zt-get-orig-zfield-Text:fieldID-str:~s\n\nscm-code:~s\n\nprops:~s\n\nplainCitation:~s\n"
       ;;  fieldID-str scm-code props plainCitation)
       plainCitation)))
 
@@ -727,7 +731,7 @@
                                 orig-text
                                 (not (string=? text orig-text)))))
     ;; (zt-format-debug
-    ;;  "Debug:zt-set-zfield-modified?!:fieldID-str:~s\n\ntext:~s\n\norig-text:~s\n\nzfield-modified?:~s\n"
+    ;;  "zt-set-zfield-modified?!:fieldID-str:~s\n\ntext:~s\n\norig-text:~s\n\nzfield-modified?:~s\n"
     ;;  fieldID-str text orig-text zfield-modified?)
     (hash-set! zt-zfield-modified?-cache fieldID-str zfield-modified?)
     zfield-modified?))
@@ -752,14 +756,14 @@
     (when (not (hash-ref zt-zfield-disactivated? fieldID-str #f))
       (case (zt-zfield-modified?-or-undef fieldID-str)
         ((undef)
-         ;; (zt-format-debug "Debug:zt-ext-flag-if-modified:undef:~s\n" fieldID)
+         ;; (zt-format-debug "zt-ext-flag-if-modified:undef:~s\n" fieldID)
          (zt-set-zfield-modified?! fieldID-str)
          (zt-ext-flag-if-modified fieldID-str)) ;; tail-call
         ((#t)
-         ;; (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
+         ;; (zt-format-debug " zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
          '(concat (flag "Modified!" "red")))
         ((#f)
-         ;; (zt-format-debug "Debug: zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
+         ;; (zt-format-debug " zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
          '(concat (flag "Not Modified." "green")))))))
 
 
@@ -785,7 +789,7 @@
 ;;;
 (tm-define (zt-ext-ztShowID node cslid body)
   (:secure)
-  (zt-format-debug "Debug:zt-ext-ztShowID: ~s ~s ~s\n" node clsid body)
+  (zt-format-debug "zt-ext-ztShowID: ~s ~s ~s\n" node clsid body)
   '(concat ""))
 
 
@@ -819,12 +823,12 @@
 ;;;
 (tm-define (zt-ext-zbibCitationItemID sysID)
   (:secure)
-  (zt-format-debug "Debug:STUB:zt-ext-zbibCitationItemID: ~s\n\n" sysID)
+  (zt-format-debug "STUB:zt-ext-zbibCitationItemID: ~s\n\n" sysID)
   '(concat ""))
 
 (tm-define (zt-ext-bibitem key)
   (:secure)
-  (zt-format-debug "Debug:STUB:zt-ext-bibitem: ~s\n" key)
+  (zt-format-debug "STUB:zt-ext-bibitem: ~s\n" key)
   '(concat ""))
 
 
@@ -1145,7 +1149,7 @@
 
 
 (define (zotero-write tid cmd)
-  (zt-format-debug "Debug:zotero-write:tid:~s:cmd:~s\n" tid cmd)
+  (zt-format-debug "zotero-write:tid:~s:cmd:~s\n" tid cmd)
   (let ((zp (get-zt-zotero-socket-port!)))
     (catch 'system-error
       ;;; This writes raw bytes. The string can be UTF-8.
@@ -1249,19 +1253,19 @@
       ;; Only run when data is ready to be read...
       (when (char-ready? zt-zotero-socket-port)
         (with (tid len cmdstr) (zotero-read)
-          (zt-format-debug "Debug:zotero-listen:tid:~s:len:~s:cmdstr:~s\n" tid len cmdstr)
+          (zt-format-debug "zotero-listen:tid:~s:len:~s:cmdstr:~s\n" tid len cmdstr)
           (if (> len 0)
               (with (editCommand args) (safe-json-string->scm cmdstr)
-                (zt-format-debug "Debug:~s\n" (list editCommand (cons tid args)))
+                (zt-format-debug "~s\n" (list editCommand (cons tid args)))
                 (cond
                   ((and (>= (string-length editCommand) 4)
                         (string=? (string-take editCommand 4) "ERR:"))
-                   (zt-format-debug "Debug:zotero-listen:~s\n" editCommand)
+                   (zt-format-debug "zotero-listen:~s\n" editCommand)
                    (zotero-write tid editCommand) ;; send the error to Zotero
                    (set! counter 40)
                    (set! wait 10)) ;; keep listening
                   ((string=? editCommand "Document_complete")
-                   (zt-format-debug "Debug:zotero-Document_complete called.\n")
+                   (zt-format-debug "zotero-Document_complete called.\n")
                    (set-message "Zotero: Document complete." "Zotero integration")
                    (zotero-write tid (scm->json-string '()))
                    ;;(close-zt-zotero-socket-port!)
@@ -1639,7 +1643,7 @@
 ;;; ["Application_getActiveDocument", [int_protocolVersion]] -> [int_protocolVersion, documentID]
 ;;;
 (tm-define (zotero-Application_getActiveDocument tid pv)
-  (zt-format-debug "Debug:zotero-Application_getActiveDocument called.\n")
+  (zt-format-debug "zotero-Application_getActiveDocument called.\n")
   (zotero-write tid (safe-scm->json-string (list pv (zt-get-DocumentID)))))
 
 
@@ -1696,7 +1700,7 @@
 ;;;
 (tm-define (zotero-Document_displayAlert tid documentID str_dialogText int_icon
                                          int_buttons)
-  (zt-format-debug "Debug:zotero-Document_displayAlert called.\n")
+  (zt-format-debug "zotero-Document_displayAlert called.\n")
   (dialogue-window (zotero-display-alert documentID str_dialogText int_icon int_buttons)
                    (lambda (val)
                      (zotero-write tid (safe-scm->json-string val)))
@@ -1716,14 +1720,14 @@
 ;;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
 ;;;
 (tm-define (zotero-Document_canInsertField tid documentID str_fieldType)
-  (zt-format-debug "Debug:zotero-Document_canInsertField called.\n")
+  (zt-format-debug "zotero-Document_canInsertField called.\n")
   (let ((ret (not
               (not
                (and (in-text?)
                     (not (in-math?))
                     (if (in-zfield?)
                         (let ((t (focus-tree)))
-                          (zt-format-debug "Debug:zotero-Document_canInsertField:in-zfield? => #t, (focus-tree) => ~s\n" t)
+                          (zt-format-debug "zotero-Document_canInsertField:in-zfield? => #t, (focus-tree) => ~s\n" t)
                           (or (and zt-new-fieldID
                                    (string=? zt-new-fieldID
                                              (as-string (zt-zfield-ID t))))
@@ -1738,7 +1742,7 @@
 ;;; ["Document_getDocumentData", [documentID]] -> str_dataString
 ;;;
 (tm-define (zotero-Document_getDocumentData tid documentID)
-  (zt-format-debug "Debug:zotero-Document_getDocumentData called.\n")
+  (zt-format-debug "zotero-Document_getDocumentData called.\n")
   (zotero-write tid (safe-scm->json-string (zt-get-DocumentData documentID))))
 
 
@@ -1749,7 +1753,7 @@
 ;;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
 ;;;
 (tm-define (zotero-Document_setDocumentData tid documentID str_dataString)
-  (zt-format-debug "Debug:zotero-Document_setDocumentData called.\n")
+  (zt-format-debug "zotero-Document_setDocumentData called.\n")
   (zt-set-DocumentData documentID str_dataString)
   (zotero-write tid (safe-scm->json-string '())))
 
@@ -1769,11 +1773,11 @@
 ;;; ["Document_cursorInField", [documentID, str_fieldType]] -> null || [fieldID, fieldCode, int_noteIndex]
 ;;;
 (tm-define (zotero-Document_cursorInField tid documentID str_fieldType)
-  (zt-format-debug "Debug:zotero-Document_cursorInField called.\n")
+  (zt-format-debug "zotero-Document_cursorInField called.\n")
   (let ((ret
          (if (in-zfield?)
              (begin
-               (zt-format-debug "Debug:zotero-Document_cursorInField: in-zfield? => #t\n")
+               (zt-format-debug "zotero-Document_cursorInField: in-zfield? => #t\n")
                (let* ((t (focus-tree))
                       (id (as-string (zt-zfield-ID t))))
                  (if (not (and zt-new-fieldID
@@ -1782,7 +1786,7 @@
                        (let ((code (zt-get-zfield-Code-string t))
                              (ni (as-string (zt-zfield-NoteIndex t))))
                          (zt-format-debug
-                          "Debug:zotero-Document_cursorInField:id:~s:code:~s:ni:~s\n"
+                          "zotero-Document_cursorInField:id:~s:code:~s:ni:~s\n"
                           id code ni)
                          (list id code ni)))
                      '()))) ;; is the new field not finalized by Document_insertField
@@ -1806,7 +1810,7 @@
 ;;;
 (tm-define (zotero-Document_insertField tid documentID str_fieldType
                                         int_noteType)
-  (zt-format-debug "Debug:zotero-Document_insertField called.\n")
+  (zt-format-debug "zotero-Document_insertField called.\n")
   (let ((field (zt-find-zfield zt-new-fieldID))
         (id zt-new-fieldID))
     (if field
@@ -1845,7 +1849,7 @@
 ;;; that the BIBL field is also sent as one of the fields in this list.
 ;;;
 (tm-define (zotero-Document_getFields tid documentID str_fieldType)
-  (zt-format-debug "Debug:zotero-Document_getFields called.\n")
+  (zt-format-debug "zotero-Document_getFields called.\n")
   (let ((ret
          (let loop ((zcite-fields (zt-get-zfields-list
                                    documentID str_fieldType))
@@ -1875,7 +1879,7 @@
 ;;; Maybe we could repurpose this for TeXmacs?  Better to make a new flag; and just ignore this one.
 ;;;
 (tm-define (zotero-Document_convert tid . args)
-  (zt-format-debug "Debug:zotero-Document_convert called.\n")
+  (zt-format-debug "zotero-Document_convert called.\n")
   (zotero-write tid (safe-scm->json-string '())))
 
 
@@ -2276,7 +2280,7 @@
             firstLineIndent bodyIndent
             lineSpacing entrySpacing
             arrayList tabStopCount)
-  (zt-format-debug "Debug:zotero-Document_setBibliographyStyle called.\n")
+  (zt-format-debug "zotero-Document_setBibliographyStyle called.\n")
   (set-init-env "zotero-BibliographyStyle_firstLineIndent"
                 (zt-zotero-firstLineIndent->tmlen firstLineIndent))
   (set-init-env "zotero-BibliographyStyle_bodyIndent"
@@ -2298,7 +2302,7 @@
 ;;; connector. It appears to do nothing there either.
 ;;;
 (tm-define (zotero-Document_cleanup tid documentID)
-  (zt-format-debug "Debug:STUB:zotero-Document_cleanup: ~s\n" documentID)
+  (zt-format-debug "STUB:zotero-Document_cleanup: ~s\n" documentID)
   (zotero-write tid (safe-scm->json-string '())))
   
 
@@ -2330,7 +2334,7 @@
 ;;; ["Field_delete", [documentID, fieldID]] -> null
 ;;;
 (tm-define (zotero-Field_delete tid documentID fieldID)
-  (zt-format-debug "Debug:zotero-Field_delete called.\n")
+  (zt-format-debug "zotero-Field_delete called.\n")
   (let* ((field (zt-find-zfield fieldID))
          (code (and field (zt-zfield-Code field)))
          (text (and field (zt-zfield-Text field))))
@@ -2352,7 +2356,7 @@
 ;;; light blue box, after it.... (writing this comment prior to testing. FLW.)
 ;;;
 (tm-define (zotero-Field_select tid documentID fieldID)
-  (zt-format-debug "Debug:zotero-Field_select called.\n")
+  (zt-format-debug "zotero-Field_select called.\n")
   (zt-go-to-zfield documentID fieldID)
   (zotero-write tid (safe-scm->json-string '())))
 
@@ -2362,7 +2366,7 @@
 ;;; ["Field_removeCode", [documentID, fieldID]] -> null
 ;;;
 (tm-define (zotero-Field_removeCode tid documentID fieldID)
-  (zt-format-debug "Debug:zotero-Field_removeCode called.\n")
+  (zt-format-debug "zotero-Field_removeCode called.\n")
   (let* ((field (zt-find-zfield fieldID))
          (code (and field (zt-zfield-Code field))))
     (when code
@@ -2511,7 +2515,7 @@
 will not overflow into the page margins. Keep punctuation before and after,
 including parentheses and <less> <gtr> around the link put there by some
 styles.")
-  (zt-format-debug "Debug:zt-move-link-to-own-line called.\n")
+  (zt-format-debug "zt-move-link-to-own-line called.\n")
   (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
          (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt)))
          (post-lnk-txt (tree-ref (tree-up lnk) (+ (tree-index lnk) 1)))
@@ -2520,16 +2524,19 @@ styles.")
                        (or (string-suffix? "doi:" pre-lnk-str)
                            (string-suffix? "doi: " pre-lnk-str)
                            (string-suffix? "doi: " pre-lnk-str)))))
-    ;; (zt-format-debug "Debug:lnk before: ~s\n" lnk)
-    ;; (zt-format-debug "Debug:pre-lnk-str: ~s\n" pre-lnk-str)
-    ;; (zt-format-debug "Debug:post-lnk-str: ~s\n" post-lnk-str)
+    (zt-format-debug "lnk before: ~s\n" lnk)
+    (zt-format-debug "pre-lnk-str: ~s\n" pre-lnk-str)
+    (zt-format-debug "post-lnk-str: ~s\n" post-lnk-str)
     (unless is-doi?
+      (zt-format-debug "is-doi? => #f\n")
       (when (string? pre-lnk-str)
         (cond
           ((and (string? post-lnk-str)
                 (string-suffix? "<less>" pre-lnk-str)
                 (string-prefix? "<gtr>" post-lnk-str))
            ;; Keep link wrapped in <less> <gtr> and put on it's own line
+           ;; (zt-format-debug
+           ;;  "Keep link wrapped in <less> <gtr> and put on it's own line (1).\n")
            (set! pre-lnk-str (substring pre-lnk-str
                                         0
                                         (- (string-length pre-lnk-str)
@@ -2546,6 +2553,8 @@ styles.")
                 (string-suffix? "<less>less<gtr>" pre-lnk-str)
                 (string-prefix? "<less>gtr<gtr>" post-lnk-str))
            ;; Keep link wrapped in <less> <gtr> and put on it's own line
+           ;; (zt-format-debug
+           ;;  "Keep link wrapped in <less> <gtr> and put on it's own line (2).\n")
            (set! pre-lnk-str (substring pre-lnk-str
                                         0
                                         (- (string-length pre-lnk-str)
@@ -2562,6 +2571,7 @@ styles.")
                (and (string-suffix? "http://dx.doi.org/" pre-lnk-str) "http://dx.doi.org/"))
            => (lambda (lnstr)
                 ;; Keep link next to the prefix text.
+                ;;(zt-format-debug "Keep link next to the prefix text.\n")
                 (set! pre-lnk-str (substring pre-lnk-str
                                              0
                                              (- (string-length pre-lnk-str)
@@ -2584,6 +2594,7 @@ styles.")
           (cond
            ((null? strs) #t)
            ((string-prefix? (car strs) post-lnk-str)
+            ;;(zt-format-debug "Punctuation: '~s'" (car strs))
             (tree-set! lnk (stree->tree
                             `(concat ,lnk
                                      ,(substring post-lnk-str
@@ -2601,13 +2612,12 @@ styles.")
                     (string-prefix? " " post-lnk-str))
             (set! post-lnk-str (substring post-lnk-str 1 (string-length post-lnk-str)))
             (tree-set! post-lnk-txt (stree->tree post-lnk-str))))))
-    ;; (zt-format-debug "Debug:lnk after: ~s\n" lnk))
-    )
+    (zt-format-debug "lnk after: ~s\n" lnk))
   lnk)
 
 
 (tm-define (zt-delete-one-space-to-left-of lnk)
-  (zt-format-debug "Debug:zt-delete-one-space-to-left-of called.\n")
+  (zt-format-debug "zt-delete-one-space-to-left-of called.\n")
   (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
          (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt))))
     (when (or (string-suffix? " " pre-lnk-str)
@@ -2621,7 +2631,7 @@ styles.")
 
 
 (tm-define (zt-fixup-embedded-slink-as-url lnk)
-  (zt-format-debug "Debug:zt-fixup-embedded-slink-as-url called.\n")
+  (zt-format-debug "zt-fixup-embedded-slink-as-url called.\n")
   (cond
     ((and (tree-in? lnk '(ztHrefFromBibToURL ztHrefFromCiteToBib))
           (tree-in? (tree-ref lnk 1) '(slink verbatim)))
@@ -2629,27 +2639,27 @@ styles.")
        (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
   lnk)
 
-;;; Debug: tid:10 len:190 cmdstr:"[\"Field_setText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\",\"\\\\textit{Statutes in derogation of
+;;;  tid:10 len:190 cmdstr:"[\"Field_setText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\",\"\\\\textit{Statutes in derogation of
 ;;; common law not strictly construed --- Rules of equity prevail.}, Title 68, Chapter 3 § 2 (2014).\",false]]"
 ;;;
-;;; Debug: ("Field_setText" (10 "10724-(1)" "+3LuhRbmY22me9N" "\\textit{Statutes in derogation of common law not strictly construed
+;;;  ("Field_setText" (10 "10724-(1)" "+3LuhRbmY22me9N" "\\textit{Statutes in derogation of common law not strictly construed
 ;;; --- Rules of equity prevail.}, Title 68, Chapter 3 § 2 (2014)." #f))
 ;;;
-;;; Debug:zt-zotero-str_text->texmacs:t before: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
+;;; zt-zotero-str_text->texmacs:t before: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
 ;;; construed \V Rules of equity prevail.>, Title 68, Chapter 3 � 2 (2014).>
 ;;;
-;;; Debug:zt-zotero-str_text->texmacs:select lt: ()
+;;; zt-zotero-str_text->texmacs:select lt: ()
 ;;;
-;;; Debug:zt-zotero-str_text->texmacs:t after: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
+;;; zt-zotero-str_text->texmacs:t after: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
 ;;; construed \V Rules of equity prevail.>, Title 68, Chapter 3 � 2 (2014).>
 ;;;
-;;; Debug: zotero-write: 10 "null"
+;;;  zotero-write: 10 "null"
 ;;;
-;;; Debug: tid:11 len:49 cmdstr:"[\"Field_getText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\"]]"
+;;;  tid:11 len:49 cmdstr:"[\"Field_getText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\"]]"
 ;;;
-;;; Debug: ("Field_getText" (11 "10724-(1)" "+3LuhRbmY22me9N"))
+;;;  ("Field_getText" (11 "10724-(1)" "+3LuhRbmY22me9N"))
 ;;;
-;;; Debug: zotero-write: 11 "\"(concat (with \\\"font-shape\\\" \\\"italic\\\" \\\"Statutes in derogation of common law not strictly
+;;;  zotero-write: 11 "\"(concat (with \\\"font-shape\\\" \\\"italic\\\" \\\"Statutes in derogation of common law not strictly
 ;;; construed \\\\x16 Rules of equity prevail.\\\") \\\", Title 68, Chapter 3 � 2 (2014).\\\")\""
 ;;;
 ;;; JavaScript error:
@@ -2790,9 +2800,11 @@ styles.")
 ;;; with no need to reload the editor extension. It might also be useful to
 ;;; have something like the regexp-opt that there is in GNU Emacs.
 
+;;; This is the one that takes so long to run, I think.
+
 (define (zt-zotero-regex-transform str_text)
   (set-message "Zotero: regex transform..." "Zotero integration")
-  (zt-format-debug "zt-zotero-regex-transform:before:str_text: ~S\n" str_text)
+  (zt-format-debug "zt-zotero-regex-transform:before...\n")
   (let loop ((text str_text)
              (rc zt-zotero-regex-replace-clauses))
     ;; each is applied in turn, so later ones can modify results of earlier
@@ -2800,31 +2812,16 @@ styles.")
     (cond
       ((null? rc)
        (recall-message)
-       (zt-format-debug "zt-zotero-regex-transform:after:text: ~S\n" text)
+       (zt-format-debug "zt-zotero-regex-transform:after.\n")
        text)
       (else
-        (zt-format-debug "zt-zotero-regex-transform:during:text: ~S\n" text)
+        ;;(zt-format-debug "zt-zotero-regex-transform:during:text: ~S\n" text)
         (loop (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))
               (cdr rc))))))
 
 
-;;; This did not work right.
-;;; In order to tell parse-latex that our string is UTF-8 encoded, we must prepend \usepackage[UTF8]{inputenc}.
-
-;;;
-;;; This runs for both in-text or note citations as well as for the bibliography.
-;;;
-(tm-define (zt-zotero-str_text->texmacs str_text is-note? is-bib?)
-  (zt-format-debug "Debug:zt-zotero-str_text->texmacs called.\n")
-  ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
-  ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
-  ;; strings in {\rtf ,Body}. This removes it when it has done that.
-  (let* ((str_text (string-convert
-                    (zt-zotero-regex-transform
-                     (if (string-prefix? "{\\rtf " str_text)
-                         (substring str_text 6 (1- (string-length str_text)))
-                         str_text))
-                    "UTF-8" "Cork"))
+;;; This did not work right!!!  xIxnx xoxrxdxexrx... to tell parse-latex that our string is UTF-8 encoded, we must prepend
+;;; \usepackage[UTF8]{inputenc}.
   ;; (let* ((str_text (string-concatenate
   ;;                   (list
   ;;                    "\\usepackage[utf8]{inputenc}%\n"
@@ -2832,9 +2829,45 @@ styles.")
   ;;                     (if (string-prefix? "{\\rtf " str_text)
   ;;                         (substring str_text 6 (1- (string-length str_text)))
   ;;                         str_text)))))
+
+(cond-expand
+  (guile-2
+   (define creturn #\return))
+  (else
+    (define creturn #\cr)))
+(define cnewline #\newline)
+
+;;;
+;;; This runs for both in-text or note citations as well as for the bibliography.
+;;;
+;;; Todo: It spends a looonnnngggg time in here when typesetting a large zbibliography.
+;;;
+(tm-define (zt-zotero-str_text->texmacs str_text is-note? is-bib?)
+  (zt-format-debug "zt-zotero-str_text->texmacs called... !!!\n")
+  ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
+  ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
+  ;; strings in {\rtf ,Body}. This removes it when it has done that.
+  ;; Conveniently, it also pastes together the bibliography with \r\n. Some
+  ;; regex run on very large strings can take a very long time to finish
+  ;; running. The same regex run on a much shorter string will finish very
+  ;; quickly. So, when the str_text is very long, it will have \r\n in it, and
+  ;; we can split it into multiple strings at those points, then paste them
+  ;; back together again after, with \n. There was already a regex for
+  ;; s,\r\n,\n, and this replaces it.
+  ;;
+  (let* ((str_text (if (string-prefix? "{\\rtf " str_text)
+                       (substring str_text 6 (1- (string-length str_text)))
+                       str_text))
+         (strls (string-split str_text creturn))
+         (strls (map (cut string-trim <> cnewline) strls))
+         (strls (map zt-zotero-regex-transform strls))
+         (str_text (string-convert
+                    (string-join strls "\n")
+                    "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
     (set-message "Zotero: str_text->texmacs..." "Zotero integration")
+    (zt-format-debug "zt-zotero-str_text->texmacs after let*. !!!\n")
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
@@ -2844,8 +2877,8 @@ styles.")
     (let ((lt (select t '(:* (:or ztHref hlink href)))))
       ;; It turns out that tm-select will return these not in tree or document 
       ;; order.  For this function, that's alright.
-      ;; (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t before: ~s\n" t)
-      ;; (zt-format-debug "Debug:zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
+      ;; (zt-format-debug "zt-zotero-str_text->texmacs:t ztHref hlink href before: ~s\n" t)
+      ;; (zt-format-debug "zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
       (let loop ((lt2 lt))
         (let ((lnk (and (pair? lt2) (car lt2)))) ; lnk will be bool or tree
           (cond
@@ -2859,6 +2892,8 @@ styles.")
     ;; from propachi-texmacs/bootstrap.js monkeypatch VariableWrapper
     ;;
     (let ((lt (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib)))))
+      ;; (zt-format-debug "zt-zotero-str_text->texmacs:t ztHrefFromBibToURL ztHrefFromCiteToBib before: ~s\n" t)
+      ;; (zt-format-debug "zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
       (let loop ((lt2 lt))
         (let ((lnk (and (pair? lt2) (car lt2))))
           (cond
@@ -2872,10 +2907,13 @@ styles.")
               ;; that's unwrapped here to make the links function
               ;; correctly. They don't like having their URL be an slink.
               ;;
+              ;; (zt-format-debug "zt-zotero-str_text->texmacs:fixup-slink-as-url lnk:~s\n" lnk)
               (zt-fixup-embedded-slink-as-url lnk))))))
     ;;
+    ;; (zt-format-debug "zt-zotero-str_text->texmacs:before tree-simplify\n")
     (tree-simplify t)
-    ;; (zt-format-debug "Debug:zt-zotero-str_text->texmacs:t after: ~s\n" t)
+    ;; (zt-format-debug "zt-zotero-str_text->texmacs:after tree-simplify\n")
+    (zt-format-debug "zt-zotero-str_text->texmacs:after.\n")
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
     (buffer-close b)
@@ -2914,7 +2952,7 @@ styles.")
 ;;; Input is a field tree, already found.
 ;;;
 (tm-define (zt-zfield-IsBib? field)
-  (zt-format-debug "Debug:zt-zfield-IsBib? called.\n")
+  (zt-format-debug "zt-zfield-IsBib? called.\n")
   (string-prefix? "BIBL" (as-string (zt-zfield-Code field))))
 
 
@@ -2922,7 +2960,7 @@ styles.")
 ;;; Input is a field tree, already found.
 ;;;
 (tm-define (zt-zfield-IsNote? field)
-  (zt-format-debug "Debug:zt-zfield-IsNote? called.\n")
+  (zt-format-debug "zt-zfield-IsNote? called.\n")
   ;; Inside a "with" context that has zt-option-this-zcite-in-text true?
   (let* ((with-t (with-like-search (tree-ref field :up)))
          (in-text-opt (and with-t                             
@@ -2953,7 +2991,7 @@ styles.")
 ;;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;;
 (tm-define (zotero-Field_setText tid documentID fieldID str_text isRich)
-  (zt-format-debug "Debug:zotero-Field_setText called.\n")
+  (zt-format-debug "zotero-Field_setText called.\n")
   (let* ((field   (zt-find-zfield fieldID)) ;; zcite tree
          (text    (and field (zt-zfield-Text field))) ;; string
          (is-note? (and field (zt-zfield-IsNote? field)))
@@ -2972,7 +3010,7 @@ styles.")
 ;;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;;
 (tm-define (zotero-Field_getText tid documentID fieldID)
-  (zt-format-debug "Debug:zotero-Field_getText called.\n")
+  (zt-format-debug "zotero-Field_getText called.\n")
   (let* ((field (zt-find-zfield fieldID))
          (str_text (or (and field
                             (format #f "~s" (tree->stree
@@ -2991,7 +3029,7 @@ styles.")
 ;;; ["Field_setCode", [documentID, fieldID, str_code]] -> null
 ;;;
 (tm-define (zotero-Field_setCode tid documentID fieldID str_code)
-  (zt-format-debug "Debug:zotero-Field_setCode called.\n")
+  (zt-format-debug "zotero-Field_setCode called.\n")
   (let* ((field (zt-find-zfield fieldID)))
     (when field
       (zt-set-zfield-Code-from-string field str_code)))
@@ -3004,7 +3042,7 @@ styles.")
 ;;; ["Field_getCode", [documentID, fieldID]] -> str_code
 ;;;
 (tm-define (zotero-Field_getCode tid documentID fieldID)
-  (zt-format-debug "Debug:zotero-Field_getCode called.\n")
+  (zt-format-debug "zotero-Field_getCode called.\n")
   (let* ((field (zt-find-zfield fieldID))
          (code_str (or (and field (zt-get-zfield-Code-string field))
                        "")))
@@ -3019,7 +3057,7 @@ styles.")
 ;;;
 (tm-define (zotero-Field_convert tid documentID
                                  fieldID str_fieldType int_noteType)
-  (zt-format-debug "Debug:STUB:zotero-Field_convert: ~s ~s ~s ~s\n"
+  (zt-format-debug "STUB:zotero-Field_convert: ~s ~s ~s ~s\n"
                    documentID fieldID
                    str_fieldType int_noteType)
   (zotero-write tid (safe-scm->json-string '())))
