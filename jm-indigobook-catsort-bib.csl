@@ -1935,10 +1935,10 @@
       <else-if type="hearing gazette report regulation" match="any">
         <text value="08"/>
       </else-if>
-      <else-if type="article-journal" match="any">
-        <text value="10"/>
-      </else-if>
-      <else-if type="book thesis" match="any">
+      <!-- <else-if type="article-journal" match="any"> -->
+      <!--   <text value="10"/> -->
+      <!-- </else-if> -->
+      <else-if type="article-journal book thesis" match="any">
         <text value="12"/>
       </else-if>
       <!-- <else-if type="chapter article-newspaper article-magazine" match="any"> -->
