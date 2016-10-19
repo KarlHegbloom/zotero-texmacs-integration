@@ -144,13 +144,14 @@
 
 (tm-define (zt-format-error . args)
   (:secure)
-  (apply format (cons (current-error-port)
-                      (cons
-                       (string-concatenate
-                        (list
-                         (timestamp (current-time))
-                         (car args)))
-                       (cdr args)))))
+  (tm-errput
+   (apply format (cons #f
+                       (cons
+                        (string-concatenate
+                         (list
+                          (timestamp (current-time))
+                          (car args)))
+                        (cdr args))))))
 
 
 (define-public zt-debug-trace? #f)
@@ -159,13 +160,14 @@
 (tm-define (zt-format-debug . args)
   (:secure)
   (when zt-debug-trace?
-    (apply format (cons (current-output-port)
-                        (cons
-                         (string-concatenate
-                          (list
-                           (timestamp (current-time))
-                           (car args)))
-                         (cdr args))))))
+    (tm-output
+     (apply format (cons #f
+                         (cons
+                          (string-concatenate
+                           (list
+                            (timestamp (current-time))
+                            (car args)))
+                          (cdr args)))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
