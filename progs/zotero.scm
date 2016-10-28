@@ -117,10 +117,23 @@
 (use-modules (ice-9 regex))
 (use-modules (ice-9 common-list))
 
+(use-modules (oop goops))
+;; (use-modules (oop goops describe))
+
 ;; (use-modules (md5))
 ;; (define (md5-string str)
 ;;   (with-input-from-string str
 ;;     (md5)))
+
+
+(define ansi-norm    "\033[0m")
+(define ansi-red     "\033[31m")
+(define ansi-green   "\033[32m")
+(define ansi-yellow  "\033[33m")
+(define ansi-blue    "\033[34m")
+(define ansi-magenta "\033[35m")
+(define ansi-cyan    "\033[36m")
+(define ansi-bold    "\033[1m")
 
 
 ;;; This will print a warning about replacing current-time in module zotero.
@@ -149,7 +162,9 @@
                        (cons
                         (string-concatenate
                          (list
+                          (ansi-green)
                           (timestamp (current-time))
+                          (ansi-norm)
                           (car args)))
                         (cdr args))))))
 
@@ -165,7 +180,9 @@
                          (cons
                           (string-concatenate
                            (list
+                            (ansi-green)
                             (timestamp (current-time))
+                            (ansi-norm)
                             (car args)))
                           (cdr args)))))))
 
@@ -188,6 +205,30 @@
      obj)))
 
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;;
+;;;
+(define-class <zfield-data> ()
+  (position #:init-value #f)
+  (data     #:init-thunk make-hash-table))
+;;; data keys: code-cache, orig-text, modified?, disactivated?
+
+;;; orig-text shares data (eq?) with code-cache...
+
+
+(define-class <document-data>
+  (zotero-active? #:init-value #f)         ;; is a zotero command active?
+  (new-zfield-ID #:init-value #f)          ;; one new zfield at a time per document
+  (zfield-ls #:init-thunk list)            ;; in-document-order list of <zfield-data>
+  (zfield-ht #:init-thunk make-hash-table) ;; hash-table of zfieldID => <zfield-data>
+  ;; Anything else?
+  )
+
+(define zt-document-data-ht (make-hash-table)) ;; documentID => <document-data>
+
+
 ;;; The documentID; this is not stable from one run to the next since it's value
 ;;; depends on whether this is the first document buffer upon launching TeXmacs
 ;;; or some subsequently loaded one. It does not have to be stable from one run
@@ -206,23 +247,29 @@
 ;;; TeXmacs is restarted and depending on whether the document is loaded first,
 ;;; second, etc.
 ;;;
-(tm-define (zt-get-DocumentID)
+(tm-define (zt-get-documentID)
   (string-append
    (if (defined? 'getpid)
        (as-string (getpid)) ;; ephemeral - don't store in document.
-       (random 32768)) ;; ditto
+       (random 32768))      ;; ditto
    "-"
    (format #f "~a" (buffer-path))))
 
-;;; There can be only 1 new field pending per document. For now I assume that we
-;;; are editting only 1 document per instance of TeXmacs. If that changes, then
-;;; this can become a hash table, or part of a per-document state management
-;;; object.
-;;;
-(define-public zt-new-fieldID #f)
+
+(define-public (zt-get-document-data documentID)
+  (or (hash-ref zt-document-data-ht documentID #f)
+      (let ((dd (make <document-data>)))
+        (hash-set! zt-document-data-ht documentID dd)
+        dd)))
+
+(define-public (zt-set-document-new-fieldID! documentID zfieldID)
+  (slot-set! (zt-get-document-data documentID) 'new-zfield-ID zfieldID))
+
+(define-public (zt-get-document-new-fieldID documentID)
+  (slot-ref (zt-get-document-data documentID) 'new-zfield-ID))
+
 
 (tm-define (zt-get-new-fieldID)
-  
   (as-string (create-unique-id)))
 
 (tm-define (zt-field-refbinding-key fieldID)
@@ -232,28 +279,80 @@
 ;;; citation. I spent half a day figuring out how to write a glue-exported
 ;;; accessor function... then discovered this trick:
 ;;;
-(tm-define (zt-get-refbinding key)
+(define-public (zt-get-refbinding key)
   (texmacs-exec `(get-binding ,key)))
 
 ;;; Modes
 ;;;
 (texmacs-modes
-    (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
-    (in-zcite% (tree-func? (focus-tree) 'zcite)
-               in-text% in-tm-zotero-style%)
-    (in-zbibliography% (tree-func? (focus-tree) 'zbibliography)
-                       in-text% in-tm-zotero-style%)
-    (in-zfield% (or (in-zcite?) (in-zbibliography?)))
-    (zt-can-edit-field% (and (in-zfield?)
-                             (not
-                              (and zt-new-fieldID
-                                   (string=?
-                                    zt-new-fieldID
-                                    (as-string
-                                     (zt-zfield-ID
-                                      (focus-tree))))))))
-    (in-ztHref% (tree-func? (focus-tree) 'ztHref)
-                in-text% in-tm-zotero-style%))
+  (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
+  (in-zcite% (tree-is? (focus-tree) 'zcite)
+             in-text% in-tm-zotero-style%)
+  (in-zbibliography% (tree-is? (focus-tree) 'zbibliography)
+                     in-text% in-tm-zotero-style%)
+  (in-zfield% (or (in-zcite?) (in-zbibliography?)))
+  (zt-can-edit-field% (and (in-zfield?)
+                           (not
+                            (and zt-new-fieldID
+                                 (string=?
+                                  zt-new-fieldID
+                                  (as-string
+                                   (zt-zfield-ID
+                                    (focus-tree))))))))
+  (in-ztHref% (tree-is? (focus-tree) 'ztHref)
+              in-text% in-tm-zotero-style%))
+
+
+
+;;; An rb-tree is a lot more complicated, right?
+;;;
+;;; sorted input lists => sorted merged output list
+;;; merge alist blist less? => list
+;;; merge! alist blist less? => list
+;;;
+
+;;; position-new [path]    => position   (path defaults to (cursor-path))
+;;; position-delete pos    => undefined
+;;; position-set pos path  => undefined (?)
+;;; position-get pos       => path
+;;;
+;;; (go-to (position-get pos))
+
+(define (position-less? pos1 pos2)
+  (path-less? (position-get pos1) (position-get pos2)))
+
+
+(define (zt-document-zfield-data-insert! documentID zfieldID pos)
+  (let* ((dd (zt-get-document-data documentID))
+         (zfl (slot-ref dd 'zfield-ls))
+         (zfht (slot-ref dd 'zfield-ht))
+         (zfd (make <zfield-data>)))
+    (slot-set! zfd 'position pos)
+    (slot-set! dd 'zfield-ls
+               (merge! zfl '(zfd)
+                       (lambda (a b)
+                         (position-less? (slot-ref a 'position)
+                                         (slot-ref b 'position)))))
+    (hash-set! zfht zfieldID zfd)))
+
+(define (zt-document-zfield-data-delete! documentID zfieldID)
+  (let* ((dd (zt-get-document-data documentID))
+         (zfl (slot-ref dd 'zfield-ls))
+         (zfht (slot-ref dd 'zfield-ht))
+         (zfd (hash-ref zfht zfieldID #f)))
+    (when zfd
+      (slot-set! dd 'zfield-ls
+                 (list-filter zfl (lambda (elt)
+                                    (not (eq? zfd elt)))))
+      (hash-remove! zfht zfieldID))))
+                                     
+
+(define (zt-document-zfieldID->position documentID zfieldID)
+  (hash-ref (slot-ref (zt-get-document-data documentID) 'zfield-ht) zfieldID #f))
+
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -263,28 +362,33 @@
 
 
 (tm-define (zt-insert-new-field tag placeholder)
+  ;; Is this the right place for this?
+  (buffer-attach-notifier (current-buffer)) ;; Anywhere else?
   (if (not (in-zfield?))
-      (let ((id-str (zt-get-new-fieldID)))
-        (set! zt-new-fieldID id-str)
-        (insert `(,tag ,id-str "" ,placeholder))
-        ;; Perhaps add it to the cache here
-        )
+      (let ((documentID (zt-get-documentID))
+            (id-str (zt-get-new-fieldID)))
+        (zt-set-document-new-fieldID! documentID id-str)
+        (insert `(,tag ,id-str "" ,placeholder)))
       (begin
+        ;; Todo: This ought to be a dialog if it actually happens much...
+        ;; Alternatively, perhaps it could move the cursor out of the zfield,
+        ;; arbitrarily to the right or left of it, then proceed with inserting
+        ;; the new zfield... Or perhaps it ought to convert it into an
+        ;; editCitation rather than an insertCitation?
         (zt-format-error "ERR: zt-insert-new-field ~s : focus-tree is a ~s\n"
                          tag (tree-label (focus-tree)))
         #f)))
 
 
 
-;;XXX(define (
-
-;;; This young code says that it wants to be a GOOPS object someday. I'm not
-;;; sure if that's right for it yet.
 
 ;;; Operations on zcite fields.
 ;;;
 ;;;
 
+
+;;; When the buffer has just opened, the list of zfields is not populated yet. XXXX
+;;;
 ;;; tm-find returns an incorrect result! Use tm-search.
 ;;;
 (tm-define (zt-find-zfield fieldID)
@@ -387,7 +491,7 @@
 ;;; (zcite "+hoOIoDn3p6FB0I"))
 ;;;
 ;;; Scheme]  (define the-zfields-by-tm-search (zt-get-zfields-list
-;;; (zt-get-DocumentID) "ReferenceMark"))
+;;; (zt-get-documentID) "ReferenceMark"))
 ;;;
 ;;; Scheme]  (map (lambda (t) (list (tree-label t) (tree->string (zt-zfield-ID
 ;;; t)))) the-zfields-by-tm-search)
@@ -400,27 +504,40 @@
 ;;; "+hoOIoDn3p6FB0H"))
 ;;;
 
+;;; This is still needed to initialize the <document-data> when the document is
+;;; first opened.
+;;;
 (define (zt-zfield-search subtree)
-  (tm-search
-   subtree
-   (lambda (t)
-     (and (tree-in? t zt-zfield-tags)
-          (not
-           (and zt-new-fieldID
-                (string=? (as-string
-                           (zt-zfield-ID t))
-                          zt-new-fieldID)))))))
+  (let ((zt-new-fieldID (zt-get-document-new-fieldID (zt-get-documentID))))
+    (tm-search
+     subtree
+     (lambda (t)
+       (and (tree-in? t zt-zfield-tags)
+            (not
+             (and zt-new-fieldID
+                  (string=? (as-string
+                             (zt-zfield-ID t))
+                            zt-new-fieldID))))))))
 
-(tm-define (zt-get-zfields-list documentID fieldType)
+
+
+  
+
+;;; Was: (tm-define (zt-get-zfields-list documentID fieldType)
+;;;
+;;; Maybe ensure active document is documentID? For now assume it is.
+;;; Also for now assume fieldType is always "ReferenceMark", so ignore it.
+;;;
+(tm-define (zt-init-document-zfields-list documentID)
   ;;
   ;; Maybe ensure active document is documentID? For now assume it is.
-  ;; Also for now assume fieldType is always "ReferenceMark", so ignore it.
   ;;
   ;; Q: What about "save-excursion" or "save-buffer-excursion"?
   ;; A: This is searching the document tree, not moving the cursor.
   ;;
-  ;; What if I copy and paste a zcite from one location to another? The
-  ;; zfield-ID of the second one will need to be updated.
+  ;; Todo: What if I copy and paste a zcite from one location to another? The
+  ;; zfield-ID of the second one will need to be updated...
+  ;; (WIP: See: buffer-notify)
   ;;
   (let* ((fields-tmp-ht (make-hash-table))
          (l (zt-shown-buffer-body-paragraphs))
@@ -464,16 +581,21 @@
 ;;; create a visual signal to the user. In order to make that happen, all
 ;;; setting and getting of the fieldCode must happen via these functions.
 ;;;
-(define zt-zfield-Code-cache (make-ahash-table))
 
+;;;REMOVING (define zt-zfield-Code-cache (make-ahash-table))
+;;; moved to <zfield-data>:data
+
+;;; XXX Todo
 (tm-define (zt-get-zfield-Code-string field)
   (let ((id (as-string (zt-zfield-ID field)))
         (str_code (as-string (zt-zfield-Code field))))
     ;; So that Document_getFields causes this to happen.
+    ;; (when the document is freshly opened, since these
+    ;; ephemeral data structures are not saved with the document)
     (when (and (not (hash-ref zt-zfield-Code-cache id #f))
                (not (and zt-new-fieldID
                          (string=? zt-new-fieldID id))))
-      (zt-parse-and-cache-zfield-Code field str_code))
+      (zt-parse-and-cache-zfield-Code field str_code)) ;; <== first...
     str_code))
 
 ;;; Must handle empty string for zotero-Field_delete. Since it does not
@@ -704,8 +826,32 @@
 ;;;
 ;;; Memoization cache for zt-ext-flag-if-modified, fieldID -> boolean-modified?
 ;;;
-(define zt-zfield-modified?-cache (make-hash-table))
-(define zt-zfield-disactivated? (make-hash-table))
+;;(define zt-zfield-modified?-cache (make-hash-table))
+;;(define zt-zfield-disactivated? (make-hash-table))
+;;; Moved inside <zfield-data>.
+
+;;; I'm in the middle of rewriting this stuff to make it faster. I'm thinking
+;;; about the lazy initialization of the <zfield-data> and
+;;; <document-data>... and finding that I don't have a clear picture of how it
+;;; needs to operate.
+;;;
+;;; Open a document file, which contains 1 or more zfields.  Just in order to
+;;; typeset it for display, in order to render the zfield-modified? flags, it
+;;; will need this information. When the document contains 0 zfields, then
+;;; inserting a new zfield will... But then there's 1 zfield to render, and so
+;;; this gets called, so it only needs this one "entry point" to the lazy
+;;; cacheing of this information. It doesn't need to initialize this when the
+;;; new zfield is inserted...
+;;;
+;;; For the in-document-order list of zfields, etc., it does need to maintain
+;;; that via the buffer-notify mechanism. That is because when a zfield is
+;;; "killed", it might not get "yanked" back into the buffer, and so it needs
+;;; to be removed from the zfield-ls and zfield-ht slots of the <document-data>
+;;; but not reinserted into those, unless it does get "yanked" back in. When
+;;; that happens, buffer-notify must ensure that there's not a duplicate
+;;; zfieldID, in the case where it is "yanked" more than once, or where the
+;;; user used M-w to copy the selected text containing a zfield, and then
+;;; "yank" (paste) it in, potentially more than once.
 
 (tm-define (zt-get-orig-zfield-Text fieldID-str)
   (let ((scm-code (hash-ref zt-zfield-Code-cache fieldID-str #f)))
@@ -769,8 +915,6 @@
          '(concat (flag "Not Modified." "green")))))))
 
 
-;;; Todo: Read the Google Keep note I made to myself regarding having it not include obtaining the rendering of the zbibliography
-;;; when that is inside of a hidden section.
 
 (tm-define (zt-ext-document-has-zbibliography?)
   (:secure)
@@ -1116,7 +1260,7 @@
       (set! zotero-active? #f)
       (dialogue-window
        (zotero-display-alert
-        (zt-get-DocumentID)
+        (zt-get-documentID)
         (string-append "\\begin{center}\n"
                        "Exception caught in: "
                        "\\texttt{get-zt-zotero-socket-port!}\n\n"
@@ -1171,7 +1315,7 @@
         (set! zotero-active #f)
         (dialogue-window
          (zotero-display-alert 
-          (zt-get-DocumentID)
+          (zt-get-documentID)
           (string-append "\\begin{center}\n"
                          "Exception caught in: "
                          "\\texttt{zotero-write}\n\n"
@@ -1234,7 +1378,12 @@
               args scm))))
 
 
-(define zotero-active? #f)
+;;; <document-data> (define zotero-active? #f)
+(define (zt-get-zotero-active? documentID)
+  (slot-ref (zt-get-document-data documentID) 'zotero-active?))
+
+(define (zt-set-zotero-active?! documentID val)
+  (slot-set! (zt-get-document-data documentID) 'zotero-active? val))
 
 ;;;
 ;;; It's sort of a state machine; protocol is essentially synchronous, and user
@@ -1246,10 +1395,10 @@
 ;;;
 ;;;
 (define (zotero-listen)
-  (set! zotero-active? #t)
+  (zt-set-zotero-active?! (zt-get-documentID) #t)
   (with (counter wait) '(40 10)
     (delayed
-      (:while zotero-active?)
+      (:while (zt-get-zotero-active? (zt-get-documentID)));; XXX you were here
       (:pause ((lambda () (inexact->exact (round wait)))))
       (:do (set! wait (min (* 1.01 wait) 2500)))
       ;; Only run when data is ready to be read...
@@ -1465,6 +1614,119 @@
 
 
 
+;;; Todo: I want to be able to easily split a citation cluster.
+;;;
+;;; Use case: A citation cluster with two or three citations in it, but then I
+;;;           decide that I want to split them into two clusters, one for the
+;;;           first citation, and another for the remaining two, so that I can
+;;;           write a sentence or two in between them.
+;;;
+;;; So disactivate the tag, then inside of there, a keybinding can automate it,
+;;; perhaps when the cursor is on the semicolon between two of them or
+;;; something like that. Inside of the zfield-Code's JSON is the information
+;;; that Zotero's integration.js is going to look at when it retrieves it prior
+;;; to presenting the dialog for editCitation. So, instead of copy + paste of
+;;; the original citation in order to duplicate it, followed by editCitation of
+;;; each, to delete the last two of them from the first cluster, and the first
+;;; citation from the second one... I would put my cursor on the semicolon
+;;; between the first two citations, and then push the keybinding or call the
+;;; menu item that automatically splits it.
+
+
+;;; Todo: I think it is spending too much time searching the document for zcite
+;;;       tags. It does a lot of redundant traversal of the document tree that
+;;;       can potentially be eliminated by maintaining a data structure
+;;;       containing positions (really observers). Positions move automatically
+;;;       when the document is edited, so that they remain attached to the same
+;;;       tree they were created at, even as it moves.
+;;;
+;;; The data structure must be able to maintain the list of zfields in document
+;;; order. It should be cheap to insert a new item or remove an item. I will
+;;; use a red-black tree. It will contain only the positions, in document
+;;; order. I will look through those positions to find the zfield-Code and
+;;; zfield-Text; the zfield-ID can be the key to a concurrently maintained
+;;; hashtable that associates the ids with their positions.
+;;;
+;;; Update: There is no ready-made rb-tree for Guile 1.8. The only rb-tree I
+;;;         could find that was already for Guile was for >= 2.0, and it calls
+;;;         for r6rs functionality that is not present in Guile 1.8. It would
+;;;         take a lot of time and effort to port that, and I think it's better
+;;;         to spend the time to port all of TeXmacs to Guile 2.n
+;;;         instead. Since the `merge!' and `list-filter' functions don't have
+;;;         to do very much work compared to an rb-tree's insert or delete with
+;;;         all of it's associated tree balancing, up to a certain length, it
+;;;         will be faster than the rb-tree anyway... so I'll just use a flat
+;;;         list and `merge!' to insert, and `list-filter' to remove. After the
+;;;         Guile 2.n port, perhaps an rb-tree can be used instead.
+
+
+
+;;; Todo: I want to observe the cut or paste of trees that contain zcite or
+;;;       zbibliography sub-trees...
+;;;
+;;; This is a prerequisite for being able to maintain an rb-tree of document
+;;; positions of zfields...
+
+;;; Mise en Place: Functions I'll need and what they do.
+;;;  (starting by looking around in the src/Scheme/Glue, following the
+;;;  functions called from inside of the glue functions to their origin, and
+;;;  learning how the objects they are methods of interact with
+;;;  TeXmacs... Using cscope or etags...)
+;;;
+;;; A "position" is essentially a C++ "observer".
+;;;
+;;;  position-new-path path          => position
+;;;  position-delete   position      => unspecified
+;;;  position-set      position path => unspecified
+;;;  position-get      position      => path
+;;;
+;;; path-less?    path path => bool
+;;; path-less-eq? path path => bool
+;;; path->tree path => tree
+;;;
+;;; buffer-notify is what I was looking for.
+;;;
+;;; event can be: 'announce, 'touched, or 'done.
+;;;
+;;; modification-type can be:
+;;;  'assign, 'insert, 'remove, 'split, 'var-split, 'join, 'var-join,
+;;;  'assign-node, 'insert-node, 'remove-node, 'detach
+;;;
+(tm-define (buffer-notify event t mod)
+  (:require in-tm-zotero-style?)
+  (let* ((modtype (modification-type mod))
+         (modpath (modification-path mod))
+         (modtree (modification-tree mod))
+         (modstree (tm->stree modtree)))
+    (zt-format-debug "~sbuffer-notify:~s ~sevent:~s~s\n~st:~s~s\n~smod:~s~s\n\n"
+                     ansi-red ansi-norm 
+                     ansi-cyan event ansi-norm
+                     ansi-cyan t ansi-norm
+                     ansi-cyan ansi-norm (modification->scheme mod))
+  (cond
+    ((and (== event 'done)
+          (== modtype 'assign)
+          (== (car modstree) 'concat)
+          (member (cadr modstree) zt-zfield-tags))
+     ;; Inserting (pasting) a zcite or zbibliography that had been cut.
+     )
+    ((and (== event 'done)
+          (
+           )
+          )))))
+
+
+;; (tm-define (buffer-notify event t mod)
+;;;; I don't like this slot-ref here... is it going to be too slow? Will it run often?
+;;   (:require (let ((zt-zfield-list (slot-ref (zt-get-document-data (zt-get-documentID))
+;;                                             'zfield-ls)))
+;;               (and (in-tm-zotero-style?)
+;;                    (pair? zt-zfield-list)
+;;                    (null? zt-zfield-list))))
+;;   (zt-init-zfield-list)
+;;   (former event t mod))
+
+
 ;;; Preferences and Settings
 ;;;
 ;;; Some CSL styles define in-text citations, and others define note style ones
@@ -1646,7 +1908,7 @@
 ;;;
 (tm-define (zotero-Application_getActiveDocument tid pv)
   (zt-format-debug "zotero-Application_getActiveDocument called.\n")
-  (zotero-write tid (safe-scm->json-string (list pv (zt-get-DocumentID)))))
+  (zotero-write tid (safe-scm->json-string (list pv (zt-get-documentID)))))
 
 
 
@@ -2953,9 +3215,10 @@ styles.")
 ;;;
 ;;; Input is a field tree, already found.
 ;;;
-(tm-define (zt-zfield-IsBib? field)
-  (zt-format-debug "zt-zfield-IsBib? called.\n")
-  (string-prefix? "BIBL" (as-string (zt-zfield-Code field))))
+(tm-define (zt-zfield-IsBib? zfield)
+  (zt-format-debug "zt-zfield-IsBib? called... zfield label:~s\n"
+                   (tree-label zfield))
+  (tree-is? zfield 'zbibliography))
 
 
 ;;;
