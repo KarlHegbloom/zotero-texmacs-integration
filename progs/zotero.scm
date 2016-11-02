@@ -1379,6 +1379,7 @@
 
 
 ;;; <document-data> (define zotero-active? #f)
+
 (define (zt-get-zotero-active? documentID)
   (slot-ref (zt-get-document-data documentID) 'zotero-active?))
 
@@ -1398,7 +1399,7 @@
   (zt-set-zotero-active?! (zt-get-documentID) #t)
   (with (counter wait) '(40 10)
     (delayed
-      (:while (zt-get-zotero-active? (zt-get-documentID)));; XXX you were here
+      (:while (zt-get-zotero-active? (zt-get-documentID)))
       (:pause ((lambda () (inexact->exact (round wait)))))
       (:do (set! wait (min (* 1.01 wait) 2500)))
       ;; Only run when data is ready to be read...
