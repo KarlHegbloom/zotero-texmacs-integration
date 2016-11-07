@@ -122,6 +122,18 @@
 ;;   (with-input-from-string str
 ;;     (md5)))
 
+(define (esc+str str)
+  (let ((esc-str (list->string (list #\esc))))
+    (string-concatenate (list esc-str str))))
+
+(define ansi-norm    (esc+str "[0m"))
+(define ansi-red     (esc+str "[31m"))
+(define ansi-green   (esc+str "[32m"))
+(define ansi-yellow  (esc+str "[33m"))
+(define ansi-blue    (esc+str "[34m"))
+(define ansi-magenta (esc+str "[35m"))
+(define ansi-cyan    (esc+str "[36m"))
+(define ansi-bold    (esc+str "[1m"))
 
 ;;; This will print a warning about replacing current-time in module zotero.
 ;;; Overriding current-time is intentional. It only affects this module's
@@ -149,7 +161,9 @@
                        (cons
                         (string-concatenate
                          (list
+                          ansi-green
                           (timestamp (current-time))
+                          ansi-norm
                           (car args)))
                         (cdr args))))))
 
@@ -165,7 +179,9 @@
                          (cons
                           (string-concatenate
                            (list
+                            ansi-green
                             (timestamp (current-time))
+                            ansi-norm
                             (car args)))
                           (cdr args)))))))
 
