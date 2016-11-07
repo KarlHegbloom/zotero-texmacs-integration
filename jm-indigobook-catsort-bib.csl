@@ -1924,28 +1924,28 @@
     <!-- - -->
     <choose>
       <if type="legal_case" match="any">
-        <text value="02"/>
+        <text value="01"/>
       </if>
-      <else-if type="legislation treaty" match="any">
+      <else-if type="legislation" match="any">
+        <text value="02"/>
+      </else-if>
+      <else-if type="treaty" match="any">
+        <text value="03"/>
+      </else-if>
+      <else-if type="regulation" match="any">
         <text value="04"/>
       </else-if>
       <else-if type="bill" match="any">
+        <text value="05"/>
+      </else-if>
+      <else-if type="hearing gazette report" match="any">
         <text value="06"/>
       </else-if>
-      <else-if type="hearing gazette report regulation" match="any">
-        <text value="08"/>
-      </else-if>
-      <!-- <else-if type="article-journal" match="any"> -->
-      <!--   <text value="10"/> -->
-      <!-- </else-if> -->
       <else-if type="article-journal book thesis" match="any">
-        <text value="12"/>
+        <text value="07"/>
       </else-if>
-      <!-- <else-if type="chapter article-newspaper article-magazine" match="any"> -->
-      <!--   <text value="14"/> -->
-      <!-- </else-if> -->
       <else>
-        <text value="16"/>
+        <text value="08"/>
       </else>
     </choose>
   </macro>
