@@ -113,6 +113,7 @@
 ;;;
 (use-modules (json))
 
+(define cformat format)
 (use-modules (ice-9 format))
 (use-modules (ice-9 regex))
 (use-modules (ice-9 common-list))
@@ -158,6 +159,7 @@
     (set! last-time time)
     ret))
 
+
 (tm-define (zt-format-error . args)
   (:secure)
   (tm-errput
@@ -170,6 +172,7 @@
                           ansi-norm
                           (car args)))
                         (cdr args))))))
+
 
 
 (define-public zt-debug-trace? #f)
@@ -188,6 +191,7 @@
                             ansi-norm
                             (car args)))
                           (cdr args)))))))
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -213,6 +217,28 @@
 ;;;
 ;;;
 ;;;
+;;; An rb-tree is a lot more complicated, right? I'm hoping that the sorted
+;;; lists will be fast enough. If not, then port to an rb-tree after the
+;;; TeXmacs port to Guile 2+.
+;;;
+;;; sorted input lists => sorted merged output list
+;;; merge  alist blist less? => list
+;;; merge! alist blist less? => list
+;;;
+;;;
+;;; A position is a tree observer. It is attached to the tree, and so moves as
+;;; things are inserted ahead of it, etc. It can always be queried for it's
+;;; current path within the document.
+;;;
+;;; position-new [path]    => position   (path defaults to (cursor-path))
+;;; position-delete pos    => undefined
+;;; position-set pos path  => undefined (?)
+;;; position-get pos       => path
+;;;
+;;; Example use:  (go-to (position-get pos))
+;;;
+
+
 (define-class <zfield-data> ()
   (position #:init-value #f)
   (data     #:init-thunk make-hash-table))
@@ -250,14 +276,14 @@
 ;;; TeXmacs is restarted and depending on whether the document is loaded first,
 ;;; second, etc.
 ;;;
-(tm-define (zt-get-documentID)
-  (string-append
-   (if (defined? 'getpid)
-       (as-string (getpid)) ;; ephemeral - don't store in document.
-       (random 32768))      ;; ditto
-   "-"
-   (format #f "~a" (buffer-path))))
+(define get-id-number
+  (if (defined? 'getpid)
+      getpid
+      (lambda () (random 32768))))
 
+
+(define-public (zt-get-documentID)
+  (cformat #f "~s-~s" (get-id-number) (buffer-path)))
 
 (define-public (zt-get-document-data documentID)
   (or (hash-ref zt-document-data-ht documentID #f)
@@ -271,9 +297,11 @@
 (define-public (zt-get-document-new-fieldID documentID)
   (slot-ref (zt-get-document-data documentID) 'new-zfield-ID))
 
+(define-public (zt-fieldID-is-document-new-fieldID? documentID fieldID)
+  (eqv? fieldID (zt-get-document-new-fieldID documentID)))
 
-(tm-define (zt-get-new-fieldID)
-  (as-string (create-unique-id)))
+(define-public zt-get-new-fieldID  create-unique-id)
+
 
 (tm-define (zt-field-refbinding-key fieldID)
   (string-append "zotero" fieldID "-noteIndex"))
@@ -285,41 +313,7 @@
 (define-public (zt-get-refbinding key)
   (texmacs-exec `(get-binding ,key)))
 
-;;; Modes
-;;;
-(texmacs-modes
-  (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
-  (in-zcite% (tree-is? (focus-tree) 'zcite)
-             in-text% in-tm-zotero-style%)
-  (in-zbibliography% (tree-is? (focus-tree) 'zbibliography)
-                     in-text% in-tm-zotero-style%)
-  (in-zfield% (or (in-zcite?) (in-zbibliography?)))
-  (zt-can-edit-field% (and (in-zfield?)
-                           (not
-                            (and zt-new-fieldID
-                                 (string=?
-                                  zt-new-fieldID
-                                  (as-string
-                                   (zt-zfield-ID
-                                    (focus-tree))))))))
-  (in-ztHref% (tree-is? (focus-tree) 'ztHref)
-              in-text% in-tm-zotero-style%))
 
-
-
-;;; An rb-tree is a lot more complicated, right?
-;;;
-;;; sorted input lists => sorted merged output list
-;;; merge alist blist less? => list
-;;; merge! alist blist less? => list
-;;;
-
-;;; position-new [path]    => position   (path defaults to (cursor-path))
-;;; position-delete pos    => undefined
-;;; position-set pos path  => undefined (?)
-;;; position-get pos       => path
-;;;
-;;; (go-to (position-get pos))
 
 (define (position-less? pos1 pos2)
   (path-less? (position-get pos1) (position-get pos2)))
@@ -2527,7 +2521,6 @@
     (cond
      ((null? tab-ls)
       (stree->tree `(tuple ,@(reverse! ret))))
-       ;;(format #f "~s" (reverse! ret))) ; scheme reader syntax
       (#t (loop (cdr tab-ls)
                 (cons (format #f "~,4ftab"
                               (exact->inexact
