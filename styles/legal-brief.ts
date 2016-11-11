@@ -402,11 +402,11 @@
 
   \;
 
-  <assign|nbspace-extra|<macro|x|<space|0.2spc><arg|x>>>
+  <assign|nbspace-extra|<macro|x|<space|0.6spc><arg|x>>>
 
   <assign|nbspace-separated|<xmacro|args|<arg|args|0><map-args|nbspace-extra|concat|args|1>>>
 
-  <assign|casenum|<macro|a|b|c|<nbspace-separated|<arg|a>|<arg|b>|<arg|c>>>>
+  <assign|casenum|<macro|a|b|c|<rigid|<nbspace-separated|<arg|a>|<arg|b>|<arg|c>>>>>
 
   <\active*>
     <\src-comment>
