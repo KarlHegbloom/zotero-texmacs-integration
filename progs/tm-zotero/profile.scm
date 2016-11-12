@@ -10,6 +10,10 @@
 ;;; LICENSE in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>
 ;;;
 ;;;;
+
+;;; This is *not* in it's own module for a reason, maybe... I might never use
+;;; it. It does not work yet. I may just abandon it.
+
 ;;
 ;; Guile 2 has `statprof'... but Guile 1.8 does not and can't run it.
 

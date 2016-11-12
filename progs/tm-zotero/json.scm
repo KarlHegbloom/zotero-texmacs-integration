@@ -1,6 +1,6 @@
 ;;; coding: utf-8
 ;;; ¶
-;;; (json syntax) --- Guile JSON implementation.
+;;; (tm-zotero json) --- Guile JSON implementation (for Guile 1.8)
 
 ;; Copyright (C) 2013 Aleix Conchillo Flaque <aconchillo@gmail.com>
 ;;
@@ -25,36 +25,35 @@
 
 ;; JSON module for Guile
 
+;;; Modified for TeXmacs and Guile 1.8 by Karl M. Hegbloom
+;;; for use in the zotero-texmacs-integration.
+
 ;;; Code:
 
-(define-module (json syntax)
-  #:use-module (ice-9 match)
+(define-module (tm-zotero json)
   #:use-module (ice-9 syncase)
-  #:export (json list->hash-table))
+  #:use-module (tm-zotero json builder)
+  #:use-module (tm-zotero json parser)
+  #:use-module (tm-zotero json syntax)
+  #:re-export (scm->json 
+               scm->json-string
+               json->scm
+               json-string->scm
+               json-parser?
+               json-parser-port
+               json 
+               list->hash-table))
 
-(define (list->hash-table lst)
-  (let loop ((table (make-hash-table))
-             (lst lst))
-    (match lst
-      (((key value) . rest)
-       (hash-set! table key value)
-       (loop table rest))
-      (() table))))
+;; (define-syntax re-export-modules
+;;   (syntax-rules ()
+;;     ((_ (mod ...) ...)
+;;      (begin
+;;        (module-use! (module-public-interface (current-module))
+;;                     (resolve-interface '(mod ...)))
+;;        ...))))
+;; 
+;; (re-export-modules (json builder)
+;;                    (json parser)
+;;                    (json syntax))
 
-(define-syntax json
-  (syntax-rules (unquote unquote-splicing array object)
-    ((_ (unquote val))
-     val)
-    ((_ ((unquote-splicing val) . rest))
-     (append val (json rest)))
-    ((_ (array val . rest))
-     (cons (json val) (json rest)))
-    ((_ (object key+val ...))
-     (list->hash-table
-      (json (array key+val ...))))
-    ((_ (val . rest))
-     (cons (json val) (json rest)))
-    ((_ val)
-     (quote val))))
-
-;;; (json syntax) ends here
+;;; (json) ends here

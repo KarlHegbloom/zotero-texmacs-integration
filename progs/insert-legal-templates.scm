@@ -1,5 +1,5 @@
 ;;; coding: utf-8
-;;; ✠
+;;; ✠ ✞ ♼ ☮ ☯ ☭ ☺
 ;;;
 ;; MODULE      : insert-legal-templates.scm
 ;; DESCRIPTION : Insert Templates for Legal Brief Style.

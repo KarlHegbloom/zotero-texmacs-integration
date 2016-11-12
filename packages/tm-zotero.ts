@@ -39,7 +39,7 @@
     </src-license>
   </src-title>>
 
-  <use-module|(zotero)>
+  <use-module|(tm-zotero)>
 
   <use-package|std-counter|std-utils|env-float|std-list|std-markup>
 
