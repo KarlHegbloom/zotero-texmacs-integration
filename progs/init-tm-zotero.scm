@@ -18,17 +18,16 @@
 ;; your document as a style package will cause the Zotero menu to appear, etc.
 ;;
 (when (supports-tm-zotero?)
-  ;; (import-from (tm-zotero))
+  (import-from (tm-zotero))
   (texmacs-modes
     (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
-    (in-zcite% (tree-is? (focus-tree) 'zcite) in-text% in-tm-zotero-style%)
-    (in-zbibliography% (tree-is? (focus-tree) 'zbibliography) in-text% in-tm-zotero-style%)
+    (in-zcite% (tree-is? (focus-tree) 'zcite) in-tm-zotero-style%)
+    (in-zbibliography% (tree-is? (focus-tree) 'zbibliography) in-tm-zotero-style%)
     (in-zfield% (or (in-zcite?) (in-zbibliography?)))
-    (in-ztHref% (tree-is? (focus-tree) 'ztHref) in-text% in-tm-zotero-style%))
+    (in-ztHref% (tree-is? (focus-tree) 'ztHref) in-tm-zotero-style%))
   (lazy-keyboard (tm-zotero-kbd) in-tm-zotero-style?)
   (lazy-menu (tm-zotero-menu) in-tm-zotero-style?)
   (extend-table style-menu-name
-    ("tm-zotero" "Zotero Integration"))
+    ("tm-zotero" "Juris-M or Zotero Integration"))
   (extend-table style-synopsis
-    ("tm-zotero" "TeXmacs Integration with Juris-M/Zotero Reference Manager")))
-
+    ("tm-zotero" "TeXmacs Integration with Juris-M or Zotero Reference Manager")))

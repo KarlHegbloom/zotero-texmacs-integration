@@ -1,8 +1,8 @@
 ;;; coding: utf-8
 ;;; ✠ ✞ ♼ ☮ ☯ ☭ ☺
 ;;;
-;; MODULE      : insert-legal-templates.scm
-;; DESCRIPTION : Insert Templates for Legal Brief Style.
+;; MODULE      : legal-brief-style.scm
+;; DESCRIPTION : Scheme-side support for the Legal Brief Style.
 ;; COPYRIGHT   : (C) 2016  Karl M. Hegbloom <karl.hegbloom@gmail.com>
 ;;
 ;; This software falls under the GNU general public license version 3 or
@@ -10,7 +10,7 @@
 ;; LICENSE in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>
 ;;
 ;;;
-(texmacs-module (insert-legal-templates)
+(texmacs-module (legal-brief-style)
   (:use (generic document-style)))
 
 ;;; LaTeX / Hybrid kbd commands:

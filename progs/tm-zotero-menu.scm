@@ -30,6 +30,11 @@
       ---
       ("Set Document Prefs" (tm-zotero-setDocPrefs))
       ---
+      ;; ("In-text hrefs as footnotes?"
+      ;;  (toggle-preference "zt-pref-in-text-hrefs-as-footnotes"))
+      ;; ("In-text hlinks have href footnotes?"
+      ;;  (toggle-preference "zt-pref-in-text-hlinks-have-href-footnotes"))
+      ---
       ("Debug: Protocol trace to stdout?" (toggle-preference
                                            "zt-debug-trace?"))))
 

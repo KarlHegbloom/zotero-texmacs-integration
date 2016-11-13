@@ -28,29 +28,6 @@
         (convert tools sxml)))
 
 
-;;; buffer-attach-notifier ultimately calls a c++ function that invokes first
-;;; buffer-initialize, and then attaches the buffer-notify via a
-;;; scheme_observer. So buffer-initialize is *not* where to call
-;;; buffer-attach-notifier... I want to do that once, from some point of entry
-;;; that is called once when the buffer is first loaded, for the case of a
-;;; pre-existing document, or once when the style is first added to the
-;;; document.
-;;;
-;;; So the first thing that happens after a document is loaded into a buffer is
-;;; that the typesetter takes off, to render the display. It must initialize
-;;; the styles for the document... and then
-
-(tm-define (set-main-style style)
-  (former style)
-  (when (style-includes? style "tm-zotero")
-    (buffer-attach-notifier (current-buffer))))
-
-(tm-define (add-style-package pack)
-  (former pack)
-  (when (== pack "tm-zotero")
-    (buffer-attach-notifier (current-buffer))))
-
-
 
 ;;; This copy of json was ported from Guile 2.0 to Guile 1.8
 ;;; by Karl M. Hegbloom.
@@ -79,10 +56,10 @@
 ;;;
 ;;; The :renamer renames all of them. I don't want that. I'll do it by hand,
 ;;;
-;;;(define guile-user:make (@ (guile-user) make))
-;;;(define goops:make (@ (oop goops) make))
+(define guile-user:make (@ (guile-user) make))
+(define goops:make (@ (oop goops) make))
 (use-modules (oop goops))
-
+(define make goops:make)
 ;; (use-modules (oop goops describe))
 
 
@@ -216,7 +193,7 @@
     ansi-norm "):")))
 
 (define timestamp-format-string-plain
-  ("~10,,,'0@s:~10,,,'0@s:(~10,,,'0@s:~10,,,'0@s):"))
+  "~10,,,'0@s:~10,,,'0@s:(~10,,,'0@s:~10,,,'0@s):")
 
 (define timestamp-format-string timestamp-format-string-colored)
 
@@ -290,16 +267,31 @@
 ;;; Example use:  (go-to (position-get pos))
 ;;;
 
+;;; So a zfield is a TeXmacs tree...
+
+(define (position-new-at-zero)
+  (position-new (buffer-path)))
 
 (define-class <zfield-data> ()
-  (position #:init-value #f)
-  (data     #:init-thunk make-hash-table))
-;;; data keys: code-cache, orig-text, modified?, disactivated?
+  ;; TeXmacs position
+  (position  #:init-thunk position-new-at-zero)
+  ;; Boolean, user editted?
+  (modified? #:init-value #f)
+  ;; Boolean, set when tag is disactivated or reactivated.
+  (disactivated? #:init-value #f)
+  ;; String, original unmodified text for comparison
+  (orig-text #:init-value "")
+  ;;
+  ;; ? (code-cache #:init-value #f)
+  ;; Extra data ht? Only if needed.
+  ;; data keys: code-cache, ... ?
+  ;; (data-ht #:init-thunk make-hash-table)
+  )
 
 ;;; orig-text shares data (eq?) with code-cache...
 
 
-(define-class <document-data>
+(define-class <document-data> ()
   ;;
   ;; is a zotero command active?
   ;;
@@ -347,7 +339,7 @@
 ;;; to the next, but unique for each document being processed during this run.
 ;;;
 ;;; An alternative would be to assign it a stable value and store that in the
-;;; init-env. It could be a UUID or a string formed just like the fieldID's
+;;; init-env. It could be a UUID or a string formed just like the zfieldID's
 ;;; are.
 ;;;
 ;;; !! If the "save-as" function is ever used... that in-document ID would need
@@ -378,10 +370,10 @@
 ;;   (cformat #f "~s-~s" (get-id-number) (buffer-path)))
 
 (define (get-documentID)
-  (let ((str (object->string (current-buffer))))
-    ;;  012345
-    ;; "<url /path/to/file.tm>"
-    (substring str 5 (- (string-length str) 1))))
+  (url->string (current-buffer)))
+
+(define (document-buffer documentID)
+  (string->url documentID))
 
 
 
@@ -396,31 +388,121 @@
 
 
 
-(define get-new-zfieldID  create-unique-id)
-
-(define (set-document-new-zfieldID! documentID zfieldID)
-  (slot-set! (get-<document-data> documentID) 'new-zfieldID zfieldID))
-
-(define (get-document-new-zfieldID documentID)
-  (slot-ref (get-<document-data> documentID) 'new-zfieldID))
-
-(define (zfieldID-is-document-new-zfieldID? documentID zfieldID)
-  (eqv? zfieldID (get-document-new-fieldID documentID)))
-
-
+(define (get-document-tm-zotero-active? documentID)
+  (slot-ref (get-<document-data> documentID) 'tm-zotero-active?))
 
 (define (set-document-tm-zotero-active?! documentID val)
   (slot-set! (get-<document-data> documentID) 'tm-zotero-active? val))
 
-(define (get-document-zotero-active documentID)
-  (slot-ref (get-<document-data> documentID) 'tm-zotero-active?))
+
+
+(define (get-document-buffer-notify-activated? documentID)
+  (slot-ref (get-<document-data> documentID) 'buffer-notify-activated?))
+
+(define (set-document-buffer-notify-activated?! documentID val)
+  (slot-set! (get-<document-data> documentID) 'buffer-notify-activated? val))
+
+(define (tm-zotero-document-buffer-attach-notifier documentID)
+  (unless (get-document-buffer-notify-activated? documentID)
+    (buffer-attach-notifier (document-buffer documentID))
+    (set-document-buffer-notify-activated?! #t)))
+
+
+
+(define get-new-zfieldID  create-unique-id)
+
+(define (get-document-new-zfieldID documentID)
+  (slot-ref (get-<document-data> documentID) 'new-zfieldID))
+
+(define (set-document-new-zfieldID! documentID zfieldID)
+  (slot-set! (get-<document-data> documentID) 'new-zfieldID zfieldID))
+
+(define (zfieldID-is-document-new-zfieldID? documentID zfieldID)
+  (== zfieldID (get-document-new-fieldID documentID)))
+
+
+
+(define (get-document-zfield-ls documentID)
+  (slot-ref (get-<document-data> documentID) 'zfield-ls))
+
+(define (set-document-zfield-ls! documentID ls)
+  (slot-set! (get-<document-data> documentID) 'zfield-ls ls))
+
+
+
+(define (get-document-zfield-ht documentID)
+  (slot-ref (get-<document-data> documentID) 'zfield-ht))
+
+(define (reset-document-zfield-ht! documentID)
+  (slot-set! (get-<document-data> documentID) 'zfield-ht (make-hash-table)))
+
+
+(define (get-document-ztbibItemRefs-ht documentID)
+  (slot-ref (get-<document-data> documentID) 'ztbibItemRefs-ht))
+
+(define (reset-ztbibItemRefs-ht! documentID)
+  (slot-set! (get-<document-data> documentID) 'ztbibItemRefs-ht (make-hash-table)))
+
+
+
+(define (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+  (hash-ref (get-document-zfield-ht documentID) zfieldID #f))
+
+
+
+(define (get-document-zfield-position-by-zfieldID documentID zfieldID)
+  (slot-ref (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+            'position))
+
+(define (go-to-document-zfield-by-zfieldID documentID zfieldID)
+  (go-to
+   (position-get
+    (get-document-zfield-position-by-zfieldID documentID zfieldID))))
+
+
+
+(define (get-document-zfield-by-zfieldID documentID zfieldID)
+  (path->tree
+   (position-get
+    (get-document-zfield-position-by-zfieldID documentID zfieldID))))
+
+
+
+(define (get-document-zfield-modified?-by-zfieldID documentID zfieldID)
+  (slot-ref (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+            'modified?))
+
+(define (set-document-zfield-modified?-by-zfieldID! documentID zfieldID val)
+  (slot-set! (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+             'modified? val))
+
+
+
+(define (get-document-zfield-disactivated?-by-zfieldID documentID zfieldID)
+  (slot-ref (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+            'disactivated?))
+
+(define (set-document-zfield-disactivated?-by-zfieldID! documentID zfieldID val)
+  (slot-set! (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+             'disactivated? val))
+
+
+
+(define (get-document-zfield-orig-text-by-zfieldID documentID zfieldID)
+  (slot-ref (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+            'orig-text))
+
+(define (set-document-zfield-orig-text-by-zfieldID! documentID zfieldID text)
+  (slot-set! (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+             'orig-text text))
 
 
 ;;; Reference binding keys must have deterministic format so the program can
-;;; build them from data provided by Juris-M / Zotero.
+;;; build them from data provided by Juris-M / Zotero. If this is ever changed,
+;;; older documents might not work right.
 ;;;
-(define (get-zfield-refbinding-key fieldIDstr)
-  (string-append "zotero" fieldIDstr "-noteIndex"))
+(define (get-zfield-noteIndex-refbinding-key zfieldID)
+  (string-append "zotero" zfieldID "-noteIndex"))
 
 ;;; The set-binding call happens inside of the macro that renders the
 ;;; citation. I spent half a day figuring out how to write a glue-exported
@@ -436,12 +518,14 @@
 
 
 
-(define (document-<zfield-data>-insert! documentID zfieldID pos)
-  (let* ((dd (get-<document-data> documentID))
+(define (document-<zfield-data>-insert! documentID zfield)
+  (let* ((zfieldID (XXXXX
+         (dd (get-<document-data> documentID))
          (zfl (slot-ref dd 'zfield-ls))
          (zfht (slot-ref dd 'zfield-ht))
          (zfd (make <zfield-data>)))
-    (slot-set! zfd 'position pos)
+    (position-set (slot-ref zfd 'position) (tree->path zfield))
+    (slot-set! zfd 'zfield zfield)
     (slot-set! dd 'zfield-ls
                (merge! zfl '(zfd)
                        (lambda (a b)
@@ -461,8 +545,6 @@
       (hash-remove! zfht zfieldID))))
                                      
 
-(define (document-zfieldID->position documentID zfieldID)
-  (hash-ref (slot-ref (get-<document-data> documentID) 'zfield-ht) zfieldID #f))
 
 
 
@@ -475,14 +557,12 @@
 
 
 (define (insert-new-zfield tag placeholder)
-  ;; Is this the right place for this?
-  (buffer-attach-notifier (current-buffer)) ;; Anywhere else?
   (if (not (in-zfield?))
       (let ((documentID (get-documentID))
             (id-str (get-new-fieldID)))
         (set-document-new-fieldID! documentID id-str)
-        (insert `(,tag ,id-str "" ,placeholder)))
-      (begin
+        (insert `(,tag ,id-str (raw-data "") ,placeholder)))
+      (begin ;; in-zfield? => #t
         ;; Todo: This ought to be a dialog if it actually happens much...
         ;; Alternatively, perhaps it could move the cursor out of the zfield,
         ;; arbitrarily to the right or left of it, then proceed with inserting
@@ -492,38 +572,24 @@
                          tag (tree-label (focus-tree)))
         #f)))
 
-
-
 ;;; When the buffer has just opened, the list of zfields is not populated yet. XXXX
 ;;;
 ;;; tm-find returns an incorrect result! Use tm-search.
 ;;;
-;; (define (zt-find-zfield fieldID)
+;; (define (zt-find-zfield zfieldID)
 ;;   (let ((ls (tm-search
 ;;             (buffer-tree)
 ;;             (lambda (t)
 ;;               (and (tree-in? t zfield-tags)
-;;                    (string=? fieldID
+;;                    (string=? zfieldID
 ;;                              (object->string (zfield-ID t))))))))
 ;;     (if (pair? ls)
 ;;         (car ls)
 ;;         #f)))
 
 
-
-(tm-define (zt-go-to-zfield documentID fieldID)
-  ;;
-  ;; Ignore documentID for now, assuming work with focused document only.
-  ;;
-  ;; for now just tree-go-to, but perhaps look up the position from the cache
-  ;; and jump to it without a tree-search having to happen first. (think "large
-  ;; documents")
-  ;;
-  (let ((t (zt-find-zfield fieldID)))
-    (when t
-      (tree-go-to t 1))))
-
-
+;;; A zfield is a tree. Each part of it is a tree also.
+;;;
 ;;; These must match the definitions in tm-zotero.ts;
 ;;;
 ;;;  L     0         1           2
@@ -531,12 +597,15 @@
 ;;;
 ;;; fieldNoteIndex is gotten via a reference binding.
 ;;;
-(tm-define (zfield-ID t)
-  (tree-ref t 0))
+(define (get-zfield-zfieldID-t zfield)
+  (tree-ref zfield 0))
+
+(define (get-zfield-zfieldID t)
+  (object->string (get-zfield-zfieldID-t t)))
 
 
 ;;; the raw-data wrapper hopefully helps with the unicode conversion problems
-(tm-define (zt-zfield-Code t)
+(define (get-zfield-Code-t t)
   ;; upgrade old tags, also fixup hand-entered ones?
   (let ((code (tree-ref t 1)))
     (cond
@@ -550,17 +619,14 @@
        (tree-set! code (stree->tree '(raw-data "")))
        (tree-ref code 0)))))
 
-;; (tm-define (zt-zfield-Code t)
-;;   (tree-ref t 1))
-
 
 ;;; For "note" styles, this reference binding links a citation field with
 ;;; the footnote number that it appears in.
 ;;;
-(tm-define (zt-zfield-NoteIndex field)
+(define (get-zfield-NoteIndex zfield)
   (get-refbinding
-   (get-zfield-refbinding-key
-    (object->string (zfield-ID field)))))
+   (get-zfield-noteIndex-refbinding-key
+    (get-zfield-zfieldID zfield))))
 
 
 ;;; This next field is set automatically, below, with the result of converting
@@ -578,7 +644,7 @@
 ;;;       It's easier to just curate your reference collection to make it
 ;;;       produce what you want, right?
 ;;;
-(tm-define (zt-zfield-Text t)
+(define (get-zfield-Text-t t)
   (tree-ref t 2))
 
 
@@ -614,7 +680,7 @@
 
 ;;; This is still needed to initialize the <document-data> when the document is
 ;;; first opened.
-;;;
+;;; 
 (define (zt-zfield-search subtree)
   (let ((zt-new-fieldID (get-document-new-fieldID (get-documentID))))
     (tm-search
@@ -623,9 +689,8 @@
        (and (tree-in? t zfield-tags)
             (not
              (and zt-new-fieldID
-                  (string=? (object->string
-                             (zfield-ID t))
-                            zt-new-fieldID))))))))
+                  (string=? zt-new-fieldID
+                            (get-zfield-zfieldID t)))))))))
 
 
 
@@ -636,7 +701,10 @@
 ;;; Maybe ensure active document is documentID? For now assume it is.
 ;;; Also for now assume fieldType is always "ReferenceMark", so ignore it.
 ;;;
-(tm-define (zt-init-document-zfields-list documentID)
+;;; WIP: Nothing calls this yet... is it needed? (and it's not fixed up for new
+;;; changes yet anyway...)
+;;;
+(define (init-document-zfields-list documentID)
   ;;
   ;; Maybe ensure active document is documentID? For now assume it is.
   ;;
@@ -694,7 +762,7 @@
 ;;; moved to <zfield-data>:data
 
 ;;; XXX Todo
-(tm-define (zt-get-zfield-Code-string field)
+(define (zt-get-zfield-Code-string field)
   (let ((id (object->string (zfield-ID field)))
         (str_code (object->string (zt-zfield-Code field))))
     ;; So that Document_getFields causes this to happen.
@@ -706,7 +774,7 @@
       (zt-parse-and-cache-zfield-Code field str_code)) ;; <== first...
     str_code))
 
-;;; Must handle empty string for zotero-Field_delete. Since it does not
+;;; Must handle empty string for tm-zotero-Field_delete. Since it does not
 ;;; actually delete the tag from the document, it does not need to delete it
 ;;; from the cache.
 ;;;
@@ -722,9 +790,9 @@
 ;;; What if I cut and paste a zcite from one location to another, and so the
 ;;; cached document position is no longer valid, but the zcite really is still
 ;;; in the document? For that case, I must fall back on a search of the document
-;;; tree for a field with the sought-for fieldID, then update the cache.
+;;; tree for a field with the sought-for zfieldID, then update the cache.
 ;;;
-(tm-define (zt-set-zfield-Code-from-string field str_code)
+(define (zt-set-zfield-Code-from-string field str_code)
   (let ((code (zt-zfield-Code field))
         )
     (zt-parse-and-cache-zfield-Code field str_code)
@@ -734,9 +802,9 @@
 ;;; It goes through here so that this can also be called from the
 ;;; Document_getFields...
 ;;;
-;;; Also handle empty string for zotero-Field_removeCode.
+;;; Also handle empty string for tm-zotero-Field_removeCode.
 ;;;
-(tm-define (zt-parse-and-cache-zfield-Code field str_code)
+(define (zt-parse-and-cache-zfield-Code field str_code)
   (let* ((id (object->string (zfield-ID field)))
          (code (zt-zfield-Code field))
          (brace-idx (string-index str_code #\{))
@@ -761,30 +829,13 @@
         (hash-set! zt-zfield-Code-cache id scm-code))))))
 
 
-(tm-define (zt-get-zfield-Code-cache-ht-by-fieldID fieldIDstr)
-  (hash-ref zt-zfield-Code-cache fieldIDstr #f))
+(define (zt-get-zfield-Code-cache-ht-by-fieldID zfieldIDstr)
+  (hash-ref zt-zfield-Code-cache zfieldIDstr #f))
 
 ;;(tm-define (zt-get-zfield-Code-cache-
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; zt-ztbibItemRefs, \ztHrefFromCiteToBib{#zbibSysID1234}{text}
-;;;
-;;; List of refs / pagerefs to referring citations for the end of each
-;;; bibliography entry. Compute them once, memoized, and so when the
-;;; in-document tag is actually expanded, the operation is a fast hashtable
-;;; lookup returning the pre-computed 'concat tree. The typesetter is run very
-;;; often while using TeXmacs, and so if the full computation had to be run
-;;; each time the tag is re-typeset (e.g. the user is typing on the page just
-;;; above the zbibliography) it would be very slow.
-;;;
-;;;
-(define (document-ztbibItemRefs-ht-reset! documentID)
-  (slot-set! (get-<document-data> documentID) 'ztbibItemRefs-ht (make-hash-table)))
 
-(define (document-get-ztbibItemRefs-ht documentID)
-  (slot-get (get-<document-data> documentID) 'ztbibItemRefs-ht))
-
+;;; Too much searching the document!
 
 ;;;
 ;;; Returns list of trees that are like:
@@ -934,7 +985,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Memoization cache for zt-ext-flag-if-modified, fieldID -> boolean-modified?
+;;; Memoization cache for zt-ext-flag-if-modified, zfieldID -> boolean-modified?
 ;;;
 ;;(define zt-zfield-modified?-cache (make-hash-table))
 ;;(define zt-zfield-disactivated? (make-hash-table))
@@ -963,39 +1014,39 @@
 ;;; user used M-w to copy the selected text containing a zfield, and then
 ;;; "yank" (paste) it in, potentially more than once.
 
-(tm-define (zt-get-orig-zfield-Text fieldID-str)
-  (let ((scm-code (hash-ref zt-zfield-Code-cache fieldID-str #f)))
-    (let* ((zft (zt-find-zfield fieldID-str))
+(define (zt-get-orig-zfield-Text zfieldID-str)
+  (let ((scm-code (hash-ref zt-zfield-Code-cache zfieldID-str #f)))
+    (let* ((zft (zt-find-zfield zfieldID-str))
            (scm-code (or scm-code
                          ;; trigger parsing and caching of zfield-Code data.
                          (and zft
                               (zt-get-zfield-Code-string zft)
                               ;; access it.
-                              (hash-ref zt-zfield-Code-cache fieldID-str #f))))
+                              (hash-ref zt-zfield-Code-cache zfieldID-str #f))))
            (props (and scm-code
                        (hash-ref scm-code "properties" #f)))
            (plainCitation (and props
                                (hash-ref props "plainCitation" #f))))
       ;; (zt-format-debug
       ;;  "zt-get-orig-zfield-Text:fieldID-str:~s\n\nscm-code:~s\n\nprops:~s\n\nplainCitation:~s\n"
-      ;;  fieldID-str scm-code props plainCitation)
+      ;;  zfieldID-str scm-code props plainCitation)
       plainCitation)))
 
-(define (zt-set-zfield-modified?! fieldID-str)
-  (let* ((field (zt-find-zfield fieldID-str))
-         (text (and field (format #f "~s" (tree->stree (zt-zfield-Text field)))))
-         (orig-text (and text (zt-get-orig-zfield-Text fieldID-str)))
+(define (zt-set-zfield-modified?! zfieldID-str)
+  (let* ((field (zt-find-zfield zfieldID-str))
+         (text (and field (format #f "~s" (tree->stree (get-zfield-Text field)))))
+         (orig-text (and text (zt-get-orig-zfield-Text zfieldID-str)))
          (zfield-modified? (and text
                                 orig-text
                                 (not (string=? text orig-text)))))
     ;; (zt-format-debug
     ;;  "zt-set-zfield-modified?!:fieldID-str:~s\n\ntext:~s\n\norig-text:~s\n\nzfield-modified?:~s\n"
-    ;;  fieldID-str text orig-text zfield-modified?)
-    (hash-set! zt-zfield-modified?-cache fieldID-str zfield-modified?)
+    ;;  zfieldID-str text orig-text zfield-modified?)
+    (hash-set! zt-zfield-modified?-cache zfieldID-str zfield-modified?)
     zfield-modified?))
 
-(define (zt-zfield-modified?-or-undef fieldID-str)
-  (hash-ref zt-zfield-modified?-cache fieldID-str 'undef))
+(define (zt-zfield-modified?-or-undef zfieldID-str)
+  (hash-ref zt-zfield-modified?-cache zfieldID-str 'undef))
 
 ;;; When the debug print statements are enabled and debugging is on, whenever I
 ;;; type anything in the same paragraph right after a citation, this function
@@ -1005,23 +1056,23 @@
 ;;; deactivation of the tag can trigger clearing the memoized status for this
 ;;; flag. So, see: notify-disactivated in this file.
 ;;;
-;;; fieldID is handed in from the tm-zotero.ts and will be a tree. Also accept
+;;; zfieldID is handed in from the tm-zotero.ts and will be a tree. Also accept
 ;;; a string.
 ;;;
-(tm-define (zt-ext-flag-if-modified fieldID)
+(tm-define (zt-ext-flag-if-modified zfieldID)
   (:secure)
-  (let ((fieldID-str (object->string fieldID)))
-    (when (not (hash-ref zt-zfield-disactivated? fieldID-str #f))
-      (case (zt-zfield-modified?-or-undef fieldID-str)
+  (let ((fieldID-str (object->string zfieldID)))
+    (when (not (hash-ref zt-zfield-disactivated? zfieldID-str #f))
+      (case (zt-zfield-modified?-or-undef zfieldID-str)
         ((undef)
-         ;; (zt-format-debug "zt-ext-flag-if-modified:undef:~s\n" fieldID)
-         (zt-set-zfield-modified?! fieldID-str)
-         (zt-ext-flag-if-modified fieldID-str)) ;; tail-call
+         ;; (zt-format-debug "zt-ext-flag-if-modified:undef:~s\n" zfieldID)
+         (zt-set-zfield-modified?! zfieldID-str)
+         (zt-ext-flag-if-modified zfieldID-str)) ;; tail-call
         ((#t)
-         ;; (zt-format-debug " zt-ext-flag-if-modified: Field is modified: ~s\n" fieldID)
+         ;; (zt-format-debug " zt-ext-flag-if-modified: Field is modified: ~s\n" zfieldID)
          '(concat (flag "Modified!" "red")))
         ((#f)
-         ;; (zt-format-debug " zt-ext-flag-if-modified: Field is NOT modified: ~s\n" fieldID)
+         ;; (zt-format-debug " zt-ext-flag-if-modified: Field is NOT modified: ~s\n" zfieldID)
          '(concat (flag "Not Modified." "green")))))))
 
 
@@ -1110,12 +1161,12 @@
 ;;; All of them are set via the zotero controlled dialog. That dialog is
 ;;; displayed automatically when the document does not yet have
 ;;; zoteroDocumentData set, because at the start of the transaction, Zotero will
-;;; call zotero-Document_getDocumentData, which returns null to Zotero unless
+;;; call tm-zotero-Document_getDocumentData, which returns null to Zotero unless
 ;;; it's been set. After setting it, the next thing Zotero sends is a
-;;; zotero-Document_setDocumentData message. It can also be invoked by sending a
-;;; zotero-setDocPrefs message, which will call zotero-Document_getDocumentData,
+;;; tm-zotero-Document_setDocumentData message. It can also be invoked by sending a
+;;; zotero-setDocPrefs message, which will call tm-zotero-Document_getDocumentData,
 ;;; then let you edit that in Zotero's dialog, and send it back with
-;;; zotero-Document_setDocumentData. So from here, we never need to write the
+;;; tm-zotero-Document_setDocumentData. So from here, we never need to write the
 ;;; prefs by any means other than having Zotero set it.
 ;;;
 ;;; Perhaps a future iteration could provide initial hints based on the language
@@ -1166,58 +1217,58 @@
 ;;; document itself. Depending upon the way the documentID is formed, it could
 ;;; be used to obtain the buffer file name, document title, etc.
 ;;;
-(define (zt-get-DocumentData documentID)
+(define (get-env-zoteroDocumentData documentID)
   (get-env "zoteroDocumentData"))
 
-(define (zt-set-DocumentData documentID str_dataString)
+(define (set-env-zoteroDocumentData! documentID str_dataString)
   (set-init-env "zoteroDocumentData" str_dataString)
-  (zt-set-init-env-zotero-prefs documentID str_dataString))
+  (set-init-env-for-zotero-document-prefs documentID str_dataString))
 
 
-(define (zt-set-init-env-zotero-prefs documentID str_dataString)
-  ;; (write (parse-xml (zt-get-DocumentData)))
+(define (set-init-env-for-zotero-document-prefs documentID str_dataString)
+  ;; (write (parse-xml (get-env-zoteroDocumentData)))
   ;; (newline)
-  (let ((zt-set-init-env-zotero-prefs-sub
+  (let ((set-init-env-for-zotero-document-prefs-sub
          (lambda (prefix attr-list)
            (let loop ((attr-list attr-list))
-                (cond
+             (cond
                   ((null? attr-list) #t)
                   (#t (set-init-env (string-append prefix (symbol->string
                                                            (caar attr-list)))
                                     (cadar attr-list))
-                   (loop (cdr attr-list))))))))
+                      (loop (cdr attr-list))))))))
     (let loop ((sxml (cdr (parse-xml str_dataString))))
-         (cond
-           ((null? sxml) #t)
-           ((eq? 'data (sxml-name (car sxml)))
-            (zt-set-init-env-zotero-prefs-sub "zotero-data-" (sxml-attr-list
-                                                              (car sxml)))
-            (loop (sxml-content (car sxml))))
-           ((eq? 'session (sxml-name (car sxml)))
-            (zt-set-init-env-zotero-prefs-sub "zotero-session-" (sxml-attr-list
-                                                                 (car sxml)))
-            (loop (cdr sxml)))
-           ((eq? 'style (sxml-name (car sxml)))
-            (zt-set-init-env-zotero-prefs-sub "zotero-style-" (sxml-attr-list
-                                                               (car sxml)))
-            (loop (cdr sxml)))
-           ((eq? 'prefs (sxml-name (car sxml)))
-            (loop (sxml-content (car sxml))))
-           ((eq? 'pref (sxml-name (car sxml)))
-            (set-init-env (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
-                          (sxml-attr (car sxml) 'value))
-            (when (string=? "noteType" (sxml-attr (car sxml) 'name))
-              ;; The TeXmacs style language case statements can not test an
-              ;; environment variable that is a string against any other
-              ;; string... the string it's set to has to be "true" or "false"
-              ;; to make boolean tests work. It can not check for "equals 0",
-              ;; "equals 1", etc.
-              (set-init-env "zotero-pref-noteType0" "false")
-              (set-init-env "zotero-pref-noteType1" "false")
-              (set-init-env "zotero-pref-noteType2" "false")
-              (set-init-env (string-append "zotero-pref-noteType"
-                                           (sxml-attr (car sxml) 'value)) "true"))
-            (loop (cdr sxml)))))))
+      (cond
+        ((null? sxml) #t)
+        ((eq? 'data (sxml-name (car sxml)))
+         (set-init-env-for-zotero-document-prefs-sub "zotero-data-" (sxml-attr-list
+                                                                     (car sxml)))
+         (loop (sxml-content (car sxml))))
+        ((eq? 'session (sxml-name (car sxml)))
+         (set-init-env-for-zotero-document-prefs-sub "zotero-session-" (sxml-attr-list
+                                                                        (car sxml)))
+         (loop (cdr sxml)))
+        ((eq? 'style (sxml-name (car sxml)))
+         (set-init-env-for-zotero-document-prefs-sub "zotero-style-" (sxml-attr-list
+                                                                      (car sxml)))
+         (loop (cdr sxml)))
+        ((eq? 'prefs (sxml-name (car sxml)))
+         (loop (sxml-content (car sxml))))
+        ((eq? 'pref (sxml-name (car sxml)))
+         (set-init-env (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
+                       (sxml-attr (car sxml) 'value))
+         (when (string=? "noteType" (sxml-attr (car sxml) 'name))
+           ;; The TeXmacs style language case statements can not test an
+           ;; environment variable that is a string against any other
+           ;; string... the string it's set to has to be "true" or "false"
+           ;; to make boolean tests work. It can not check for "equals 0",
+           ;; "equals 1", etc.
+           (set-init-env "zotero-pref-noteType0" "false")
+           (set-init-env "zotero-pref-noteType1" "false")
+           (set-init-env "zotero-pref-noteType2" "false")
+           (set-init-env (string-append "zotero-pref-noteType"
+                                        (sxml-attr (car sxml) 'value)) "true"))
+         (loop (cdr sxml)))))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1530,7 +1581,7 @@
                      (set! counter 40)
                      (set! wait 10)) ;; keep listening
                     ((string=? editCommand "Document_complete")
-                     (zt-format-debug "zotero-Document_complete called.\n")
+                     (zt-format-debug "tm-zotero-Document_complete called.\n")
                      (set-message "Zotero: Document complete." "Zotero integration")
                      (tm-zotero-write tid (scm->json-string '()))
                      ;;(close-tm-zotero-socket-port!)
@@ -1581,7 +1632,7 @@
 ;;;
 (define (call-zotero-integration-command cmd)
   (let ((documentID (get-documentID)))
-    (when (not (get-document-zotero-active documentID)) ;; one at a time only
+    (when (not (get-document-tm-zotero-active? documentID)) ;; one at a time only
       (set-message (string-append "Calling Zotero integration command: " cmd)
                    "Zotero Integration")
       (let ((zp (get-tm-zotero-socket-port)))
@@ -1691,10 +1742,10 @@
   ;; have been hand-modified while the tag was in the disactive state.
   ;;
   (let ((fieldID-str (object->string (zfield-ID t))))
-    (hash-remove! zt-zfield-disactivated? fieldID-str)
+    (hash-remove! zt-zfield-disactivated? zfieldID-str)
     (when (case (zt-zfield-modified?-or-undef t)
             ((undef)
-             (zt-set-zfield-modified?! fieldID-str)) ;; returns boolean
+             (zt-set-zfield-modified?! zfieldID-str)) ;; returns boolean
             ((#t) #t)
             ((#f) #f))
       (zotero-refresh))))
@@ -1705,7 +1756,7 @@
                  (in-zcite?)))
   (set-message "zcite disactivated." "Zotero integration")
   (let ((fieldID-str (object->string (zfield-ID t))))
-    (hash-set! zt-zfield-disactivated? fieldID-str #t)
+    (hash-set! zt-zfield-disactivated? zfieldID-str #t)
     ;;
     ;; When the tag is disactivated, and the zcite-Text has not been modified
     ;; from the original text that was set by Juris-M / Zotero, then this
@@ -1714,7 +1765,7 @@
     ;; cluster of this zcite tag and disactivate the tag, you'll see the
     ;; zcite-Text update.
     ;;
-    (when (not (eq? #t (zt-zfield-modified?-or-undef fieldID-str)));; might be 'undef
+    (when (not (eq? #t (zt-zfield-modified?-or-undef zfieldID-str)));; might be 'undef
       (zotero-refresh))
     ;;
     ;; When the tag is disactivated, the user might hand-modify the
@@ -1725,7 +1776,7 @@
     ;; update the contents of unmodified zfield-Text when the reference
     ;; database items for a zcite citation cluster have changed.
     ;;
-    (hash-remove! zt-zfield-modified?-cache fieldID-str)))
+    (hash-remove! zt-zfield-modified?-cache zfieldID-str)))
 
 
 
@@ -1806,6 +1857,31 @@
 ;;; `buffer-attach-notifier'. Thus, both must be defined here for this to work
 ;;; right since this is not a shared buffer.
 ;;;
+;;;
+;;; buffer-attach-notifier ultimately calls a c++ function that invokes first
+;;; buffer-initialize, and then attaches the buffer-notify via a
+;;; scheme_observer. So buffer-initialize is *not* where to call
+;;; buffer-attach-notifier... I want to do that once, from some point of entry
+;;; that is called once when the buffer is first loaded, for the case of a
+;;; pre-existing document, or once when the style is first added to the
+;;; document.
+;;;
+;;; So the first thing that happens after a document is loaded into a buffer is
+;;; that the typesetter takes off, to render the display. It must initialize
+;;; the styles for the document... and then
+
+(tm-define (set-main-style style)
+  (former style)
+  (when (style-includes? style "tm-zotero")
+    (tm-zotero-document-buffer-attach-notifier (get-documentID))))
+
+
+(tm-define (add-style-package pack)
+  (former pack)
+  (when (== pack "tm-zotero")
+    (tm-zotero-document-buffer-attach-notifier (get-documentID))))
+
+
 ;;; FixMe: Notice that these do not call (former id t buf) since the bottom of
 ;;; that stack is the (part shared-part) version... which does not presently
 ;;; specialize upon whether the document actually has any shared parts! That
@@ -2036,7 +2112,7 @@
 ;;;
 ;;; ["Application_getActiveDocument", [int_protocolVersion]] -> [int_protocolVersion, documentID]
 ;;;
-(tm-define (zotero-Application_getActiveDocument tid pv)
+(define (zotero-Application_getActiveDocument tid pv)
   (zt-format-debug "zotero-Application_getActiveDocument called.\n")
   (tm-zotero-write tid (safe-scm->json-string (list pv (get-documentID)))))
 
@@ -2092,9 +2168,9 @@
 ;;;
 ;;; ["Document_displayAlert", [documentID, str_dialogText, int_icon, int_buttons]] -> int_button_pressed
 ;;;
-(tm-define (zotero-Document_displayAlert tid documentID str_dialogText int_icon
+(define (tm-zotero-Document_displayAlert tid documentID str_dialogText int_icon
                                          int_buttons)
-  (zt-format-debug "zotero-Document_displayAlert called.\n")
+  (zt-format-debug "tm-zotero-Document_displayAlert called.\n")
   (dialogue-window (zotero-display-alert documentID str_dialogText int_icon int_buttons)
                    (lambda (val)
                      (tm-zotero-write tid (safe-scm->json-string val)))
@@ -2105,7 +2181,7 @@
 ;;;
 ;;; ["Document_activate", [documentID]] -> null
 ;;;
-(tm-define (zotero-Document_activate tid documentID)
+(define (tm-zotero-Document_activate tid documentID)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 
@@ -2113,15 +2189,15 @@
 ;;;
 ;;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
 ;;;
-(tm-define (zotero-Document_canInsertField tid documentID str_fieldType)
-  (zt-format-debug "zotero-Document_canInsertField called.\n")
+(define (tm-zotero-Document_canInsertField tid documentID str_fieldType)
+  (zt-format-debug "tm-zotero-Document_canInsertField called.\n")
   (let ((ret (not
               (not
                (and (in-text?)
                     (not (in-math?))
                     (if (in-zfield?)
                         (let ((t (focus-tree)))
-                          (zt-format-debug "zotero-Document_canInsertField:in-zfield? => #t, (focus-tree) => ~s\n" t)
+                          (zt-format-debug "tm-zotero-Document_canInsertField:in-zfield? => #t, (focus-tree) => ~s\n" t)
                           (or (and zt-new-fieldID
                                    (string=? zt-new-fieldID
                                              (object->string (zfield-ID t))))
@@ -2135,9 +2211,9 @@
 ;;;
 ;;; ["Document_getDocumentData", [documentID]] -> str_dataString
 ;;;
-(tm-define (zotero-Document_getDocumentData tid documentID)
-  (zt-format-debug "zotero-Document_getDocumentData called.\n")
-  (tm-zotero-write tid (safe-scm->json-string (zt-get-DocumentData documentID))))
+(define (tm-zotero-Document_getDocumentData tid documentID)
+  (zt-format-debug "tm-zotero-Document_getDocumentData called.\n")
+  (tm-zotero-write tid (safe-scm->json-string (get-zotero-DocumentData documentID))))
 
 
 
@@ -2146,8 +2222,8 @@
 ;;;
 ;;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
 ;;;
-(tm-define (zotero-Document_setDocumentData tid documentID str_dataString)
-  (zt-format-debug "zotero-Document_setDocumentData called.\n")
+(define (tm-zotero-Document_setDocumentData tid documentID str_dataString)
+  (zt-format-debug "tm-zotero-Document_setDocumentData called.\n")
   (zt-set-DocumentData documentID str_dataString)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
@@ -2157,7 +2233,7 @@
 ;;; information about that field. Returns null, indicating that the cursor isn't
 ;;; in a field of this fieldType, or a 3 element array containing:
 ;;;
-;;; fieldID, int or string, A unique identifier corresponding to this field.
+;;; zfieldID, int or string, A unique identifier corresponding to this field.
 ;;;
 ;;; fieldCode, UTF-8 string, The code stored within this field.
 ;;;
@@ -2166,21 +2242,21 @@
 ;;;
 ;;; ["Document_cursorInField", [documentID, str_fieldType]] -> null || [fieldID, fieldCode, int_noteIndex]
 ;;;
-(tm-define (zotero-Document_cursorInField tid documentID str_fieldType)
-  (zt-format-debug "zotero-Document_cursorInField called.\n")
+(define (tm-zotero-Document_cursorInField tid documentID str_fieldType)
+  (zt-format-debug "tm-zotero-Document_cursorInField called.\n")
   (let ((ret
          (if (in-zfield?)
              (begin
-               (zt-format-debug "zotero-Document_cursorInField: in-zfield? => #t\n")
+               (zt-format-debug "tm-zotero-Document_cursorInField: in-zfield? => #t\n")
                (let* ((t (focus-tree))
                       (id (object->string (zfield-ID t))))
                  (if (not (and zt-new-fieldID
                                (string=? zt-new-fieldID id)))
                      (begin
                        (let ((code (zt-get-zfield-Code-string t))
-                             (ni (object->string (zt-zfield-NoteIndex t))))
+                             (ni (object->string (get-zfield-NoteIndex t))))
                          (zt-format-debug
-                          "zotero-Document_cursorInField:id:~s:code:~s:ni:~s\n"
+                          "tm-zotero-Document_cursorInField:id:~s:code:~s:ni:~s\n"
                           id code ni)
                          (list id code ni)))
                      '()))) ;; is the new field not finalized by Document_insertField
@@ -2202,9 +2278,9 @@
 ;;;
 ;;; Ignore: str_fieldType
 ;;;
-(tm-define (zotero-Document_insertField tid documentID str_fieldType
+(define (tm-zotero-Document_insertField tid documentID str_fieldType
                                         int_noteType)
-  (zt-format-debug "zotero-Document_insertField called.\n")
+  (zt-format-debug "tm-zotero-Document_insertField called.\n")
   (let ((field (zt-find-zfield zt-new-fieldID))
         (id zt-new-fieldID))
     (if field
@@ -2213,9 +2289,9 @@
           ;; (tree-go-to field 1)
           ;; Q: Is it useful to initialize the fieldCode to anything here?
           (tm-zotero-write tid (safe-scm->json-string
-                             (list id "" (object->string (zt-zfield-NoteIndex
+                             (list id "" (object->string (get-zfield-NoteIndex
                                                      field))))))
-        (tm-zotero-write tid (safe-scm->json-string "ERR:no zt-new-fieldID in zotero-Document_insertField")))))
+        (tm-zotero-write tid (safe-scm->json-string "ERR:no zt-new-fieldID in tm-zotero-Document_insertField")))))
 
   
 
@@ -2242,8 +2318,8 @@
 ;;; A protocol trace watching the traffic between Libreoffice and Zotero shows
 ;;; that the BIBL field is also sent as one of the fields in this list.
 ;;;
-(tm-define (zotero-Document_getFields tid documentID str_fieldType)
-  (zt-format-debug "zotero-Document_getFields called.\n")
+(define (tm-zotero-Document_getFields tid documentID str_fieldType)
+  (zt-format-debug "tm-zotero-Document_getFields called.\n")
   (let ((ret
          (let loop ((zcite-fields (zt-get-zfields-list
                                    documentID str_fieldType))
@@ -2259,7 +2335,7 @@
                    (loop (cdr zcite-fields)
                          (cons (object->string (zfield-ID field)) ids)
                          (cons (zt-get-zfield-Code-string field) codes)
-                         (cons (object->string (zt-zfield-NoteIndex
+                         (cons (object->string (get-zfield-NoteIndex
                                                 field)) indx))))))))
     (tm-zotero-write tid (safe-scm->json-string ret))))
 
@@ -2269,11 +2345,12 @@
 ;;;
 ;;; public void convert(ReferenceMark mark, String fieldType, int noteType)
 ;;;
-;;; I think this is for OpenOffice to convert a document from using ReferenceMark fields to Bookmark ones.
-;;; Maybe we could repurpose this for TeXmacs?  Better to make a new flag; and just ignore this one.
+;;; I think this is for OpenOffice to convert a document from using
+;;; ReferenceMark fields to Bookmark ones.  Maybe we could repurpose this for
+;;; TeXmacs?  Better to make a new flag; and just ignore this one?
 ;;;
-(tm-define (zotero-Document_convert tid . args)
-  (zt-format-debug "zotero-Document_convert called.\n")
+(define (tm-zotero-Document_convert tid . args)
+  (zt-format-debug "tm-zotero-Document_convert called.\n")
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 
@@ -2629,25 +2706,26 @@
 ;;; 12 bp    == 240 twip
 ;;; 720 twip == 2 tab
 
-(define (zt-zotero-lineSpacing->tmlen meas)
+(define (tm-zotero-lineSpacing->tmlen meas)
   (let ((sep-mult (/ (if (= meas 0) 240 meas)
                      240)))
     (format #f "~,4f" (exact->inexact sep-mult)))) ;; times par-sep
 
-(define (zt-zotero-entrySpacing->tmlen meas)
+(define (tm-zotero-entrySpacing->tmlen meas)
   (let ((sep-mult (/ (if (= meas 0) 240 meas)
                      240)))
     (format #f "~,4f" (exact->inexact sep-mult)))) ;; times item-vsep
 
-(define (zt-zotero-firstLineIndent->tmlen meas)
+(define (tm-zotero-firstLineIndent->tmlen meas)
   (let ((indent-tabs (/ meas 360))) ; can be zero
     (format #f "~,4ftab" (exact->inexact indent-tabs))))
 
-(define (zt-zotero-bodyIndent->tmlen meas)
+(define (tm-zotero-bodyIndent->tmlen meas)
   (let ((indent-tabs (/ meas 360))) ; can be zero
     (format #f "~,4ftab" (exact->inexact indent-tabs))))
 
-(define (zt-zotero-tabstop-arrayList->tmlen-ls tab-ls)
+
+(define (tm-zotero-tabstop-arrayList->tmlen-ls tab-ls)
   (let loop ((tab-ls tab-ls)
              (ret '()))
     (cond
@@ -2659,31 +2737,31 @@
                                (/ (car tab-ls) 360)))
                       ret))))))
 
-(define (zt-read-zotero-tabstop-arrayList)
+(define (tm-zotero-read-tabstop-arrayList)
   (with-input-from-string
       (get-env "zotero-BibliographyStyle_arrayList")
     (lambda () (read (current-input-port)))))
 
-(define (zt-read-zotero-tabStopCount)
+(define (tm-zotero-get-tabStopCount)
   (string->number
    (get-env "ztbibItemIndentTabN")))
 
 
-(tm-define (zotero-Document_setBibliographyStyle tid documentID
-            firstLineIndent bodyIndent
-            lineSpacing entrySpacing
-            arrayList tabStopCount)
-  (zt-format-debug "zotero-Document_setBibliographyStyle called.\n")
+(define (tm-zotero-Document_setBibliographyStyle
+         tid documentID
+         firstLineIndent bodyIndent lineSpacing entrySpacing
+         arrayList tabStopCount)
+  (zt-format-debug "tm-zotero-Document_setBibliographyStyle called.\n")
   (set-init-env "zotero-BibliographyStyle_firstLineIndent"
-                (zt-zotero-firstLineIndent->tmlen firstLineIndent))
+                (tm-zotero-firstLineIndent->tmlen firstLineIndent))
   (set-init-env "zotero-BibliographyStyle_bodyIndent"
-                (zt-zotero-bodyIndent->tmlen bodyIndent))
+                (tm-zotero-bodyIndent->tmlen bodyIndent))
   (set-init-env "zotero-BibliographyStyle_lineSpacing"
-                (zt-zotero-lineSpacing->tmlen lineSpacing))
+                (tm-zotero-lineSpacing->tmlen lineSpacing))
   (set-init-env "zotero-BibliographyStyle_entrySpacing"
-                (zt-zotero-entrySpacing->tmlen entrySpacing))
+                (tm-zotero-entrySpacing->tmlen entrySpacing))
   (set-init-env "zotero-BibliographyStyle_arrayList"
-                (zt-zotero-tabstop-arrayList->tmlen-ls arrayList))
+                (tm-zotero-tabstop-arrayList->tmlen-ls arrayList))
   (set-init-env "zotero-BibliographyStyle_tabStopCount"
                 (format #f "~s" tabStopCount))
   ;;
@@ -2694,8 +2772,8 @@
 ;;; Not documented, but exists in CommMessage.java in LibreOffice side of the
 ;;; connector. It appears to do nothing there either.
 ;;;
-(tm-define (zotero-Document_cleanup tid documentID)
-  (zt-format-debug "STUB:zotero-Document_cleanup: ~s\n" documentID)
+(define (tm-zotero-Document_cleanup tid documentID)
+  (zt-format-debug "STUB:tm-zotero-Document_cleanup: ~s\n" documentID)
   (tm-zotero-write tid (safe-scm->json-string '())))
   
 
@@ -2708,7 +2786,7 @@
 ;;; See: tm-zotero-listen, where this is checked for inline... but also enable it here since I might need to use it during
 ;;; development, at least. It's never called at all by tm-zotero-listen, so can just be commented off here.
 ;;;
-;;; (tm-define (zotero-Document_complete tid documentID)
+;;; (tm-define (tm-zotero-Document_complete tid documentID)
 ;;;   (tm-zotero-write tid (safe-scm->json-string '()) )
 ;;;   (set! tm-zotero-active? #f)
 ;;;   ;; (close-tm-zotero-socket-port!)
@@ -2721,16 +2799,16 @@
 ;;; When I choose addCitation and then cancel without selecting one, it returns
 ;;; and immediately calls this function.
 ;;;
-;;; fieldID as originally returned by Document_cursorInField,
+;;; zfieldID as originally returned by Document_cursorInField,
 ;;; Document_insertField, or Document_getFields.
 ;;;
 ;;; ["Field_delete", [documentID, fieldID]] -> null
 ;;;
-(tm-define (zotero-Field_delete tid documentID fieldID)
-  (zt-format-debug "zotero-Field_delete called.\n")
-  (let* ((field (zt-find-zfield fieldID))
+(define (tm-zotero-Field_delete tid documentID zfieldID)
+  (zt-format-debug "tm-zotero-Field_delete called.\n")
+  (let* ((field (zt-find-zfield zfieldID))
          (code (and field (zt-zfield-Code field)))
-         (text (and field (zt-zfield-Text field))))
+         (text (and field (get-zfield-Text field))))
     (when field
       ;; clear from zt-zfield-Code-cache via the function in case it needs to
       ;; anything special later on.
@@ -2748,9 +2826,9 @@
 ;;; by the drd-props macro. I think that I want the cursor to be inside of it's
 ;;; light blue box, after it.... (writing this comment prior to testing. FLW.)
 ;;;
-(tm-define (zotero-Field_select tid documentID fieldID)
-  (zt-format-debug "zotero-Field_select called.\n")
-  (zt-go-to-zfield documentID fieldID)
+(define (tm-zotero-Field_select tid documentID zfieldID)
+  (zt-format-debug "tm-zotero-Field_select called.\n")
+  (document-go-to-zfield-by-zfieldID documentID zfieldID)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 
@@ -2758,9 +2836,9 @@
 ;;;
 ;;; ["Field_removeCode", [documentID, fieldID]] -> null
 ;;;
-(tm-define (zotero-Field_removeCode tid documentID fieldID)
-  (zt-format-debug "zotero-Field_removeCode called.\n")
-  (let* ((field (zt-find-zfield fieldID))
+(define (tm-zotero-Field_removeCode tid documentID zfieldID)
+  (zt-format-debug "tm-zotero-Field_removeCode called.\n")
+  (let* ((field (zt-find-zfield zfieldID))
          (code (and field (zt-zfield-Code field))))
     (when code
       (tree-set! code "")))
@@ -2903,12 +2981,12 @@
 ;;;;;;;;
 
 
-(tm-define (zt-move-link-to-own-line lnk)
-  (:synopsis "Move links to their own line, in smaller text, so that long links
+(define (move-link-to-own-line lnk)
+  "Move links to their own line, in smaller text, so that long links
 will not overflow into the page margins. Keep punctuation before and after,
 including parentheses and <less> <gtr> around the link put there by some
-styles.")
-  (zt-format-debug "zt-move-link-to-own-line called.\n")
+styles."
+  (zt-format-debug "move-link-to-own-line called.\n")
   (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
          (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt)))
          (post-lnk-txt (tree-ref (tree-up lnk) (+ (tree-index lnk) 1)))
@@ -3009,22 +3087,22 @@ styles.")
   lnk)
 
 
-(tm-define (zt-delete-one-space-to-left-of lnk)
-  (zt-format-debug "zt-delete-one-space-to-left-of called.\n")
-  (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
-         (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt))))
-    (when (or (string-suffix? " " pre-lnk-str)
-              (string-suffix? " " pre-lnk-str))
-      (set! pre-lnk-str (substring pre-lnk-str
-                                   0
-                                   (- (string-length pre-lnk-str)
-                                      1)))
-      (tree-set! pre-lnk-txt (stree->tree pre-lnk-str)))))
+;; (define (delete-one-space-to-left-of lnk)
+;;   (zt-format-debug "delete-one-space-to-left-of called.\n")
+;;   (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
+;;          (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt))))
+;;     (when (or (string-suffix? " " pre-lnk-str)
+;;               (string-suffix? " " pre-lnk-str))
+;;       (set! pre-lnk-str (substring pre-lnk-str
+;;                                    0
+;;                                    (- (string-length pre-lnk-str)
+;;                                       1)))
+;;       (tree-set! pre-lnk-txt (stree->tree pre-lnk-str)))))
 
 
 
-(tm-define (zt-fixup-embedded-slink-as-url lnk)
-  (zt-format-debug "zt-fixup-embedded-slink-as-url called.\n")
+(define (fixup-embedded-slink-as-url lnk)
+  (zt-format-debug "fixup-embedded-slink-as-url called.\n")
   (cond
     ((and (tree-in? lnk '(ztHrefFromBibToURL ztHrefFromCiteToBib))
           (tree-in? (tree-ref lnk 1) '(slink verbatim)))
@@ -3038,12 +3116,12 @@ styles.")
 ;;;  ("Field_setText" (10 "10724-(1)" "+3LuhRbmY22me9N" "\\textit{Statutes in derogation of common law not strictly construed
 ;;; --- Rules of equity prevail.}, Title 68, Chapter 3 § 2 (2014)." #f))
 ;;;
-;;; zt-zotero-str_text->texmacs:t before: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
+;;; tm-zotero-UTF-8-str_text->texmacs:t before: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
 ;;; construed \V Rules of equity prevail.>, Title 68, Chapter 3 � 2 (2014).>
 ;;;
-;;; zt-zotero-str_text->texmacs:select lt: ()
+;;; tm-zotero-UTF-8-str_text->texmacs:select lt: ()
 ;;;
-;;; zt-zotero-str_text->texmacs:t after: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
+;;; tm-zotero-UTF-8-str_text->texmacs:t after: <tree <with|font-shape|italic|Statutes in derogation of common law not strictly
 ;;; construed \V Rules of equity prevail.>, Title 68, Chapter 3 � 2 (2014).>
 ;;;
 ;;;  tm-zotero-write: 10 "null"
@@ -3074,7 +3152,7 @@ styles.")
 ;;; Todo: Perhaps this ought to be configurable, by making it possible for the
 ;;; user to put their own ones into a separate configuration file?
 ;;;
-(define zt-zotero-regex-replace-clauses
+(define tm-zotero-regex-replace-clauses
   (map (lambda (elt)
          (cons (apply make-regexp `,(car elt))
                (cdr elt)))
@@ -3186,42 +3264,26 @@ styles.")
           pre "\\abbr{" 1 "}" 2 post)
          )))
 
-         ;; ("<abbr>([^<]+)</abbr>"
-         ;;  pre "\\abbr{" 1 "}" post)
+;;; ("<abbr>([^<]+)</abbr>"
+;;;  pre "\\abbr{" 1 "}" post)
 
 ;;; What this suggests the need for is a way to add new ones to it on-the-fly,
 ;;; with no need to reload the editor extension. It might also be useful to
 ;;; have something like the regexp-opt that there is in GNU Emacs.
 
-;;; This is the one that takes so long to run, I think.
 
-(define (zt-zotero-regex-transform str_text)
+(define (tm-zotero-regex-transform str_text)
   (set-message "Zotero: regex transform..." "Zotero integration")
-  (zt-format-debug "zt-zotero-regex-transform:before...\n")
-  (let loop ((text str_text)
-             (rc zt-zotero-regex-replace-clauses))
-    ;; each is applied in turn, so later ones can modify results of earlier
-    ;; ones if you like.
-    (cond
-      ((null? rc)
-       (recall-message)
-       (zt-format-debug "zt-zotero-regex-transform:after.\n")
-       text)
-      (else
-        ;;(zt-format-debug "zt-zotero-regex-transform:during:text: ~S\n" text)
-        (loop (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))
-              (cdr rc))))))
+  (zt-format-debug "tm-zotero-regex-transform:before...\n")
+  (let ((text str_text))
+    (do ((rc tm-zotero-regex-replace-clauses (cdr rc)))
+        ((null? rc)
+         text)
+      ;; each is applied in turn, so later ones can modify results of earlier
+      ;; ones if you like.
+      ;;(zt-format-debug "tm-zotero-regex-transform:during:text: ~S\n" text)
+      (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc))))))
 
-
-;;; This did not work right!!!  xIxnx xoxrxdxexrx... to tell parse-latex that our string is UTF-8 encoded, we must prepend
-;;; \usepackage[UTF8]{inputenc}.
-  ;; (let* ((str_text (string-concatenate
-  ;;                   (list
-  ;;                    "\\usepackage[utf8]{inputenc}%\n"
-  ;;                    (zt-zotero-regex-transform
-  ;;                     (if (string-prefix? "{\\rtf " str_text)
-  ;;                         (substring str_text 6 (1- (string-length str_text)))
-  ;;                         str_text)))))
 
 (cond-expand
   (guile-2
@@ -3235,32 +3297,36 @@ styles.")
 ;;;
 ;;; Todo: It spends a looonnnngggg time in here when typesetting a large zbibliography.
 ;;;
-(tm-define (zt-zotero-str_text->texmacs str_text is-note? is-bib?)
-  (zt-format-debug "zt-zotero-str_text->texmacs called... !!!\n")
+(define (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)
+  (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs called... !!!\n")
   ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
   ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
   ;; strings in {\rtf ,Body}. This removes it when it has done that.
+  ;;
   ;; Conveniently, it also pastes together the bibliography with \r\n. Some
   ;; regex run on very large strings can take a very long time to finish
-  ;; running. The same regex run on a much shorter string will finish very
-  ;; quickly. So, when the str_text is very long, it will have \r\n in it, and
-  ;; we can split it into multiple strings at those points, then paste them
-  ;; back together again after, with \n. There was already a regex for
-  ;; s,\r\n,\n, and this replaces it.
+  ;; running. The same regex run on a much shorter string will finish
+  ;; relatively quickly. So, when the str_text is very long, it will have \r\n
+  ;; in it, and we can split it into multiple strings at those points, then
+  ;; paste them back together again after, with \n. There was already a regex
+  ;; for s,\r\n,\n, and this replaces it.
   ;;
   (let* ((str_text (if (string-prefix? "{\\rtf " str_text)
                        (substring str_text 6 (1- (string-length str_text)))
                        str_text))
-         (strls (string-split str_text creturn))
-         (strls (map (cut string-trim <> cnewline) strls))
-         (strls (map zt-zotero-regex-transform strls))
+         ;; (strls (string-split str_text creturn))
+         ;; (strls (map (cut string-trim <> cnewline) strls))
+         (strls (string-decompose str_text "\r\n"))
+         (strls (map tm-zotero-regex-transform strls))
+         ;; Q: What advantage would there be to have parse-latex accept a
+         ;; UTF-8, rather than Cork encoded, string?
          (str_text (string-convert
                     (string-join strls "\n")
                     "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
     (set-message "Zotero: str_text->texmacs..." "Zotero integration")
-    (zt-format-debug "zt-zotero-str_text->texmacs after let*. !!!\n")
+    (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs after let*. !!!\n")
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
@@ -3270,14 +3336,14 @@ styles.")
     (let ((lt (select t '(:* (:or ztHref hlink href)))))
       ;; It turns out that tm-select will return these not in tree or document 
       ;; order.  For this function, that's alright.
-      ;; (zt-format-debug "zt-zotero-str_text->texmacs:t ztHref hlink href before: ~s\n" t)
-      ;; (zt-format-debug "zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
+      ;; (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs:t ztHref hlink href before: ~s\n" t)
+      ;; (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs:select lt: ~s\n" lt)
       (let loop ((lt2 lt))
         (let ((lnk (and (pair? lt2) (car lt2)))) ; lnk will be bool or tree
           (cond
             ((null? lt2) #t)
             ((or is-note? is-bib?)
-             (zt-move-link-to-own-line lnk)
+             (move-link-to-own-line lnk)
              (loop (cdr lt2)))
             (else
               (loop (cdr lt2)))))))
@@ -3285,8 +3351,8 @@ styles.")
     ;; from propachi-texmacs/bootstrap.js monkeypatch VariableWrapper
     ;;
     (let ((lt (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib)))))
-      ;; (zt-format-debug "zt-zotero-str_text->texmacs:t ztHrefFromBibToURL ztHrefFromCiteToBib before: ~s\n" t)
-      ;; (zt-format-debug "zt-zotero-str_text->texmacs:select lt: ~s\n" lt)
+      ;; (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs:t ztHrefFromBibToURL ztHrefFromCiteToBib before: ~s\n" t)
+      ;; (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs:select lt: ~s\n" lt)
       (let loop ((lt2 lt))
         (let ((lnk (and (pair? lt2) (car lt2))))
           (cond
@@ -3300,13 +3366,13 @@ styles.")
               ;; that's unwrapped here to make the links function
               ;; correctly. They don't like having their URL be an slink.
               ;;
-              ;; (zt-format-debug "zt-zotero-str_text->texmacs:fixup-slink-as-url lnk:~s\n" lnk)
-              (zt-fixup-embedded-slink-as-url lnk))))))
+              ;; (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs:fixup-slink-as-url lnk:~s\n" lnk)
+              (fixup-embedded-slink-as-url lnk))))))
     ;;
-    ;; (zt-format-debug "zt-zotero-str_text->texmacs:before tree-simplify\n")
+    ;; (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs:before tree-simplify\n")
     (tree-simplify t)
-    ;; (zt-format-debug "zt-zotero-str_text->texmacs:after tree-simplify\n")
-    (zt-format-debug "zt-zotero-str_text->texmacs:after.\n")
+    ;; (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs:after tree-simplify\n")
+    (zt-format-debug "tm-zotero-UTF-8-str_text->texmacs:after.\n")
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
     (buffer-close b)
@@ -3344,8 +3410,8 @@ styles.")
 ;;;
 ;;; Input is a field tree, already found.
 ;;;
-(tm-define (zt-zfield-IsBib? zfield)
-  (zt-format-debug "zt-zfield-IsBib? called... zfield label:~s\n"
+(define (zfield-IsBib? zfield)
+  (zt-format-debug "zfield-IsBib? called... zfield label:~s\n"
                    (tree-label zfield))
   (tree-is? zfield 'zbibliography))
 
@@ -3353,20 +3419,20 @@ styles.")
 ;;;
 ;;; Input is a field tree, already found.
 ;;;
-(tm-define (zt-zfield-IsNote? field)
-  (zt-format-debug "zt-zfield-IsNote? called.\n")
+(define (zfield-IsNote? zfield)
+  (zt-format-debug "zfield-IsNote? called.\n")
   ;; Inside a "with" context that has zt-option-this-zcite-in-text true?
-  (let* ((with-t (with-like-search (tree-ref field :up)))
+  (let* ((with-t (with-like-search (tree-ref zfield :up)))
          (in-text-opt (and with-t                             
                            (with-ref with-t
                                      "zt-option-this-zcite-in-text")))
          (forced-in-text? (and in-text-opt
                                (== (tree->string in-text-opt) "true")))
-         (fn-t (tree-search-upwards (tree-ref field :up)
+         (fn-t (tree-search-upwards (tree-ref zfield :up)
                                     '(zt-footnote footnote)))
          (in-footnote? (not (not fn-t)))
          )
-    (and (not (zt-zfield-IsBib? field))
+    (and (not (zfield-IsBib? zfield))
          (or
           (and (not forced-in-text?)
                ;; Global pref is set due to a CSL "note" style: (default)
@@ -3384,17 +3450,17 @@ styles.")
 ;;;
 ;;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;;
-(tm-define (zotero-Field_setText tid documentID fieldID str_text isRich)
-  (zt-format-debug "zotero-Field_setText called.\n")
-  (let* ((field   (zt-find-zfield fieldID)) ;; zcite tree
-         (text    (and field (zt-zfield-Text field))) ;; string
-         (is-note? (and field (zt-zfield-IsNote? field)))
-         (is-bib? (and field (zt-zfield-IsBib? field)))
+(define (tm-zotero-Field_setText tid documentID zfieldID str_text isRich)
+  (zt-format-debug "tm-zotero-Field_setText called.\n")
+  (let* ((zfield   (zt-find-zfield zfieldID)) ;; zcite tree
+         (text-t   (and zfield (get-zfield-Text zfield))) ;; string
+         (is-note? (and zfield (zfield-IsNote? zfield)))
+         (is-bib?  (and zfield (zfield-IsBib? zfield)))
          (tmtext
-          (zt-zotero-str_text->texmacs str_text is-note? is-bib?)))
+          (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)))
     (when text
-      (hash-remove! zt-zfield-modified?-cache fieldID)
-      (tree-set! text tmtext)))
+      (hash-remove! zt-zfield-modified?-cache zfieldID)
+      (tree-set! text-t tmtext)))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 
@@ -3403,12 +3469,12 @@ styles.")
 ;;;
 ;;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;;
-(tm-define (zotero-Field_getText tid documentID fieldID)
-  (zt-format-debug "zotero-Field_getText called.\n")
-  (let* ((field (zt-find-zfield fieldID))
-         (str_text (or (and field
+(define (tm-zotero-Field_getText tid documentID zfieldID)
+  (zt-format-debug "tm-zotero-Field_getText called.\n")
+  (let* ((zfield (zt-find-zfield zfieldID))
+         (str_text (or (and zfield
                             (format #f "~s" (tree->stree
-                                             (zt-zfield-Text field))))
+                                             (get-zfield-Text zfield))))
                        ""))
          (str_utf8 (string-convert str_text "Cork" "UTF-8"))
          ;;(str_md5 (md5-string str_utf8))
@@ -3422,11 +3488,11 @@ styles.")
 ;;;
 ;;; ["Field_setCode", [documentID, fieldID, str_code]] -> null
 ;;;
-(tm-define (zotero-Field_setCode tid documentID fieldID str_code)
-  (zt-format-debug "zotero-Field_setCode called.\n")
-  (let* ((field (zt-find-zfield fieldID)))
-    (when field
-      (zt-set-zfield-Code-from-string field str_code)))
+(define (tm-zotero-Field_setCode tid documentID zfieldID str_code)
+  (zt-format-debug "tm-zotero-Field_setCode called.\n")
+  (let* ((zfield (zt-find-zfield zfieldID)))
+    (when zfield
+      (zt-set-zfield-Code-from-string zfield str_code)))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 
@@ -3435,10 +3501,10 @@ styles.")
 ;;;
 ;;; ["Field_getCode", [documentID, fieldID]] -> str_code
 ;;;
-(tm-define (zotero-Field_getCode tid documentID fieldID)
-  (zt-format-debug "zotero-Field_getCode called.\n")
-  (let* ((field (zt-find-zfield fieldID))
-         (code_str (or (and field (zt-get-zfield-Code-string field))
+(define (tm-zotero-Field_getCode tid documentID zfieldID)
+  (zt-format-debug "tm-zotero-Field_getCode called.\n")
+  (let* ((zfield (zt-find-zfield zfieldID))
+         (code_str (or (and field (zt-get-zfield-Code-string zfield))
                        "")))
     (tm-zotero-write tid code_str)))
 
@@ -3449,10 +3515,10 @@ styles.")
 ;;; ["Field_convert", [documentID, fieldID, str_fieldType, int_noteType]] ->
 ;;; null
 ;;;
-(tm-define (zotero-Field_convert tid documentID
-                                 fieldID str_fieldType int_noteType)
+(define (tm-zotero-Field_convert tid documentID
+                                 zfieldID str_fieldType int_noteType)
   (zt-format-debug "STUB:zotero-Field_convert: ~s ~s ~s ~s\n"
-                   documentID fieldID
+                   documentID zfieldID
                    str_fieldType int_noteType)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
