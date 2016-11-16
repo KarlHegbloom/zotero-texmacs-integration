@@ -224,16 +224,16 @@
     </src-comment>
   </active*>
 
-  <assign|zt-flag-modified|<macro|fieldID|<extern|(lambda (id)
+  <assign|XXXzt-flag-modified|<macro|fieldID|<extern|(lambda (id)
   (zt-ext-flag-if-modified id))|<arg|fieldID>>>>
 
   <assign|zt-zciteID|0>
 
-  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>
 
-  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
+  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
 
-  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
+  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
 
   \;
 
@@ -383,7 +383,10 @@
     </src-comment>
   </active*>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>
+  <assign|zcite-flag-if-modified|<macro|fieldCode|<case|<look-up|<arg|fieldCode>|2>|<flag|Modified|red>|<flag|Not
+  Modified|green>>>>
+
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>><zcite-flag-if-modified|<arg|fieldCode>>>>>
 
   <drd-props|render-zcite|accessible|1>
 

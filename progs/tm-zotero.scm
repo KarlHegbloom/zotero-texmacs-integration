@@ -5,11 +5,17 @@
 ;;; DESCRIPTION : Zotero Connector Plugin
 ;;; COPYRIGHT   : (C) 2016  Karl M. Hegbloom <karl.hegbloom@gmail.com>
 ;;;
-;;; This software falls under the GNU general public license version 3 or
+;;{{{ This software falls under the GNU general public license version 3 or
+
 ;;; later. It comes WITHOUT ANY WARRANTY WHATSOEVER. For details, see the file
 ;;; LICENSE in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>
-;;;
+
+;;}}}
 ;;;;
+
+;;{{{ Top-matter
+
+;;{{{ Module definition and uses
 
 (texmacs-module (tm-zotero)
   (:use (kernel texmacs tm-modes)
@@ -26,7 +32,6 @@
         (generic generic-edit)
         (generic format-edit)
         (convert tools sxml)))
-
 
 
 ;;; This copy of json was ported from Guile 2.0 to Guile 1.8
@@ -65,6 +70,9 @@
 (use-modules (compat guile-2))
 
 (use-modules (term ansi-color))
+
+;;}}}
+;;{{{ Access and define not-yet-exported functions from other parts of TeXmacs
 
 ;;; From (generic document-part):
 ;;;
@@ -112,8 +120,9 @@
     (if (buffer-test-part-mode? :all)
         l
         (list-filter l (cut tree-is? <> 'show-part)))))
-    
 
+;;}}}
+;;{{{ Misc. global setting overrides for Guile
 
 ;;; With a very large bibliography, I had it stop with a Guile stack
 ;;; overflow. The manual for Guile-2.2 says that they've fixed the problem by
@@ -165,6 +174,8 @@
 ;;                                                                  (string->char-set ".")))
 ;;                                         ".UTF-8")))))
 
+;;}}}
+;;{{{ Error and debugging printouts to console with time differences for benchmarking
 
 (define timestamp-format-string-colored
   (string-concatenate
@@ -226,7 +237,198 @@
                             (car args)))
                           (cdr args)))))))
 
+;;}}}
 
+;;}}}
+
+
+;;{{{ zfield tag definitions, insert-new-zfield
+
+;;; Todo: Organize the code better
+
+(define zfield-tags '(zcite zbibliography))
+
+(tm-define (is-zcite? t)
+  (tm-is? t 'zcite))
+
+(tm-define (is-zbibliography? t)
+  (tm-is? t 'zbibliography))
+
+(tm-define (is-zfield? t)
+  (tm-in? t zfield-tags))
+
+
+(define (insert-new-zfield tag placeholder)
+  "Top-half of new zfield insertion."
+  (if (not (focus-is-zfield?))
+      (let ((documentID (get-documentID))
+            (newfieldID (get-new-fieldID)))
+        (set-document-new-fieldID! documentID newfieldID)
+        ;; This must generate an event that buffer-notify observes...
+        
+        (insert `(,tag ,newfieldID (raw-data "") ,placeholder))
+        )
+      (begin ;; focus-is-zfield? => #t
+        ;; Todo: This ought to be a dialog if it actually happens much...
+        ;; Alternatively, perhaps it could move the cursor out of the zfield,
+        ;; arbitrarily to the right or left of it, then proceed with inserting
+        ;; the new zfield... Or perhaps it ought to convert it into an
+        ;; editCitation rather than an insertCitation?
+        (zt-format-error "ERR: insert-new-zfield ~s : focus-tree is a ~s\n"
+                         tag (tree-label (focus-tree)))
+        #f)))
+
+;;; When the buffer has just opened, the list of zfields is not populated yet. XXXX
+;;;
+;;; tm-find returns an incorrect result! Use tm-search.
+;;;
+;; (define (zt-find-zfield zfieldID)
+;;   (let ((ls (tm-search
+;;             (buffer-tree)
+;;             (lambda (t)
+;;               (and (tree-in? t zfield-tags)
+;;                    (string=? zfieldID
+;;                              (object->string (zfield-ID t))))))))
+;;     (if (pair? ls)
+;;         (car ls)
+;;         #f)))
+
+;;}}}
+
+;;{{{ zfield trees and tree-ref based accessors for them
+
+;;; A zfield is a tree. Each part of it is a tree also.
+;;;
+;;; These must match the definitions in tm-zotero.ts;
+;;;
+;;;  L     0         1           2
+;;; (zcite "fieldID" "fieldCode" "fieldText")
+;;;
+;;;   A zbibliography has the same arity and semantics for it's elements as the
+;;;   zcite has.
+;;;
+;;; fieldID is a string
+;;;
+;;; fieldCode has undergone some revisions.
+;;;
+;;;   v.1 The raw UTF-8 string given to us by zotero was stored here.
+;;;
+;;;       There was problems with it due to the transcoding of UTF-8 into
+;;;       TeXmacs internal representation and back.
+;;;
+;;;   v.2 That UTF-8 string is now wrapped with a raw-data, to avoid the
+;;;       transcoding problem. That's fine since it's now hidden from view when
+;;;       the tag is disactivated.
+;;;
+;;;   v.3 There's a need for more tag "attribute" or "property" information
+;;;       stored in the tag itself, since that enables it to be saved and
+;;;       loaded with the document, and makes it faster to access. So, in v.3,
+;;;       the fieldData contains a tuple.
+;;;
+;;;       That tuple's first child (tree-ref fieldCode 0) is the fieldCode
+;;;       layout version number, 3.
+;;;
+;;;       The second child (tree-ref fieldCode 1) is a raw-data containing the
+;;;       UTF-8 fieldCode string sent by Juris-M / Zotero.
+;;;
+;;;       The third child (tree-ref fieldCode 2) is a boolean flag for whether
+;;;       or not the fieldText has been modified. That can only happen if the
+;;;       zcite is disactivated, the text editted, and then the zcite activated
+;;;       again, and so it's initial value is "false".
+;;;
+;;;       <tuple|3|<raw-data|fieldCode>|false>
+;;;
+;;; fieldText is a TeXmacs tree, the result of taking the LaTeX-syntax UTF-8
+;;;           string from Zotero, running the regexp transformer on it,
+;;;           converting that from UTF-8 to Cork encoding, parsing that string
+;;;           to obtain a LaTeX tree, and then converting that into a TeXmacs
+;;;           tree.
+;;;
+;;; fieldNoteIndex is gotten via a reference binding.
+;;;
+;;;
+(define (get-zfield-zfieldID-t zfield)
+  (tree-ref zfield 0))
+
+(define (get-zfield-zfieldID zfield)
+  (object->string (get-zfield-zfieldID-t zfield)))
+
+
+(define (get-zfield-Code-v zfield)
+  (let ((code (tree-ref zfield 1)))
+    (cond
+      ((tm-func? code 'tuple)           ; >= v.3
+       (string->integer (object->string (tree-ref code 0))))
+      ((tm-func? code 'raw-data)
+       2)
+      (else
+        1))))
+
+
+(define (get-zfield-Code-t zfield)
+  ;; Upgrade old tags.
+  (let ((code (tree-ref zfield 1)))
+    (cond
+      ((tm-func? code 'tuple)           ; >= v.3
+       (tree-ref code 1 0))             ; <tuple|3|<raw-data|THIS>|false>
+      ((tm-func? code 'raw-data)        ; v.2
+       (tree-set! code (stree->tree `(tuple "3" ,(tree->stree code) "false"))) ; update to v.3
+       (get-zfield-Code-t zfield)       ; tail-call
+       )
+      ((tm-atomic? code)                ; v.1
+       (tree-set! code (stree->tree `(tuple "3" (raw-data ,(tree->stree code)) "false"))) ; to v.3
+       (get-zfield-Code-t zfield)       ; tail-call
+       )
+      (else ; ? I don't think this can really happen.
+        (tree-set! code (stree->tree `(tuple "3" (raw-data "") "false"))) ; to v.3
+       (get-zfield-Code-t zfield)       ; tail-call
+      ))))
+
+(define (get-zfield-Code zfield)
+  (object->string (get-zfield-Code-t zfield)))
+
+
+(define (get-zfield-is-modified?-flag-t zfield) ; assume >= v.3
+  (tree-ref zfield 1 2))
+
+(define (get-zfield-is-modified?-flag zfield)
+  (object->string (get-zfield-is-modified?-flag-t zfield)))
+
+(define (set-zfield-is-modified?-flag zfield str-bool) ; "false" or "true"
+  (tree-set! (get-zfield-is-modified?-flag-t zfield)
+             (stree->tree `,str-bool)))
+
+
+;;; For "note" styles, this reference binding links a citation field with
+;;; the footnote number that it appears in.
+;;;
+(define (get-zfield-NoteIndex zfield)
+  (get-refbinding
+   (get-zfield-noteIndex-refbinding-key
+    (get-zfield-zfieldID zfield))))
+
+
+;;; This next field is set automatically, below, with the result of converting
+;;; the rich-text that Zotero sends back into a TeXmacs tree.
+;;; 
+;;;
+;;; Todo: But what if I use drd-props to make it accessible so I can edit it,
+;;;       and then do edit it? OpenOffice lets you edit them, but prompts you
+;;;       that it's been editted before replacing it.
+;;;
+;;; Idea: When it's editted, perhaps a diff could be kept? Or some kind of
+;;;       mechanism that finds out what is changed and sends it to Zotero?
+;;;
+;;;    A: I think that's not easy to do and more trouble than it's worth.
+;;;       It's easier to just curate your reference collection to make it
+;;;       produce what you want, right?
+;;;
+(define (get-zfield-Text-t t)
+  (tree-ref t 2))
+
+;;}}}
+
+;;{{{ State data for document and zfields
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -500,11 +702,8 @@
 (define (get-refbinding key)
   (texmacs-exec `(get-binding ,key)))
 
-
-
 (define (position-less? pos1 pos2)
   (path-less? (position-get pos1) (position-get pos2)))
-
 
 
 (define (document-<zfield-data>-insert! documentID zfield)
@@ -532,116 +731,11 @@
                  (list-filter zfl (lambda (elt)
                                     (not (eq? zfd elt)))))
       (hash-remove! zfht zfieldID))))
-                                     
+
+;;}}}
 
 
-(define zfield-tags '(zcite zbibliography))
-
-(tm-define (is-zcite? t)
-  (tm-is? t 'zcite))
-
-(tm-define (is-zbibliography? t)
-  (tm-is? t 'zbibliography))
-
-(tm-define (is-zfield? t)
-  (tm-in? t zfield-tags))
-
-
-(define (insert-new-zfield tag placeholder)
-  "Top-half of new zfield insertion."
-  (if (not (focus-is-zfield?))
-      (let ((documentID (get-documentID))
-            (newfieldID (get-new-fieldID)))
-        (set-document-new-fieldID! documentID newfieldID)
-        ;; This must generate an event that buffer-notify observes...
-        
-        (insert `(,tag ,newfieldID (raw-data "") ,placeholder))
-        )
-      (begin ;; focus-is-zfield? => #t
-        ;; Todo: This ought to be a dialog if it actually happens much...
-        ;; Alternatively, perhaps it could move the cursor out of the zfield,
-        ;; arbitrarily to the right or left of it, then proceed with inserting
-        ;; the new zfield... Or perhaps it ought to convert it into an
-        ;; editCitation rather than an insertCitation?
-        (zt-format-error "ERR: insert-new-zfield ~s : focus-tree is a ~s\n"
-                         tag (tree-label (focus-tree)))
-        #f)))
-
-;;; When the buffer has just opened, the list of zfields is not populated yet. XXXX
-;;;
-;;; tm-find returns an incorrect result! Use tm-search.
-;;;
-;; (define (zt-find-zfield zfieldID)
-;;   (let ((ls (tm-search
-;;             (buffer-tree)
-;;             (lambda (t)
-;;               (and (tree-in? t zfield-tags)
-;;                    (string=? zfieldID
-;;                              (object->string (zfield-ID t))))))))
-;;     (if (pair? ls)
-;;         (car ls)
-;;         #f)))
-
-
-;;; A zfield is a tree. Each part of it is a tree also.
-;;;
-;;; These must match the definitions in tm-zotero.ts;
-;;;
-;;;  L     0         1           2
-;;; (zcite "fieldID" "fieldCode" "fieldText")
-;;;
-;;; fieldNoteIndex is gotten via a reference binding.
-;;;
-(define (get-zfield-zfieldID-t zfield)
-  (tree-ref zfield 0))
-
-(define (get-zfield-zfieldID t)
-  (object->string (get-zfield-zfieldID-t t)))
-
-
-;;; the raw-data wrapper hopefully helps with the unicode conversion problems
-(define (get-zfield-Code-t t)
-  ;; upgrade old tags, also fixup hand-entered ones?
-  (let ((code (tree-ref t 1)))
-    (cond
-      ((tm-func? code 'raw-data)
-       (tree-ref code 0))
-      ((and (not (tm-func? code 'raw-data))
-            (tm-atomic? code))
-       (tree-set! code (stree->tree `(raw-data ,(tree->stree code))))
-       (tree-ref code 0))
-      ((not (tm-func? code 'raw-data))
-       (tree-set! code (stree->tree '(raw-data "")))
-       (tree-ref code 0)))))
-
-
-;;; For "note" styles, this reference binding links a citation field with
-;;; the footnote number that it appears in.
-;;;
-(define (get-zfield-NoteIndex zfield)
-  (get-refbinding
-   (get-zfield-noteIndex-refbinding-key
-    (get-zfield-zfieldID zfield))))
-
-
-;;; This next field is set automatically, below, with the result of converting
-;;; the rich-text that Zotero sends back into a TeXmacs tree.
-;;; 
-;;;
-;;; Todo: But what if I use drd-props to make it accessible so I can edit it,
-;;;       and then do edit it? OpenOffice lets you edit them, but prompts you
-;;;       that it's been editted before replacing it.
-;;;
-;;; Idea: When it's editted, perhaps a diff could be kept? Or some kind of
-;;;       mechanism that finds out what is changed and sends it to Zotero?
-;;;
-;;;    A: I think that's not easy to do and more trouble than it's worth.
-;;;       It's easier to just curate your reference collection to make it
-;;;       produce what you want, right?
-;;;
-(define (get-zfield-Text-t t)
-  (tree-ref t 2))
-
+;;{{{ Comment regarding tm-select vs tm-search
 
 ;;; I wanted to try and use the tm-select functionality to accomplish this, but
 ;;; found that it does not return the list in document-order!
@@ -673,8 +767,14 @@
 ;;; "+hoOIoDn3p6FB0H"))
 ;;;
 
-;;; This is still needed to initialize the <document-data> when the document is
-;;; first opened.
+;;}}}
+
+;;{{{ Is this code still needed for other than reference during transition?
+
+;;;
+;;; Is this still needed to initialize the <document-data> when the document is
+;;; first opened? I think this is what I was working to replace, so this will
+;;; probably go away soon.
 ;;; 
 (define (zt-zfield-search subtree)
   (let ((zt-new-fieldID (get-document-new-fieldID (get-documentID))))
@@ -686,10 +786,6 @@
              (and zt-new-fieldID
                   (string=? zt-new-fieldID
                             (get-zfield-zfieldID t)))))))))
-
-
-
-  
 
 ;;; Was: (tm-define (zt-get-zfields-list documentID fieldType)
 ;;;
@@ -740,9 +836,11 @@
                                 (zt-get-zfield-Code-string (car in));; caches zfield-Code
                                 (car in))
                               out))))))))
-            
+
+;;}}}
 
 
+;;{{{ Dealing with fieldCode (transition in process to new way from this way)
 
 ;;; The fieldCode is a JSON string. Among other things, it is how Zotero keeps
 ;;; track of whether or not the user has editted the automatically formatted
@@ -829,8 +927,9 @@
 
 ;;(tm-define (zt-get-zfield-Code-cache-
 
+;;}}}
 
-;;; Too much searching the document!
+;;{{{ ztbibItemRefs lists that follow bibliography items
 
 ;;;
 ;;; Returns list of trees that are like:
@@ -975,8 +1074,11 @@
       (zt-ztbibItemRefs-parse-all)
       (hash-ref zt-ztbibItemRefs-ht key-t (stree->tree '(concat "")))))))
 
+;;}}}
 
+;;{{{ :secure ext functions called from tm-zotero.ts style
 
+;;{{{ zt-ext-flag-if-modified (also being replaced)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -1009,39 +1111,40 @@
 ;;; user used M-w to copy the selected text containing a zfield, and then
 ;;; "yank" (paste) it in, potentially more than once.
 
-(define (zt-get-orig-zfield-Text zfieldID)
-  (let ((scm-code (hash-ref zt-zfield-Code-cache zfieldID #f)))
-    (let* ((zft (zt-find-zfield zfieldID))
-           (scm-code (or scm-code
-                         ;; trigger parsing and caching of zfield-Code data.
-                         (and zft
-                              (zt-get-zfield-Code-string zft)
-                              ;; access it.
-                              (hash-ref zt-zfield-Code-cache zfieldID #f))))
-           (props (and scm-code
-                       (hash-ref scm-code "properties" #f)))
-           (plainCitation (and props
-                               (hash-ref props "plainCitation" #f))))
-      ;; (zt-format-debug
-      ;;  "zt-get-orig-zfield-Text:fieldID-str:~s\n\nscm-code:~s\n\nprops:~s\n\nplainCitation:~s\n"
-      ;;  zfieldID scm-code props plainCitation)
-      plainCitation)))
+;; (define (zt-get-orig-zfield-Text zfieldID)
+;;   (let ((scm-code (hash-ref zt-zfield-Code-cache zfieldID #f)))
+;;     (let* ((zft (zt-find-zfield zfieldID))
+;;            (scm-code (or scm-code
+;;                          ;; trigger parsing and caching of zfield-Code data.
+;;                          (and zft
+;;                               (zt-get-zfield-Code-string zft)
+;;                               ;; access it.
+;;                               (hash-ref zt-zfield-Code-cache zfieldID #f))))
+;;            (props (and scm-code
+;;                        (hash-ref scm-code "properties" #f)))
+;;            (plainCitation (and props
+;;                                (hash-ref props "plainCitation" #f))))
+;;       ;; (zt-format-debug
+;;       ;;  "zt-get-orig-zfield-Text:fieldID-str:~s\n\nscm-code:~s\n\nprops:~s\n\nplainCitation:~s\n"
+;;       ;;  zfieldID scm-code props plainCitation)
+;;       plainCitation)))
 
-(define (zt-set-zfield-modified?! zfieldID)
-  (let* ((field (zt-find-zfield zfieldID))
-         (text (and field (format #f "~s" (tree->stree (get-zfield-Text field)))))
-         (orig-text (and text (zt-get-orig-zfield-Text zfieldID)))
-         (zfield-modified? (and text
-                                orig-text
-                                (not (string=? text orig-text)))))
-    ;; (zt-format-debug
-    ;;  "zt-set-zfield-modified?!:fieldID-str:~s\n\ntext:~s\n\norig-text:~s\n\nzfield-modified?:~s\n"
-    ;;  zfieldID text orig-text zfield-modified?)
-    (hash-set! zt-zfield-modified?-cache zfieldID zfield-modified?)
-    zfield-modified?))
 
-(define (zt-zfield-modified?-or-undef zfieldID)
-  (hash-ref zt-zfield-modified?-cache zfieldID 'undef))
+;; (define (zt-set-zfield-modified?! zfieldID)
+;;   (let* ((field (zt-find-zfield zfieldID))
+;;          (text (and field (format #f "~s" (tree->stree (get-zfield-Text field)))))
+;;          (orig-text (and text (zt-get-orig-zfield-Text zfieldID)))
+;;          (zfield-modified? (and text
+;;                                 orig-text
+;;                                 (not (string=? text orig-text)))))
+;;     ;; (zt-format-debug
+;;     ;;  "zt-set-zfield-modified?!:fieldID-str:~s\n\ntext:~s\n\norig-text:~s\n\nzfield-modified?:~s\n"
+;;     ;;  zfieldID text orig-text zfield-modified?)
+;;     (hash-set! zt-zfield-modified?-cache zfieldID zfield-modified?)
+;;     zfield-modified?))
+
+;; (define (zt-zfield-modified?-or-undef zfieldID)
+;;   (hash-ref zt-zfield-modified?-cache zfieldID 'undef))
 
 ;;; When the debug print statements are enabled and debugging is on, whenever I
 ;;; type anything in the same paragraph right after a citation, this function
@@ -1054,22 +1157,23 @@
 ;;; zfieldID is handed in from the tm-zotero.ts and will be a tree. Also accept
 ;;; a string.
 ;;;
-(tm-define (zt-ext-flag-if-modified zfieldID)
-  (:secure)
-  (let ((fieldID-str (object->string zfieldID)))
-    (when (not (hash-ref zt-zfield-disactivated? zfieldID #f))
-      (case (zt-zfield-modified?-or-undef zfieldID)
-        ((undef)
-         ;; (zt-format-debug "zt-ext-flag-if-modified:undef:~s\n" zfieldID)
-         (zt-set-zfield-modified?! zfieldID)
-         (zt-ext-flag-if-modified zfieldID)) ;; tail-call
-        ((#t)
-         ;; (zt-format-debug " zt-ext-flag-if-modified: Field is modified: ~s\n" zfieldID)
-         '(concat (flag "Modified!" "red")))
-        ((#f)
-         ;; (zt-format-debug " zt-ext-flag-if-modified: Field is NOT modified: ~s\n" zfieldID)
-         '(concat (flag "Not Modified." "green")))))))
+;; (tm-define (zt-ext-flag-if-modified zfieldID)
+;;   (:secure)
+;;   (let ((fieldID-str (object->string zfieldID)))
+;;     (when (not (hash-ref zt-zfield-disactivated? zfieldID #f))
+;;       (case (zt-zfield-modified?-or-undef zfieldID)
+;;         ((undef)
+;;          ;; (zt-format-debug "zt-ext-flag-if-modified:undef:~s\n" zfieldID)
+;;          (zt-set-zfield-modified?! zfieldID)
+;;          (zt-ext-flag-if-modified zfieldID)) ;; tail-call
+;;         ((#t)
+;;          ;; (zt-format-debug " zt-ext-flag-if-modified: Field is modified: ~s\n" zfieldID)
+;;          '(concat (flag "Modified!" "red")))
+;;         ((#f)
+;;          ;; (zt-format-debug " zt-ext-flag-if-modified: Field is NOT modified: ~s\n" zfieldID)
+;;          '(concat (flag "Not Modified." "green")))))))
 
+;;}}}
 
 
 (tm-define (zt-ext-document-has-zbibliography?)
@@ -1133,9 +1237,10 @@
   (zt-format-debug "STUB:zt-ext-bibitem: ~s\n" key)
   '(concat ""))
 
+;;}}}
 
 
-;;; DocumentData
+;;{{{ DocumentData (from Zotero, saved, parsed -> document initial environment
 ;;;
 ;;; AFAIK the only pref that this program needs access to is noteType, and that
 ;;; access is read-only. The noteType is a document-wide setting, since it goes
@@ -1262,7 +1367,9 @@
            (set-init-env (string-append "zotero-pref-noteType"
                                         (sxml-attr (car sxml) 'value)) "true"))
          (loop (cdr sxml)))))))
+;;}}}
 
+;;{{{ Wire protocol between TeXmacs and Zotero
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -1614,9 +1721,11 @@
                     (set! wait 0) 
                     (set-document-tm-zotero-active?! documentID #f))))))))))
 
+;;}}}
 
-;;; Integration commands: TeXmacs -> Zotero, no reply, Zotero connects back with
-;;; Editor commands.
+;;{{{ Integration commands: TeXmacs -> Zotero
+;;;
+;;; These expect no reply. Zotero connects back with Editor commands.
 ;;;
 ;;; See: zotero-menu.scm
 ;;; See: zotero-kbd.scm
@@ -1692,8 +1801,28 @@
 
 (define (tm-zotero-setDocPrefs)
   (call-zotero-integration-command "setDocPrefs"))
+;;}}}
 
+;;{{{ General category overloaded (tm-define)
 
+;;; Todo: See  update-document  at generic/document-edit.scm:341
+;;;
+;;; Maybe this should only happen from the Zotero menu?
+;;;
+(tm-define (update-document what)
+  (:require (in-tm-zotero-style?))
+  (delayed
+    (:idle 1)
+    (cursor-after
+     (when (or (== what "all")
+               (== what "bibliography"))
+       (zotero-refresh)
+       (zt-ztbibItemRefs-parse-all))
+     (unless (== what "bibliography")
+       (former what)))))
+;;}}}
+
+;;{{{ Keyboard event handling (overloads to maintain <document-data>)
 
 ;;; The definition of "latex" style command shortcuts for "\zcite" (aliased
 ;;; also as "\zc") makes it easy to enter them with the keyboard only, not
@@ -2005,9 +2134,24 @@
     ;; todo: maintain the new data-structures here.
     ))
 
+;;}}}
 
-
-;;; Preferences and Settings
+;;{{{ Preferences and Settings (with-like, global, document-wide)
+;;;
+;;; Todo: Invent a good naming convention for the below preferences and
+;;; settings... There must be a differentiation between editor-wide
+;;; preferences, document-wide ones, and ones that have either an explicit or
+;;; implicit document-wide default that can be overrided locally by using a
+;;; with-wrapper. Further, there are some that are not to be exposed to the end
+;;; user, and others that are.
+;;;
+;;;  Idea: Make ones that are to be hidden have a special naming convention to
+;;;  make it easier to implement the below functions which are used to
+;;;  determine what to show in the toolbar menus.
+;;;
+;;; Todo: See (utils base environment), extend that logic-table with the ones
+;;; for this? Can those be contextually overloaded? I guess it doesn't
+;;; matter. It's just a variable identifier to description string mapping.
 ;;;
 ;;; Some CSL styles define in-text citations, and others define note style ones
 ;;; that create either a footnote or an endnote, depending on which of those
@@ -2155,33 +2299,16 @@
   ;; ("zt-pref-in-text-hrefs-as-footnotes"         "on"  ignore)
   ;; ("zt-pref-in-text-hlinks-have-href-footnotes" "on"  ignore))
 
+;;}}}
 
-
-;;; Todo: See  update-document  at generic/document-edit.scm:341
-;;;
-;;; Maybe this should only happen from the Zotero menu?
-;;;
-(tm-define (update-document what)
-  (:require (in-tm-zotero-style?))
-  (delayed
-    (:idle 1)
-    (cursor-after
-     (when (or (== what "all")
-               (== what "bibliography"))
-       (zotero-refresh)
-       (zt-ztbibItemRefs-parse-all))
-     (unless (== what "bibliography")
-       (former what)))))
-
-
-
-;;;
-;;; Word Processor commands: Zotero -> TeXmacs
+;;{{{ Word Processor commands: Zotero -> TeXmacs
 ;;;
 ;;; Each sends: [CommandName, [Parameters,...]].
 ;;;
 ;;; The response is expected to be a JSON encoded payload, or the unquoted and
 ;;; unescaped string: ERR: Error string goes here
+
+;;{{{ Application_getActiveDocument
 ;;;
 ;;; Gets information about the client and the currently active
 ;;; document. documentID can be an integer or a string.
@@ -2192,7 +2319,11 @@
   (zt-format-debug "zotero-Application_getActiveDocument called.\n")
   (tm-zotero-write tid (safe-scm->json-string (list pv (get-documentID)))))
 
+;;}}}
 
+;;{{{ Document_displayAlert
+
+;;{{{ Alert dialog widget
 
 (define DIALOG_ICON_STOP 0)
 (define DIALOG_ICON_NOTICE 1)
@@ -2239,6 +2370,7 @@
                          ("No"     (cmd DIALOG_BUTTONS_YES_NO_CANCEL_NO_PRESSED))
                          ("Cancel" (cmd DIALOG_BUTTONS_YES_NO_CANCEL_CANCEL_PRESSED))))))
 
+;;}}}
 
 ;;; Shows an alert.
 ;;;
@@ -2252,7 +2384,10 @@
                      (tm-zotero-write tid (safe-scm->json-string val)))
                    "Zotero Alert!"))
 
+;;}}}
+;;{{{ Document_activate
 
+;;;
 ;;; Brings the document to the foreground. (For OpenOffice, this is a no-op on non-Mac systems.)
 ;;;
 ;;; ["Document_activate", [documentID]] -> null
@@ -2260,7 +2395,10 @@
 (define (tm-zotero-Document_activate tid documentID)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
+;;}}}
+;;{{{ Document_canInsertField
 
+;;;
 ;;; Indicates whether a field can be inserted at the current cursor position.
 ;;;
 ;;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
@@ -2281,7 +2419,8 @@
                         #t))))))
     (tm-zotero-write tid (safe-scm->json-string ret))))
 
-
+;;}}}
+;;{{{ Document_getDocumentData
 
 ;;; Retrieves data string set by setDocumentData.
 ;;;
@@ -2291,8 +2430,10 @@
   (zt-format-debug "tm-zotero-Document_getDocumentData called.\n")
   (tm-zotero-write tid (safe-scm->json-string (get-zotero-DocumentData documentID))))
 
+;;}}}
+;;{{{ Document_setDocumentData
 
-
+;;;
 ;;; Stores a document-specific persistent data string. This data
 ;;; contains the style ID and other user preferences.
 ;;;
@@ -2303,8 +2444,9 @@
   (zt-set-DocumentData documentID str_dataString)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
-
-
+;;}}}
+;;{{{ Document_cursorInField
+;;;
 ;;; Indicates whether the cursor is in a given field. If it is, returns
 ;;; information about that field. Returns null, indicating that the cursor isn't
 ;;; in a field of this fieldType, or a 3 element array containing:
@@ -2339,7 +2481,8 @@
              '()))) ;; not tree-in? zfield-tags
     (tm-zotero-write tid (safe-scm->json-string ret))))
 
-
+;;}}}
+;;{{{ Document_insertField (bottom half or callback half)
 
 ;;; Inserts a new field at the current cursor position. Because there has to be
 ;;; time for the typesetting to run in order for it to create the footnote
@@ -2369,7 +2512,8 @@
                                                      field))))))
         (tm-zotero-write tid (safe-scm->json-string "ERR:no zt-new-fieldID in tm-zotero-Document_insertField")))))
 
-  
+;;}}}
+;;{{{ Document_getFields
 
 ;;; Get all fields present in the document, in document order.
 ;;;
@@ -2415,7 +2559,8 @@
                                                 field)) indx))))))))
     (tm-zotero-write tid (safe-scm->json-string ret))))
 
-
+;;}}}
+;;{{{ Document_convert
 
 ;;; ["Document_convert" ??? (TODO in documentation.)
 ;;;
@@ -2429,7 +2574,8 @@
   (zt-format-debug "tm-zotero-Document_convert called.\n")
   (tm-zotero-write tid (safe-scm->json-string '())))
 
-
+;;}}}
+;;{{{ Document_setBibliographyStyle
 
 ;;;
 ;;; ["Document_setBibliographyStyle", [documentID,
@@ -2449,6 +2595,8 @@
 ;;; The first argument is documentID. After that, they match up to the above
 ;;; Java method signature.
 ;;;
+
+;;{{{ Notes made during R&D
 ;;;
 ;;; From the Java program that extends LibreOffice for this integration:
 ;;;
@@ -2698,6 +2846,9 @@
 ;;; <associate|zotero-BibliographyStyle_lineSpacing|1.0000>
 ;;; <associate|zotero-BibliographyStyle_tabStopCount|0>
 ;;;
+;;}}}
+
+;;{{{ Length calculations
 
 (define tmpt-per-inch 153600); tmpt
 
@@ -2822,6 +2973,7 @@
   (string->number
    (get-env "ztbibItemIndentTabN")))
 
+;;}}}
 
 (define (tm-zotero-Document_setBibliographyStyle
          tid documentID
@@ -2843,7 +2995,8 @@
   ;;
   (tm-zotero-write tid (safe-scm->json-string '())))
 
-
+;;}}}
+;;{{{ Document_cleanup
 
 ;;; Not documented, but exists in CommMessage.java in LibreOffice side of the
 ;;; connector. It appears to do nothing there either.
@@ -2851,8 +3004,9 @@
 (define (tm-zotero-Document_cleanup tid documentID)
   (zt-format-debug "STUB:tm-zotero-Document_cleanup: ~s\n" documentID)
   (tm-zotero-write tid (safe-scm->json-string '())))
-  
 
+;;}}}
+;;{{{ Document_complete (see tm-zotero-listen)
 
 ;;; Indicates that the given documentID will no longer be used and
 ;;; associated resources may be freed.
@@ -2868,7 +3022,9 @@
 ;;;   ;; (close-tm-zotero-socket-port!)
 ;;;   )
 
+;;}}}
 
+;;{{{ Field_delete
 
 ;;; Deletes a field from the document (both its code and its contents).
 ;;;
@@ -2892,7 +3048,8 @@
       (tree-set! field "")))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
-
+;;}}}
+;;{{{ Field_select
 
 ;;; Moves the current cursor position to encompass a field.
 ;;;
@@ -2907,7 +3064,8 @@
   (go-to-document-zfield-by-zfieldID documentID zfieldID)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
-
+;;}}}
+;;{{{ Field_removeCode
 
 ;;;
 ;;; ["Field_removeCode", [documentID, fieldID]] -> null
@@ -2920,7 +3078,10 @@
       (tree-set! code "")))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
+;;}}}
+;;{{{ Field_setText XXXX TODO Move some things out of this 
 
+;;{{{ Notes made during R&D
 
 ;;;;;;;;;
 ;;;
@@ -3056,6 +3217,9 @@
 ;;; or href being operated on is located in.
 ;;;;;;;;
 
+;;}}}
+
+;;{{{ Special handling of hyperlinks in citations and bibliography
 
 (define (move-link-to-own-line lnk)
   "Move links to their own line, in smaller text, so that long links
@@ -3186,6 +3350,12 @@ styles."
        (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
   lnk)
 
+;;}}}
+
+;;{{{ Regexp transformations of UTF-8 string sent by Zotero
+
+;;{{{ Notes made during R&D
+
 ;;;  tid:10 len:190 cmdstr:"[\"Field_setText\",[\"10724-(1)\",\"+3LuhRbmY22me9N\",\"\\\\textit{Statutes in derogation of
 ;;; common law not strictly construed --- Rules of equity prevail.}, Title 68, Chapter 3 § 2 (2014).\",false]]"
 ;;;
@@ -3224,6 +3394,8 @@ styles."
 ;;; style. I don't know where the problem occurs. Guile-2 has the ability to set the encoding of specific ports, and perhaps that
 ;;; will fix it; but it might be another problem to do with how the text sent by Zotero is converted to TeXmacs and back.
 ;;;
+
+;;}}}
 
 ;;; Todo: Perhaps this ought to be configurable, by making it possible for the
 ;;; user to put their own ones into a separate configuration file?
@@ -3455,6 +3627,8 @@ styles."
     (recall-message)
     t))
 
+;;}}}
+
 ;;;
 ;;; Remember that there is a difference between the source document tree and
 ;;; the typeset tree, and that it is not always the case that the cursor focus
@@ -3539,7 +3713,8 @@ styles."
       (tree-set! text-t tmtext)))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
-
+;;}}}
+;;{{{ Field_getText
 
 ;;; Gets the (visible) text of a field.
 ;;;
@@ -3557,8 +3732,8 @@ styles."
          )
     (tm-zotero-write tid (safe-scm->json-string str_utf8))))
 
-
-
+;;}}}
+;;{{{ Field_setCode
 
 ;;; Sets the (hidden, persistent) code of a field.
 ;;;
@@ -3571,7 +3746,8 @@ styles."
       (zt-set-zfield-Code-from-string zfield str_code)))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
-
+;;}}}
+;;{{{ Field_getCode
 
 ;;; Gets the code of a field.
 ;;;
@@ -3584,7 +3760,8 @@ styles."
                        "")))
     (tm-zotero-write tid code_str)))
 
-
+;;}}}
+;;{{{ Field_convert
 
 ;;; Converts a field from one type to another.
 ;;;
@@ -3598,10 +3775,14 @@ styles."
                    str_fieldType int_noteType)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
+;;}}}
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;}}}
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Local Variables:
-;;; fill-column: 132
+;;; fill-column: 79
 ;;; truncate-lines: t
+;;; folded-file: t
 ;;; End:
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
