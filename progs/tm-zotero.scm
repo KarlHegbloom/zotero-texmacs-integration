@@ -205,6 +205,7 @@
 
 
 ;;{{{ Access and define not-yet-exported functions from other parts of TeXmacs
+
 ;;;
 ;;; From (generic document-part):
 ;;;
@@ -246,6 +247,7 @@
 ;;}}}
 
 ;;{{{ Misc. functions used within this program
+
 ;;;
 ;;; When parts of the document are hidden, which is what we do when the
 ;;; document is too large to easily edit, since TeXmacs slows way down to the
@@ -288,6 +290,28 @@
 ;;;
 (define (get-refbinding key)
   (texmacs-exec `(get-binding ,key)))
+
+
+;;; This is used to convert the zfield-Text texmacs tree into a string so that
+;;; Zotero's mechanism for determining if the user has editted the zfield-Text
+;;; by hand can have something it can work with. It is used to store the
+;;; original text in the <zfield-data> for the zfield, and to create the
+;;; comparison string from the current value of the zfield-Text.
+;;;
+(define (tmtext-t->string tmtext-t)
+  (with-output-to-string (write (tree->stree tmtext-t))))
+
+
+
+(define (tree-less? t1 t2)
+  (path-less? (tree->path t1) (tree->path t2)))
+
+(define (tree-pointer-less? tp1 tp2)
+  (path-less? (tree->path (tree-pointer->tree tp1))
+              (tree->path (tree-pointer->tree tp2))))
+
+(define (position-less? pos1 pos2)
+  (path-less? (position-get pos1) (position-get pos2)))
 
 ;;}}}
 
@@ -501,8 +525,9 @@
 ;;;       It's easier to just curate your reference collection to make it
 ;;;       produce what you want, right?
 ;;;
-(define (get-zfield-Text zfield)
+(define (get-zfield-Text-t zfield)
   (tree-ref zfield 2))
+
 
 ;;}}}
 
@@ -668,6 +693,10 @@
 (define (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
   (hash-ref (get-document-zfield-ht documentID) zfieldID #f))
 
+(define (<zfield-data>-less? zfd1 zfd2)
+  (tree-pointer-less? (slot-ref zfd1 'tree-pointer)
+                      (slot-ref zfd2 'tree-pointer)))
+
 
 
 (define (get-document-zfield-tree-pointer-by-zfieldID documentID zfieldID)
@@ -703,47 +732,36 @@
   (slot-set! (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
              'orig-text text))
 
-
-(define (tmtext-t->string tmtext-t)
-  (with-output-to-string (write (tree->stree tmtext-t))))
-
-
-(define (document-zfield-text-user-modified? documentID zfieldID cmp-text)
-  (when (tree? text)
-    (set! text (tmtext-t->string text)))
-  (not
-   (string=? text (get-document-zfield-orig-text-by-zfieldID documentID zfieldID))))
-
-
-;; (define (position-less? pos1 pos2)
-;;   (path-less? (position-get pos1) (position-get pos2)))
+(define (document-zfield-text-user-modified? documentID zfieldID)
+  (let* ((zfield (get-document-zfield-by-zfieldID documentID zfieldID))
+         (zfield-Text-t (and zfield (get-zfield-Text-t zfield)))
+         (text (or (and zfield-Text-t   ; from the document tree itself
+                        (tmtext-t->string zfield-Text-t))
+                   ""))
+         (orig-text (or (get-document-zfield-orig-text-by-zfieldID zfieldID) ; from the <zfield-data>
+                        "")))
+    ;; See: definition for activate and disactivate...
+    (not
+     (string=? text orig-text))))         ; => #t if text was modified by user.
 
 
-(define (document-<zfield-data>-insert! documentID zfield)
-  (let* ((zfieldID (XXXXX))
-         (dd (get-<document-data> documentID))
-         (zfl (slot-ref dd 'zfield-ls))
-         (zfht (slot-ref dd 'zfield-ht))
-         (zfd (make <zfield-data>)))
-    (position-set (slot-ref zfd 'position) (tree->path zfield))
-    (slot-set! zfd 'zfield zfield)
-    (slot-set! dd 'zfield-ls
-               (merge! zfl '(zfd)
-                       (lambda (a b)
-                         (position-less? (slot-ref a 'position)
-                                         (slot-ref b 'position)))))
-    (hash-set! zfht zfieldID zfd)))
+;;; It should already be in the <document-data>'s <zfield-data>-ht when this is
+;;; called. This adds it to the <zfield-data>-ls.
+;;;
+(define (document-merge-<zfield-data> zfd)
+  (let* ((documentID (get-documentID)
+         (zfl (get-document-zfield-ls documentID)))
+    (set-document-zfield-ls! documentID
+                             (merge! zfl (list zfd) <zfield-data>-less?)))))
 
-(define (document-<zfield-data>-delete! documentID zfieldID)
-  (let* ((dd (get-<document-data> documentID))
-         (zfl (slot-ref dd 'zfield-ls))
-         (zfht (slot-ref dd 'zfield-ht))
-         (zfd (hash-ref zfht zfieldID #f)))
-    (when zfd
-      (slot-set! dd 'zfield-ls
-                 (list-filter zfl (lambda (elt)
-                                    (not (eq? zfd elt)))))
-      (hash-remove! zfht zfieldID))))
+;;; This removes the zfield from the <zfield-data>-ls.
+;;;
+(define (document-remove-<zfield-data> zfd)
+  (let* ((documentID (get-documentID))
+         (zfl (get-document-zfield-ls documentID)))
+    (set-document-zfield-ls! documentID
+                             (list-filter zfl (lambda (elt)
+                                                (not (eq? zfd elt)))))))
 
 ;;}}}
 
@@ -2613,8 +2631,9 @@
     (if new-zfield
         ;; then
         (begin
-          (set-document-new-zfieldID! documentID #f) ; clear it
-          
+          (set-document-new-zfieldID! documentID #f) ; clear new-zfieldID
+          ;; add it to the zfield-ls. This is reversed only via clipboard-cut.
+          (document-merge-new-<zfield-data> new-zfield-zfd)
           ;; Report success to Zotero.
           (tm-zotero-write tid (safe-scm->json-string
                                 (list id ""
