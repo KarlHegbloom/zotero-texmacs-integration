@@ -3,14 +3,12 @@ Zotero - TeXmacs integration plugin and citation styles.
 
 Please be patient when you are using this. I realize that the
 turn-around time between issuing an Integration command and having it
-finish making the edits is longer than we'd like it to be. I'm hoping
-that porting TeXmacs to using Guile 2 will speed it up some... and
-also, it might be doing more work than it needs to, and so perhaps
-there's room for optimizations. I have to use it every day and I know
-it's too slow for most people! We are working on it. Any ideas?
+finish making the edits is longer than we'd like it to be.
 
-I am planning to perform some code profiling to try and find the
-bottlenecks and any wasted cycles.
+On the performance-improvments-wip branch, you can view the changes
+I'm making that are very likely going to make this thing run much
+faster. I'm getting better at this.
+
 
 NEWS
 ----
