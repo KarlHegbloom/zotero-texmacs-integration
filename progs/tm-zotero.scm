@@ -975,8 +975,9 @@
                    (get-document-<zfield-data>-by-zfieldID documentID zfieldID))))
     (if zfd
         ""   ;; not using my own defined accessors here to manually inline
+        (if (document-part-mode blah balh is in '(:one :several)...
         (let* ((zfield (tree-pointer->tree (zfd-tree-pointer zfd)))
-               !!! HERE !!!
+               !!! HERE !!! search up the tree to see 
                )
           (set! (zfd-in-shown-part? zfd)
           "")
