@@ -567,7 +567,9 @@
 ;;; (tree-pointer-detach ptr) => undefined
 
 ;;}}}
-
+;;;
+;;{{{ define-class for <zfield-data> and <document-data>
+;;;
 
 (define-class-with-accessors-keywords <zfield-data> ()
   ;; TeXmacs tree-pointer
@@ -577,6 +579,8 @@
   ;; Boolean, set when tag is disactivated or reactivated.
   (zfd-disactivated-flag #:init-value #f)
   ;;
+  (zfd-in-shown-part? #:init-value #t)
+  ;;
   ;; ? (code-cache #:init-value #f)
   ;; Extra data ht? Only if needed.
   ;; data keys: code-cache, ... ?
@@ -584,7 +588,7 @@
   )
 
 
-(define-class <document-data> ()
+(define-class-with-accessors-keywords <document-data> ()
   ;;
   ;; is a zotero command active? If so, then a modification undo mark (I think
   ;; it's a number from the code in (utils library tree) try-modification) is
@@ -620,10 +624,22 @@
   ;; Anything else?
   ;;
   )
-
-;;; Deliberately not "idempotent" wrt re-loading of this program. Reloading the
-;;; zotero.scm module will cause this to be reinitialized to an empty hash
-;;; table.
+;;}}}
+;;;
+;;{{{ <document-data>-ht, get-<document-data>, set-<document-data>!
+;;;
+;;; Reloading the zotero.scm module will cause this to be reinitialized to an
+;;; empty hash table. That's fine. It will also get cleared when the
+;;; document-part-mode changes.
+;;;
+;;; Todo: I see a possible "memory leak" of tree-pointer's... they are attached
+;;;       to trees in the buffer. So to clear the document-data, there must be
+;;;       a single point of control in a function that calls
+;;;       tree-pointer-detach for each of them before releasing everything via
+;;;       assignment of a fresh hash-table to <document-data>-ht... actually,
+;;;       rather than assign a fresh one, use hash-clear since it clears it
+;;;       without triggering a resize... and it's already ballooned out to it's
+;;;       needed size once it's been used once.
 ;;;
 (define <document-data>-ht (make-hash-table)) ;; documentID => <document-data>
 
@@ -637,7 +653,9 @@
 (define (set-<document-data>! documentID document-data)
   (hash-set! <document-data>-ht documentID document-data))
 
-
+;;}}}
+;;;
+;;{{{ document-active-mark-nr
 
 (define-method (document-active-mark-nr (documentID <string>))
   (document-active-mark-nr (get-<document-data> documentID)))
@@ -645,7 +663,8 @@
 (define (set-document-active-mark-nr! documentID val)
   (set! (document-active-mark-nr documentID) val))
 
-
+;;}}}
+;;{{{ document-new-zfieldID
 
 (define get-new-zfieldID create-unique-id)
 
@@ -667,7 +686,8 @@
                 (document-new-zfieldID documentID))
   (set-document-new-zfieldID! documentID #f))
 
-
+;;}}}
+;;{{{ document-zfield-ls
 
 (define-method (document-zfield-ls (documentID <string>))
   (document-zfield-ls (get-<document-data> documentID)))
@@ -675,7 +695,8 @@
 (define (set-document-zfield-ls! documentID ls)
   (set! (document-zfield-ls documentID) ls))
 
-
+;;}}}
+;;{{{ document-zfield-ht
 
 (define-method (document-zfield-ht (documentID <string>))
   (document-zfield-ht (get-<document-data> documentID)))
@@ -683,7 +704,10 @@
 (define (reset-document-zfield-ht! documentID)
   (set! (document-zfield-ht documentID (make-hash-table))))
 
+(define (
 
+;;}}}
+;;{{{ document-ztbibItemRefs-ht
 
 (define-method (document-ztbibItemRefs-ht (documentID <string>))
   (document-ztbibItemRefs-ht (get-<document-data> documentID)))
@@ -691,10 +715,10 @@
 (define (reset-ztbibItemRefs-ht! documentID)
   (set! (document-ztbibItemRefs-ht documentID) (make-hash-table)))
 
+;;}}}
+;;;
+;;{{{ <zfield-data>, get-document-*-by-zfieldID
 
-;;;
-;;; <zfield-data>
-;;;
 (define (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
   (hash-ref (document-zfield-ht documentID) zfieldID #f))
 
@@ -732,6 +756,9 @@
   (set! (zfd-orig-text (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
         str))
 
+;;}}}
+;;{{{ document-zfield-text-user-modified?
+
 (define (document-zfield-text-user-modified? documentID zfieldID)
   (let* ((zfield        (get-document-zfield-by-zfieldID documentID zfieldID))
          (zfield-Text-t (and zfield (get-zfield-Text-t zfield)))
@@ -746,8 +773,8 @@
     (not
      (string=? text orig-text))))         ; => #t if text was modified by user.
 
-
-
+;;}}}
+;;{{{ document-merge-<zfield-data>, document-remove-<zfield-data>
 ;;;
 ;;; It should already be in the <document-data>'s <zfield-data>-ht when this is
 ;;; called. This adds it to the <zfield-data>-ls.
@@ -768,6 +795,7 @@
                              (list-filter zfl (lambda (elt)
                                                 (not (eq? zfd elt)))))))
 
+;;}}}
 ;;}}}
 
 
@@ -920,9 +948,42 @@
 
 
 ;;{{{ :secure ext functions called from tm-zotero.ts style
-;;{{{ zt-ext-flag-if-modified (also being replaced)
+;;;
+;;; WARNING: Some comments may not yet accurately reflect the actual status of
+;;;          things in the tm-zotero.ts, etc... WIP
+;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; When the <zcite|...> is typeset, it's expansion calls on this routine. It
+;;; looks to see if the tag 
+;;;
+;;;   fieldID-t => "true" | "false"
+;;;
+(tm-define (tm-zotero-ext:zfieldID-interned? fieldID-t)
+  (:secure)
+  (if (get-document-<zfield-data>-by-zfieldID (get-documentID)
+                                              (object->string fieldID-t))
+      "true"
+      "false"))
+
+
+(tm-define (tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
+  (:secure)
+  (let* ((documentID (get-documentID))
+         (zfieldID (object->string zfieldID-t))
+         (zfd (and (not (zfieldID-is-document-new-zfieldID? zfieldID))
+                   (get-document-<zfield-data>-by-zfieldID documentID zfieldID))))
+    (if zfd
+        ""   ;; not using my own defined accessors here to manually inline
+        (let* ((zfield (tree-pointer->tree (zfd-tree-pointer zfd)))
+               !!! HERE !!!
+               )
+          (set! (zfd-in-shown-part? zfd)
+          "")
+        )))
+      
+
+;;{{{ zt-ext-flag-if-modified ;; also being replaced
 ;;;
 ;;; Memoization cache for zt-ext-flag-if-modified, zfieldID -> boolean-modified?
 ;;;
@@ -1017,7 +1078,7 @@
 
 ;;}}}
 
-
+;;; Todo: Replace, too slow, searching...
 (tm-define (zt-ext-document-has-zbibliography?)
   (:secure)
   (let ((zbibs (tm-search-tag (buffer-tree) 'zbibliography)))
@@ -1029,7 +1090,7 @@
 ;;; ztShowID
 ;;;
 ;;; I don't think this one will ever really show up, but just in case, I've
-;;; defined it, so it can at least be observed when it occurs.
+;;; defined it, so it will be at least possible to observe it when it occurs.
 ;;;
 ;;; "<span class=\"" + state.opt.nodenames[cslid] + "\" cslid=\"" + cslid + "\">" + str + "</span>"
 ;;;
