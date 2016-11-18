@@ -6,10 +6,8 @@
 ;;; COPYRIGHT   : (C) 2016  Karl M. Hegbloom <karl.hegbloom@gmail.com>
 ;;;
 ;;{{{ This software falls under the GNU general public license version 3 or
-
 ;;; later. It comes WITHOUT ANY WARRANTY WHATSOEVER. For details, see the file
 ;;; LICENSE in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>
-
 ;;}}}
 ;;;;
 
@@ -22,6 +20,7 @@
         (utils base environment)
         (utils edit selections)
         (utils library cursor)
+        (utils library tree)
         (generic document-edit)
         (text text-structure)
         (generic document-part)
@@ -60,13 +59,17 @@
 ;;   (with-input-from-string str
 ;;     (md5)))
 
-;;; I really want pcre in Guile for this.
+;;{{{ Todo: I really want pcre2 in Guile for the regex transformations.
 ;;;
+;;; R&D: (blinking cursor here)
+;;;
+;;}}}
 (use-modules (ice-9 regex))
 
 (use-modules (ice-9 common-list))
 
-;;; This produces:
+;;;
+;;; The next use-modules produces:
 ;;;
 ;;;   Warning: `make' imported from both (guile-user) and (oop goops).
 ;;;
@@ -75,11 +78,20 @@
 ;;; not present in 1.8, which for the time being, we must work with.
 ;;;
 (define guile-user:make (@ (guile-user) make))
-(define goops:make (@ (oop goops) make))
 (use-modules (oop goops))
-(define make goops:make)                ; only affects this module.
-;; (use-modules (oop goops describe))
+(use-modules (oop goops accessors))
+;;{{{ Todo: Can I save a readable representation of a tree-pointer?
+;;;
+;;; If so then it might be able to save these data structures into aux by using
+;;; save-objects and load-objects to serialize and deserialize them.
+;;;
+;;; (use-modules (oop goops save))
+;;}}}
+(use-modules (oop goops describe))
+(define make guile-user:make)           ; Use make-instance for GOOPS.
 
+;;; for coloring the debugging output, below.
+;;;
 (use-modules (compat guile-2))
 (use-modules (term ansi-color))
 
@@ -107,39 +119,14 @@
 ;;;
 (debug-set! stack 0)
 
-
-;;; If it ain't broke, don't fix it. Unless disabling this breaks something, it
-;;; will disappear soon. I don't think the locale needs to be set like this to
-;;; get 8-bit clean links and UTF-8 across the link between TeXmacs and
-;;; Firefox. That's done by the conversion functions called in the right
-;;; places.
-;;
-;; (cond-expand
-;;  (guile-2
-;;   ;; In guile2 I think I'll need to set the port encoding.  There's still the
-;;   ;; problem where the part of TeXmacs that converts LaTeX into TeXmacs assumes
-;;   ;; cork encoding rather than UTF-8. That is solved by using string-convert.
-;;   ;;
-;;   )
-;;  (else
-;;    ;; My personal locale was already set to a UTF-8 one, and everything worked
-;;    ;; fine. The socket read and write routines are using u8 vectors, and so it
-;;    ;; ought to be fine with any encoding, since it's not trying to do any
-;;    ;; conversions at that layer. Just to be sure though, I'm setting this
-;;    ;; here. If it causes problems for anyone, send me a github issue ticket.
-;;    ;;
-;;    (define orig-locale-LC_ALL   (setlocale LC_ALL))
-;;    (define orig-locale-LC_CTYPE (setlocale LC_CTYPE))
-;;    (unless (string-suffix? ".UTF-8" orig-locale-LC_CTYPE)
-;;      (setlocale LC_CTYPE (string-append (substring orig-locale-LC_CTYPE
-;;                                                    0
-;;                                                    (string-index orig-locale-LC_CTYPE
-;;                                                                  (string->char-set ".")))
-;;                                         ".UTF-8")))))
-
 ;;}}}
 
 ;;{{{ Error and debugging printouts to console with time differences for benchmarking
+;;;
+;;; Todo: interface or integrate this with the normal means of doing this in
+;;;       TeXmacs so that it becomes possible to select a category and view it
+;;;       in texmacs own viewer.
+
 
 (define timestamp-format-string-colored
   (string-concatenate
@@ -175,7 +162,6 @@
 
 
 (define (zt-format-error . args)
-  ;;(:secure)
   (tm-errput
    (apply format (cons #f
                        (cons
@@ -190,7 +176,6 @@
 
 
 (define (zt-format-debug . args)
-  ;;(:secure)
   (when zt-debug-trace?
     (tm-output
      (apply format (cons #f
@@ -292,26 +277,22 @@
   (texmacs-exec `(get-binding ,key)))
 
 
-;;; This is used to convert the zfield-Text texmacs tree into a string so that
-;;; Zotero's mechanism for determining if the user has editted the zfield-Text
-;;; by hand can have something it can work with. It is used to store the
-;;; original text in the <zfield-data> for the zfield, and to create the
-;;; comparison string from the current value of the zfield-Text.
-;;;
-(define (tmtext-t->string tmtext-t)
-  (with-output-to-string (write (tree->stree tmtext-t))))
+;; (define (position-less? pos1 pos2)
+;;   (path-less? (position-get pos1) (position-get pos2)))
 
-
-
-(define (tree-less? t1 t2)
-  (path-less? (tree->path t1) (tree->path t2)))
+;; (define (tree-less? t1 t2)
+;;   (path-less? (tree->path t1) (tree->path t2)))
 
 (define (tree-pointer-less? tp1 tp2)
   (path-less? (tree->path (tree-pointer->tree tp1))
               (tree->path (tree-pointer->tree tp2))))
 
-(define (position-less? pos1 pos2)
-  (path-less? (position-get pos1) (position-get pos2)))
+
+;;; <zfield-data> is defined below.
+;;;
+(define (<zfield-data>-less? zfd1 zfd2)
+  (tree-pointer-less? (slot-ref zfd1 'tree-pointer)
+                      (slot-ref zfd2 'tree-pointer)))
 
 ;;}}}
 
@@ -350,7 +331,7 @@
   (if (not (focus-is-zfield?))
       (let ((documentID (get-documentID))
             (new-zfieldID (get-new-fieldID))
-            (zfd (make <zfield-data>)))
+            (zfd (make-instance <zfield-data>)))
         (set-document-new-zfieldID! documentID new-zfieldID)
         (insert `(,tag ,new-zfieldID (tuple "3" (raw-data "") "false") ,placeholder))
         (slot-set! zfd 'tree-pointer (tree->tree-pointer (focus-tree)))
@@ -450,6 +431,7 @@
   (object->string (get-zfield-zfieldID-t zfield)))
 
 
+
 (define (get-zfield-Code-v zfield)
   (let ((code-t (tree-ref zfield 1)))
     (cond
@@ -493,6 +475,8 @@
     (tree-set! t (stree->tree str-bool))))
 
 
+
+;;;
 ;;; For "note" styles, this reference binding links a citation field with
 ;;; the footnote number that it appears in.
 ;;;
@@ -500,11 +484,7 @@
 ;;; there regarding the necessity of letting the typesetter run in order for
 ;;; this reference binding to have a readable value.
 ;;;
-(define (get-zfield-NoteIndex-str zfieldID)
-  (if (and (not (string? zfieldID))
-           (tree? zfieldID)
-           (is-zcite? zfieldID))
-      (set! zfieldID (get-zfield-zfieldID zfieldID)))
+(define (get-zfield-NoteIndex-str zfieldID) ; zfieldID is always a string
   (get-refbinding
    (get-zfield-noteindex-refbinding-key zfieldID)))
 
@@ -525,9 +505,21 @@
 ;;;       It's easier to just curate your reference collection to make it
 ;;;       produce what you want, right?
 ;;;
+;;; This returns a TeXmacs tree.
+;;;
 (define (get-zfield-Text-t zfield)
   (tree-ref zfield 2))
 
+;;;
+;;; This is used to convert the zfield-Text texmacs tree into a string so that
+;;; Zotero's mechanism for determining if the user has editted the zfield-Text
+;;; by hand can have something it can work with. It is used to store the
+;;; original text in the <zfield-data> for the zfield, and to create the
+;;; comparison string from the current value of the zfield-Text.
+;;;
+(define (get-zfield-Text zfield)
+  (with-output-to-string
+    (write (tree->stree (get-zfield-Text-t zfield)))))
 
 ;;}}}
 
@@ -536,7 +528,8 @@
 ;;; document. These are scheme data structures, not in-document trees.
 ;;;
 ;;{{{ State data for document and zfields
-;;{{{ R&D Notes
+;;;
+;;{{{ R&D Notes pertaining to maintaining this per-document state data
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -575,13 +568,14 @@
 
 ;;}}}
 
-(define-class <zfield-data> ()
+
+(define-class-with-accessors-keywords <zfield-data> ()
   ;; TeXmacs tree-pointer
-  (tree-pointer #:init-value #f)
+  (zfd-tree-pointer #:init-value #f)
   ;; String, original unmodified text for comparison
-  (orig-text #:init-value "")
+  (zfd-orig-text #:init-value "")
   ;; Boolean, set when tag is disactivated or reactivated.
-  (disactivated? #:init-value #f)
+  (zfd-disactivated-flag #:init-value #f)
   ;;
   ;; ? (code-cache #:init-value #f)
   ;; Extra data ht? Only if needed.
@@ -592,24 +586,26 @@
 
 (define-class <document-data> ()
   ;;
-  ;; is a zotero command active?
+  ;; is a zotero command active? If so, then a modification undo mark (I think
+  ;; it's a number from the code in (utils library tree) try-modification) is
+  ;; stored here.
   ;;
-  (tm-zotero-active? #:init-value #f)
+  (document-active-mark-nr #:init-value #f) ; #f | value returned by (mark-new)
   ;;
   ;; one new zfield at a time per document
   ;;
-  (new-zfieldID #:init-value #f)
+  (document-new-zfieldID #:init-value #f)     ; #f | string
   ;;
   ;; in-document-order list of <zfield-data>
   ;;
-  (zfield-ls #:init-thunk list)
+  (document-zfield-ls #:init-thunk list) 
   ;;
   ;; hash-table of zfieldID => <zfield-data>
   ;;
   ;; The new-zfieldID will lead to the <zfield-data> for it here, but it's not
   ;; in the above list until it's finalized by tm-zotero-Document_insertField.
   ;;
-  (zfield-ht #:init-thunk make-hash-table)
+  (document-zfield-ht #:init-thunk make-hash-table)
   ;;
   ;; List of refs / pagerefs to referring citations for the end of each
   ;; zbibliography entry. Compute them once, memoized, and so when the
@@ -619,7 +615,7 @@
   ;; each time the tag is re-typeset (e.g. the user is typing on the page just
   ;; above the zbibliography) it would be very slow.
   ;;
-  (ztbibItemRefs-ht #:init-thunk make-hash-table)
+  (document-ztbibItemRefs-ht #:init-thunk make-hash-table)
   ;;
   ;; Anything else?
   ;;
@@ -632,10 +628,9 @@
 (define <document-data>-ht (make-hash-table)) ;; documentID => <document-data>
 
 
-
 (define (get-<document-data> documentID)
   (or (hash-ref <document-data>-ht documentID #f)
-      (let ((dd (make <document-data>)))
+      (let ((dd (make-instance <document-data>)))
         (set-<document-data>! documentID dd)
         dd)))
 
@@ -644,64 +639,74 @@
 
 
 
-(define (get-document-tm-zotero-active? documentID)
-  (slot-ref (get-<document-data> documentID) 'tm-zotero-active?))
+(define-method (document-active-mark-nr (documentID <string>))
+  (document-active-mark-nr (get-<document-data> documentID)))
 
-(define (set-document-tm-zotero-active?! documentID val)
-  (slot-set! (get-<document-data> documentID) 'tm-zotero-active? val))
+(define (set-document-active-mark-nr! documentID val)
+  (set! (document-active-mark-nr documentID) val))
 
 
 
 (define get-new-zfieldID create-unique-id)
 
 
-(define (get-document-new-zfieldID documentID)
-  (slot-ref (get-<document-data> documentID) 'new-zfieldID))
+(define-method (document-new-zfieldID (documentID <string>))
+  (document-new-zfieldID (get-<document-data> documentID)))
 
 (define (set-document-new-zfieldID! documentID zfieldID)
-  (slot-set! (get-<document-data> documentID) 'new-zfieldID zfieldID))
+  (set! (document-new-zfieldID documentID) zfieldID))
 
 (define (zfieldID-is-document-new-zfieldID? documentID zfieldID)
-  (== zfieldID (get-document-new-fieldID documentID)))
+  (== zfieldID (get-document-new-zfieldID documentID)))
+
+;;;
+;;; Called from the document-mark-cancel-error-cleanup-hook
+;;;
+(define (cleanup-document-new-zfieldID! documentID)
+  (hash-remove! (document-zfield-ht documentID)
+                (document-new-zfieldID documentID))
+  (set-document-new-zfieldID! documentID #f))
 
 
 
-(define (get-document-zfield-ls documentID)
-  (slot-ref (get-<document-data> documentID) 'zfield-ls))
+(define-method (document-zfield-ls (documentID <string>))
+  (document-zfield-ls (get-<document-data> documentID)))
 
 (define (set-document-zfield-ls! documentID ls)
-  (slot-set! (get-<document-data> documentID) 'zfield-ls ls))
+  (set! (document-zfield-ls documentID) ls))
 
 
 
-(define (get-document-zfield-ht documentID)
-  (slot-ref (get-<document-data> documentID) 'zfield-ht))
+(define-method (document-zfield-ht (documentID <string>))
+  (document-zfield-ht (get-<document-data> documentID)))
 
 (define (reset-document-zfield-ht! documentID)
-  (slot-set! (get-<document-data> documentID) 'zfield-ht (make-hash-table)))
+  (set! (document-zfield-ht documentID (make-hash-table))))
 
 
 
-(define (get-document-ztbibItemRefs-ht documentID)
-  (slot-ref (get-<document-data> documentID) 'ztbibItemRefs-ht))
+(define-method (document-ztbibItemRefs-ht (documentID <string>))
+  (document-ztbibItemRefs-ht (get-<document-data> documentID)))
 
 (define (reset-ztbibItemRefs-ht! documentID)
-  (slot-set! (get-<document-data> documentID) 'ztbibItemRefs-ht (make-hash-table)))
+  (set! (document-ztbibItemRefs-ht documentID) (make-hash-table)))
 
 
-
+;;;
+;;; <zfield-data>
+;;;
 (define (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
-  (hash-ref (get-document-zfield-ht documentID) zfieldID #f))
-
-(define (<zfield-data>-less? zfd1 zfd2)
-  (tree-pointer-less? (slot-ref zfd1 'tree-pointer)
-                      (slot-ref zfd2 'tree-pointer)))
-
+  (hash-ref (document-zfield-ht documentID) zfieldID #f))
 
 
 (define (get-document-zfield-tree-pointer-by-zfieldID documentID zfieldID)
-  (slot-ref (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
-            'tree-pointer))
+  (zfd-tree-pointer
+   (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
+
+(define (set-document-zfield-tree-pointer-by-zfieldID! documentID zfieldID tp)
+  (set! (zfd-tree-pointer (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
+        tp))
+
 
 (define (get-document-zfield-by-zfieldID documentID zfieldID)
   (tree-pointer->tree
@@ -713,250 +718,55 @@
 
 
 (define (get-document-zfield-disactivated?-by-zfieldID documentID zfieldID)
-  (slot-ref (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
-            'disactivated?))
+  (zfd-disactivated-flag (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
 
 (define (set-document-zfield-disactivated?-by-zfieldID! documentID zfieldID val)
-  (slot-set! (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
-             'disactivated? val))
-
+  (set! (zfd-disactivated-flag (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
+        val))
 
 
 (define (get-document-zfield-orig-text-by-zfieldID documentID zfieldID)
-  (slot-ref (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
-            'orig-text))
+  (zfd-orig-text (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
 
-(define (set-document-zfield-orig-text-by-zfieldID! documentID zfieldID text)
-  (when (tree? text)
-    (set! text (tmtext-t->string text)))
-  (slot-set! (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
-             'orig-text text))
+(define (set-document-zfield-orig-text-by-zfieldID! documentID zfieldID str)
+  (set! (zfd-orig-text (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
+        str))
 
 (define (document-zfield-text-user-modified? documentID zfieldID)
-  (let* ((zfield (get-document-zfield-by-zfieldID documentID zfieldID))
+  (let* ((zfield        (get-document-zfield-by-zfieldID documentID zfieldID))
          (zfield-Text-t (and zfield (get-zfield-Text-t zfield)))
-         (text (or (and zfield-Text-t   ; from the document tree itself
-                        (tmtext-t->string zfield-Text-t))
-                   ""))
-         (orig-text (or (get-document-zfield-orig-text-by-zfieldID zfieldID) ; from the <zfield-data>
+         ;; from the document tree itself
+         (text          (or (and zfield-Text-t
+                                 (get-zfield-Text zfield))
+                            ""))
+         ;; from the <zfield-data>
+         (orig-text (or (get-document-zfield-orig-text-by-zfieldID documentID zfieldID)
                         "")))
     ;; See: definition for activate and disactivate...
     (not
      (string=? text orig-text))))         ; => #t if text was modified by user.
 
 
+
+;;;
 ;;; It should already be in the <document-data>'s <zfield-data>-ht when this is
 ;;; called. This adds it to the <zfield-data>-ls.
 ;;;
 (define (document-merge-<zfield-data> zfd)
-  (let* ((documentID (get-documentID)
-         (zfl (get-document-zfield-ls documentID)))
+  (let* ((documentID (get-documentID))
+         (zfl (document-zfield-ls documentID)))
     (set-document-zfield-ls! documentID
                              (merge! zfl (list zfd) <zfield-data>-less?)))))
 
+;;;
 ;;; This removes the zfield from the <zfield-data>-ls.
 ;;;
 (define (document-remove-<zfield-data> zfd)
   (let* ((documentID (get-documentID))
-         (zfl (get-document-zfield-ls documentID)))
+         (zfl (document-zfield-ls documentID)))
     (set-document-zfield-ls! documentID
                              (list-filter zfl (lambda (elt)
                                                 (not (eq? zfd elt)))))))
-
-;;}}}
-
-
-
-;;{{{ Comment regarding tm-select vs tm-search
-
-;;; I wanted to try and use the tm-select functionality to accomplish this, but
-;;; found that it does not return the list in document-order!
-;;;
-;;; Scheme]  (define the-zfields-by-select (select (buffer-tree) '(:* (:or
-;;; zcite zbibliography))))
-;;;
-;;; Scheme]  (map (lambda (t) (list (tree-label t) (tree->string (zfield-ID
-;;; t)))) the-zfields-by-select)
-;;;
-;;; ((zcite "+GHqJJmyDQVHhaO") (zcite "+28SL8xD6MxDCZI") (zcite
-;;; "+JGeR0gQNwL2AKU") (zbibliography "+hoOIoDn3p6FB0H") (zcite
-;;; "+6jApItmTysx1SJ") (zcite "+hoOIoDn3p6FB0G") (zcite "+JGeR0gQNwL2AKT")
-;;; (zcite "+KUpBSz33QCflpE") (zcite "+KUpBSz33QCflpD") (zcite
-;;; "+KUpBSz33QCflpC") (zcite "+KUpBSz33QCflpB") (zcite "+hoOIoDn3p6FB0J")
-;;; (zcite "+hoOIoDn3p6FB0I"))
-;;;
-;;; Scheme]  (define the-zfields-by-tm-search (zt-get-zfields-list
-;;; (get-documentID) "ReferenceMark"))
-;;;
-;;; Scheme]  (map (lambda (t) (list (tree-label t) (tree->string (zfield-ID
-;;; t)))) the-zfields-by-tm-search)
-;;;
-;;; ((zcite "+6jApItmTysx1SJ") (zcite "+hoOIoDn3p6FB0G") (zcite
-;;; "+JGeR0gQNwL2AKT") (zcite "+GHqJJmyDQVHhaO") (zcite "+KUpBSz33QCflpE")
-;;; (zcite "+KUpBSz33QCflpD") (zcite "+28SL8xD6MxDCZI") (zcite
-;;; "+KUpBSz33QCflpC") (zcite "+KUpBSz33QCflpB") (zcite "+hoOIoDn3p6FB0I")
-;;; (zcite "+hoOIoDn3p6FB0J") (zcite "+JGeR0gQNwL2AKU") (zbibliography
-;;; "+hoOIoDn3p6FB0H"))
-;;;
-
-;;}}}
-
-;;{{{ Is this code still needed for other than reference during transition?
-
-;;;
-;;; Is this still needed to initialize the <document-data> when the document is
-;;; first opened? I think this is what I was working to replace, so this will
-;;; probably go away soon.
-;;; 
-(define (zt-zfield-search subtree)
-  (let ((zt-new-fieldID (get-document-new-fieldID (get-documentID))))
-    (tm-search
-     subtree
-     (lambda (t)
-       (and (tree-in? t zfield-tags)
-            (not
-             (and zt-new-fieldID
-                  (string=? zt-new-fieldID
-                            (get-zfield-zfieldID t)))))))))
-
-;;; Was: (tm-define (zt-get-zfields-list documentID fieldType)
-;;;
-;;; Maybe ensure active document is documentID? For now assume it is.
-;;; Also for now assume fieldType is always "ReferenceMark", so ignore it.
-;;;
-;;; WIP: Nothing calls this yet... is it needed? (and it's not fixed up for new
-;;; changes yet anyway...)
-;;;
-(define (init-document-zfields-list documentID)
-  ;;
-  ;; Maybe ensure active document is documentID? For now assume it is.
-  ;;
-  ;; Q: What about "save-excursion" or "save-buffer-excursion"?
-  ;; A: This is searching the document tree, not moving the cursor.
-  ;;
-  ;; Todo: What if I copy and paste a zcite from one location to another? The
-  ;; zfield-ID of the second one will need to be updated...
-  ;; (WIP: See: buffer-notify)
-  ;;
-  (let* ((fields-tmp-ht (make-hash-table))
-         (l (shown-buffer-body-paragraphs))
-         (all-fields (append-map zt-zfield-search l)))
-      (set! zt-zfield-Code-cache (make-hash-table))
-      (let loop ((in all-fields)
-                 (out '()))
-        (cond
-          ((null? in)
-           (hash-for-each (lambda (key val)
-                            (when (not (hash-ref fields-tmp-ht key #f))
-                              (hash-remove! zt-zfield-Code-cache key)))
-                          zt-zfield-Code-cache)
-           (reverse! out))
-          (else
-            ;; fixup in case of copy + paste of zcite by tracking each ID and when one
-            ;; is seen twice, change the second one.
-            (let ((id-t (zfield-ID (car in)))
-                  (new-id ""))
-              (if (hash-ref fields-tmp-ht (object->string id-t) #f)
-                  (begin
-                    (set! new-id (get-new-fieldID))
-                    (tree-set! id-t (stree->tree new-id))
-                    (hash-set! fields-tmp-ht new-id #t)
-                    (zt-get-zfield-Code-string (car in)));; caches zfield-Code
-                  (hash-set! fields-tmp-ht (object->string id-t) #t))
-              (loop (cdr in) (cons
-                              (begin
-                                (zt-get-zfield-Code-string (car in));; caches zfield-Code
-                                (car in))
-                              out))))))))
-
-;;}}}
-
-;;{{{ Dealing with fieldCode (transition in process to new way from this way)
-
-;;; The fieldCode is a JSON string. Among other things, it is how Zotero keeps
-;;; track of whether or not the user has editted the automatically formatted
-;;; citation text in the fieldText. When it has been editted, Zotero prompts
-;;; first before overwriting it. By parsing that JSON and accessing that
-;;; information ourself, we can render a red flag when it has been modified, to
-;;; create a visual signal to the user. In order to make that happen, all
-;;; setting and getting of the fieldCode must happen via these functions.
-;;;
-
-;;;REMOVING (define zt-zfield-Code-cache (make-hash-table))
-;;; moved to <zfield-data>:data
-
-;;; XXX Todo
-(define (zt-get-zfield-Code-string field)
-  (let ((id (object->string (zfield-ID field)))
-        (str_code (object->string (zt-zfield-Code field))))
-    ;; So that Document_getFields causes this to happen.
-    ;; (when the document is freshly opened, since these
-    ;; ephemeral data structures are not saved with the document)
-    (when (and (not (hash-ref zt-zfield-Code-cache id #f))
-               (not (and zt-new-fieldID
-                         (string=? zt-new-fieldID id))))
-      (zt-parse-and-cache-zfield-Code field str_code)) ;; <== first...
-    str_code))
-
-;;; Must handle empty string for tm-zotero-Field_delete. Since it does not
-;;; actually delete the tag from the document, it does not need to delete it
-;;; from the cache.
-;;;
-;;; Also: What happens when I manually delete a zcite tag? How do I maintain the
-;;; fieldCode and field positions cache?
-;;;
-;;; It is unlikely that a zcite will be manually deleted during the course of an
-;;; integration command / editor-integration command sequence... Zotero is
-;;; already designed to handle the case where you've manually removed a citation
-;;; field... So these routines simply need to check that the field is really
-;;; there before returning any cached information...
-;;;
-;;; What if I cut and paste a zcite from one location to another, and so the
-;;; cached document position is no longer valid, but the zcite really is still
-;;; in the document? For that case, I must fall back on a search of the document
-;;; tree for a field with the sought-for zfieldID, then update the cache.
-;;;
-(define (zt-set-zfield-Code-from-string field str_code)
-  (let ((code (zt-zfield-Code field))
-        )
-    (zt-parse-and-cache-zfield-Code field str_code)
-    (tree-set! code (stree->tree str_code))))
-    
-
-;;; It goes through here so that this can also be called from the
-;;; Document_getFields...
-;;;
-;;; Also handle empty string for tm-zotero-Field_removeCode.
-;;;
-(define (zt-parse-and-cache-zfield-Code field str_code)
-  (let* ((id (object->string (zfield-ID field)))
-         (code (zt-zfield-Code field))
-         (brace-idx (string-index str_code #\{))
-         (str_json (and brace-idx
-                        (substring str_code brace-idx)))
-         (scm-code (and str_json
-                        (safe-json-string->scm str_json))))
-    (if (and (pair? scm-code)
-             (string? (car scm-code))
-             (>= (string-length (car scm-code)) 4)
-             (string=? (string-take (car scm-code) 4) "ERR:"))
-      (begin
-        (zt-format-error
-         "ERR:zt-parse-and-cache-zfield-Code: Invalid JSON? : ~s\n"
-         (car scm-code))
-        (noop)) ;; silent error?
-      (cond
-       ((or (string=? "" str_code); str_code => ""
-            (not str_code)); str_code => #f
-        (hash-remove! zt-zfield-Code-cache id))
-       (scm-code
-        (hash-set! zt-zfield-Code-cache id scm-code))))))
-
-
-(define (zt-get-zfield-Code-cache-ht-by-fieldID zfieldIDstr)
-  (hash-ref zt-zfield-Code-cache zfieldIDstr #f))
-
-;;(tm-define (zt-get-zfield-Code-cache-
 
 ;;}}}
 
@@ -1430,7 +1240,6 @@
 ;;; and then using the Debug -> Execute -> Evaluate scheme expression... menu to execute:
 ;;; (load-from-path "zotero.scm")
 ;;;
-(eval-when 
 (when (defined? 'tm-zotero-socket-port)
   (close-tm-zotero-socket-port!))       ;; free the IP port for re-use
 
@@ -1680,6 +1489,37 @@
 
 
 ;;;
+;;; info:(guile-1.8) * Hooks. (§ 5.9.6)
+;;;
+(define document-mark-cancel-error-cleanup-hook (make-hook 1))
+
+(define (document-mark-cancel-and-error-cleanup documentID)
+  (let ((mark-nr (get-document-active-mark-nr documentID)))
+    (when mark-nr
+      (mark-cancel mark-nr) ; causes undo to happen
+      (set-document-active-mark-nr! documentID #f)
+      (run-hook document-mark-cancel-error-cleanup-hook documentID))))
+
+
+(define document-mark-end-cleanup-hook (make-hook 1))
+
+(define (document-mark-end-and-cleanup documentID)
+  (let ((mark-nr (get-document-active-mark-nr documentID)))
+    (when mark-nr
+      (mark-end mark-nr) ; causes undo to happen
+      (set-document-active-mark-nr! documentID #f)
+      (run-hook document-mark-end-cleanup-hook documentID))))
+
+;;
+;; add-hook! pushes them onto the front of the hook list unless passed an
+;; optional third argument of #t, in which case it appends the new hook
+;; function to the end of the hook list.
+;;
+(add-hook! document-mark-cancel-error-cleanup-hook
+           cleanup-document-new-zfieldID!)
+
+
+;;;
 ;;; It's sort of a state machine; protocol is essentially synchronous, and user
 ;;; expects to wait while it finishes before doing anything else anyhow.
 ;;;
@@ -1688,13 +1528,16 @@
 ;;; sequence, culminating with Document_complete.
 ;;;
 ;;;
+;;; The document-active-mark-nr must only be set by
+;;; call-zotero-integration-command, and only canceled (undo) or ended (keep) here.
+;;;
 (define (tm-zotero-listen cmd)          ; cmd is only used for system-wait display.
-  (let ((documentID (get-documentID)))
-    (set-document-tm-zotero-active?! documentID #t)
-    (system-wait "Zotero: " cmd)
+  (let* ((documentID (get-documentID))
+         (mark-nr (get-document-active-mark-nr documentID)))
+    (system-wait (string-append "Zotero: " cmd) "Please wait. (tm-zotero-listen)")
     (with (counter wait) '(40 10)
       (delayed
-        (:while (get-document-tm-zotero-active? documentID))
+        (:while (get-document-active-mark-nr documentID))
         (:pause ((lambda () (inexact->exact (round wait)))))
         (:do (set! wait (min (* 1.01 wait) 2500)))
         ;; Only run when data is ready to be read...
@@ -1702,68 +1545,133 @@
           (with (tid len cmdstr) (tm-zotero-read)
             (zt-format-debug "tm-zotero-listen:tid:~s:len:~s:cmdstr:~s\n" tid len cmdstr)
             (if (> len 0)
+                ;; then
                 (with (editCommand args) (safe-json-string->scm cmdstr)
                   (zt-format-debug "~s\n" (list editCommand (cons tid args)))
                   (cond
                     ((and (>= (string-length editCommand) 4)
                           (string=? (string-take editCommand 4) "ERR:"))
+                     ;; editCommand is really an error string.
                      (zt-format-debug "tm-zotero-listen:~s\n" editCommand)
-                     (tm-zotero-write tid editCommand) ;; send the error to Zotero
+                     ;;
+                     ;; Todo: verify that this is correct protocol:
+                     ;;
+                     ;; Send the error (back) to Zotero !!! Huh? It just sent
+                     ;; the error to us. Why send it back? Is this code
+                     ;; incorrect?  Am I supposed to echo the error back to
+                     ;; Zotero???
+                     ;;
+                     ;; Maybe Zotero resends an error after trying the
+                     ;; Document_displayAlert first?
+                     ;;
+                     ;; Leaving it for now.
+                     ;;
+                     (tm-zotero-write tid editCommand)
+                     ;; causes undo to happen
+                     (document-mark-cancel-and-error-cleanup documentID)
+                     ;;
+                     ;; keep listening for Document_displayAlert and
+                     ;; Document_complete.
+                     ;;
                      (set! counter 40)
-                     (set! wait 10)) ;; keep listening
-                    ((string=? editCommand "Document_complete")
+                     (set! wait 10)
+                     wait
+                     )
+                    ((string=? editCommand "Document_complete") ; special case
                      (zt-format-debug "tm-zotero-Document_complete called.\n")
                      (set-message "Zotero: Document complete." "Zotero integration")
                      (system-wait "Zotero: Document complete." "(soon ready)")
                      (tm-zotero-write tid (scm->json-string '()))
-                     ;;(close-tm-zotero-socket-port!)
+                     ;; keep the changes unless already cancelled
+                     (document-mark-end-and-cleanup documentID)
                      (set! wait 0)
-                     (set-document-tm-zotero-active?! documentID #f))
-                    (#t
-                     ;; Todo: This traps the event where there's a syntax or
-                     ;; other error in the zotero.scm program itself, and send
-                     ;; the ERR: message back to Zotero, and set!
-                     ;; tm-zotero-active? #f, etc. in an attempt to make it
-                     ;; more robust, so that Firefox and TeXmacs don't both
-                     ;; have to be restarted when this program doesn't work
-                     ;; right?
-                     ;;
-                     ;; It did not work right. It just sits there and never
-                     ;; prints the backtrace from the error to the terminal the
-                     ;; way I expect, and so I can't debug it. Also, sending
-                     ;; that ERR did not cause Juris-M to put up a dialog or
-                     ;; anything so there's no indication of the error and the
-                     ;; network protocol does not reset to the starting state
-                     ;; anyway. Maybe the error condition needs to be noted and
-                     ;; then handled with the next start of a command, so noted
-                     ;; but tm-zotero-active? left #t until after the error
-                     ;; handling?
-                     ;;
-                     ;; JavaScript error: file:///home/karlheg/.mozilla/firefox/yj3luajv.default/extensions/jurismOpenOfficeIntegration@juris-m.github.io/components/zoteroOpenOfficeIntegration.js, line 323: TypeError: can't access dead object
-                     ;;
-                     (system-wait "Zotero: " editCommand)
-                     ;;(catch #t
-                     ;;(lambda ()
-                     (apply (eval ;; to get the function itself
-                             (string->symbol 
-                              (string-append "tm-zotero-"
-                                             editCommand)))
-                            (cons tid args))
-                     ;;)
-                     ;;(lambda args
-                       ;;(tm-zotero-write tid (scm->json-string "ERR: TODO: Unspecified Error Caught."))
-                       ;;(set! tm-zotero-active? #f)))
-                   (set! counter 40)
-                   (set! wait 10))))
-                (begin
+                     wait
+                     )
+                    (else               ; We have an editCommand to process.
+                      ;;
+                      (system-wait (string-append "Zotero: " editCommand) "Please wait...")
+                      ;;
+                      ;; wrt document-active-mark-nr, it must not be altered
+                      ;; here, since these are the intermediate edit commands
+                      ;; that will culminate with 
+                      ;;
+                      ;; Todo: This traps the event where there's a syntax or
+                      ;;       other error in the zotero.scm program itself,
+                      ;;       and send the ERR: message back to Zotero, and
+                      ;;       set!  tm-zotero-active? #f, etc. in an attempt
+                      ;;       to make it more robust, so that Firefox and
+                      ;;       TeXmacs don't both have to be restarted when
+                      ;;       this program doesn't work right?
+                      ;;
+                      ;; It did not work right. It just sits there and never
+                      ;; prints the backtrace from the error to the terminal
+                      ;; the way I expect, and so I can't debug it. Also,
+                      ;; sending that ERR did not cause Juris-M to put up a
+                      ;; dialog or anything so there's no indication of the
+                      ;; error and the network protocol does not reset to the
+                      ;; starting state anyway. Maybe the error condition needs
+                      ;; to be noted and then handled with the next start of a
+                      ;; command, so noted but tm-zotero-active? left #t until
+                      ;; after the error handling?
+                      ;;
+                      ;; JavaScript error: file:///home/karlheg/.mozilla/firefox/yj3luajv.default/extensions/jurismOpenOfficeIntegration@juris-m.github.io/components/zoteroOpenOfficeIntegration.js, line 323: TypeError: can't access dead object
+                      ;;
+                      ;;(catch #t
+                      ;;  (lambda ()
+                      (apply (eval ;; to get the function itself
+                              (string->symbol (string-append "tm-zotero-" editCommand)))
+                             (cons tid args))
+                      ;;  )
+                      ;;  (lambda args
+                      ;;    (tm-zotero-write tid (scm->json-string "ERR: TODO: Unspecified Error Caught."))
+                      ;;    ...))
+                      (set! counter 40)
+                      (set! wait 10)
+                      wait)))
+                (begin ;; else (<= len 0) signals an error
+                  ;;
                   ;; Sometimes when Firefox is stopped in the middle of it,
                   ;; char-ready? returns #t but tm-zotero-read does not read
                   ;; anything... Perhaps look for eof-object?
+                  ;;
                   (set! counter (- counter 1))
                   (when (<= counter 0)
+                    ;; causes undo to happen
+                    (document-mark-cancel-and-error-cleanup documentID)
                     (close-tm-zotero-socket-port!)
-                    (set! wait 0) 
-                    (set-document-tm-zotero-active?! documentID #f))))))))))
+                    (set! wait 0)
+                    wait)))))))))
+
+          ;; (begin ; then successful modification, so keep it.
+          ;;         #t) 
+          ;;       (begin ; else
+          ;;         ;;
+          ;;         ;; The problem here is that call-zotero-integration-command
+          ;;         ;; is going to call tm-zotero-listen, which is going to
+          ;;         ;; return immediately, since most of tm-zotero-listen runs
+          ;;         ;; inside a "delay" form, thus, gives up control to the main
+          ;;         ;; GUI event loop, which eventually runs the "delay" job
+          ;;         ;; queue...
+          ;;         ;;
+          ;;         ;; So if the integration command sequence is not ultimately
+          ;;         ;; successful, in order to have the try-modification here do
+          ;;         ;; the right thing---undo the tentative insertion of a zfield
+          ;;         ;; when the TeXmacs<-->Zotero interaction is not successfully
+          ;;         ;; completed---I think I'd need to pass a continuation
+          ;;         ;; through call-zotero-integration-command then through
+          ;;         ;; tm-zotero-listen, and use some kind of dynamic-wind thing
+          ;;         ;; here that I'm not very familiar with using yet... so that
+          ;;         ;; it can return here to do this error cleanup.
+          ;;         ;;
+          ;;         ;; ... and I'm unsure whether TeXmacs can deal with if I do
+          ;;         ;; that. Can I use a continuation? Is that too "heavy" since
+          ;;         ;; it copies the C stack? Any ideas?
+          ;;         ;;
+          ;;         ;; Clear the new-zfieldID
+          ;;         (set-document-new-zfieldID! documentID #f)
+          ;;         ;; Clear the <zfield-data> for it.
+          ;;         (hash-set! (get-document-zfield-ht documentID) new-zfieldID #f)
+          ;;         #f))))))) ; unsuccessful modification, so undo it.
 
 ;;}}}
 
@@ -1778,11 +1686,16 @@
 ;;;
 (define (call-zotero-integration-command cmd)
   (let ((documentID (get-documentID)))
-    (when (not (get-document-tm-zotero-active? documentID)) ;; one at a time only
+    (when (not (get-document-active-mark-nr documentID)) ;; one at a time only
       (set-message (string-append "Calling Zotero integration command: " cmd)
                    "Zotero Integration")
-      (system-wait (string-append "Calling Zotero integration command: " cmd) "")
-      (let ((zp (get-tm-zotero-socket-port)))
+      (system-wait (string-append "Calling Zotero integration command: " cmd)
+                   "Please wait.")
+      (let ((zp (get-tm-zotero-socket-port))
+            (mark-nr (mark-new)))       ; for "atomic undo" on failure
+        (set-document-active-mark-nr! documentID mark-nr)
+        (mark-start mark-nr)
+        (archive-state)
         (if (and (port? zp)
                  (catch 'system-error
                    (lambda ()
@@ -1799,70 +1712,23 @@
 
 
 (define (tm-zotero-add str-kind)
-  (if (not (or (== str-kind "citation")
-               (== str-kind "bibliography")))
-      ;; then
-      (begin
-        (texmacs-error "tm-zotero-add" "unknown kind ~S" str-kind)
-        #f)
-      ;; else
-      (let* ((documentID (get-documentID))
-             (new-zfieldID (get-document-new-zfieldID documentID)))
-        (unless new-zfieldID ;; one at a time only
-          (try-modification
-            (if (and (insert-new-zfield 'zcite "{Citation}")
-                     (call-zotero-integration-command "addCitation"))
-                (begin ; then successful modification, so keep it.
-                  #t) 
-                (begin ; else
-                  ;;
-                  ;; The problem here is that call-zotero-integration-command
-                  ;; is going to call tm-zotero-listen, which is going to
-                  ;; return immediately, since most of tm-zotero-listen runs
-                  ;; inside a "delay" form, thus, gives up control to the main
-                  ;; GUI event loop, which eventually runs the "delay" job
-                  ;; queue...
-                  ;;
-                  ;; So if the integration command sequence is not ultimately
-                  ;; successful, in order to have the try-modification here do
-                  ;; the right thing---undo the tentative insertion of a zfield
-                  ;; when the TeXmacs<-->Zotero interaction is not successfully
-                  ;; completed---I think I'd need to pass a continuation
-                  ;; through call-zotero-integration-command then through
-                  ;; tm-zotero-listen, and use some kind of dynamic-wind thing
-                  ;; here that I'm not very familiar with using yet... so that
-                  ;; it can return here to do this error cleanup.
-                  ;;
-                  ;; ... and I'm unsure whether TeXmacs can deal with if I do
-                  ;; that. Can I use a continuation? Is that too "heavy" since
-                  ;; it copies the C stack? Any ideas?
-                  ;;
-                  ;; Clear the new-zfieldID
-                  (set-document-new-zfieldID! documentID #f)
-                  ;; Clear the <zfield-data> for it.
-                  (hash-set! (get-document-zfield-ht documentID) new-zfieldID #f)
-                  #f))))))) ; unsuccessful modification, so undo it.
+  (let* ((documentID (get-documentID))
+         (new-zfieldID (get-document-new-zfieldID documentID)))
+    (unless new-zfieldID                ; one at a time only
+      (cond
+        ((== str-kind "citation")
+         (insert-new-zfield 'zcite "{Citation}")
+         (call-zotero-integration-command "addCitation"))
+        ((== str-kind "bibliography")
+         (insert-new-zfield 'zbibliography "{Bibliography}")
+         (call-zotero-integration-command "addBibliography"))))))
 
 
 
 ;;; ---------
 
 (define (tm-zotero-addCitation)
-  (let* ((documentID (get-documentID))
-         (new-zfieldID (get-document-new-zfieldID documentID)))
-  (unless new-zfieldID ;; one at a time only
-    (try-modification
-      (if (and (insert-new-zfield 'zcite "{Citation}")
-               (call-zotero-integration-command "addCitation"))
-          (begin ; then
-            #t)  ; successful modification, so keep it.
-          (begin ; else
-            ;; Clear the new-zfieldID
-            (set-document-new-zfieldID! documentID #f)
-            ;; Clear the <zfield-data> for it.
-            (hash-set! (get-document-zfield-ht documentID) new-zfieldID #f)
-            #f))))) ; unsuccessful modification, so undo it.
-                
+  (tm-zotero-add "citation"))
 
 (define (tm-zotero-editCitation)
   (call-zotero-integration-command "editCitation"))
@@ -1870,16 +1736,7 @@
 ;;; ---------
 
 (define (tm-zotero-addBibliography)
-  (unless zt-new-fieldID ;; one at a time only
-    (try-modification
-      ;; It is what Zotero expects. I'd expect to put {Bibliography} there.
-      (if (and (insert-new-zfield 'zbibliography "{Bibliography}")
-               (call-zotero-integration-command "addBibliography"))
-          #t
-          (begin
-            (set! zt-new-fieldID #f)
-            #f)))))
-
+  (tm-zotero-add "bibliography"))
 
 (define (tm-zotero-editBibliography)
   (call-zotero-integration-command "editBibliography"))
@@ -1921,10 +1778,13 @@
        (zt-ztbibItemRefs-parse-all))
      (unless (== what "bibliography")
        (former what)))))
+
 ;;}}}
 
 ;;{{{ Keyboard event handling (overloads to maintain <document-data>)
 
+;;{{{ notifiy-activated, notify-disactivated
+;;;
 ;;; The definition of "latex" style command shortcuts for "\zcite" (aliased
 ;;; also as "\zc") makes it easy to enter them with the keyboard only, not
 ;;; needing the menu. But when you kill and yank zcite fields, it does not
@@ -1999,28 +1859,9 @@
     ;;
     (hash-remove! zt-zfield-modified?-cache zfieldID)))
 
+;;}}}
 
-
-;;; Todo: I want to be able to easily split a citation cluster.
-;;;
-;;; Use case: A citation cluster with two or three citations in it, but then I
-;;;           decide that I want to split them into two clusters, one for the
-;;;           first citation, and another for the remaining two, so that I can
-;;;           write a sentence or two in between them.
-;;;
-;;; So disactivate the tag, then inside of there, a keybinding can automate it,
-;;; perhaps when the cursor is on the semicolon between two of them or
-;;; something like that. Inside of the zfield-Code's JSON is the information
-;;; that Zotero's integration.js is going to look at when it retrieves it prior
-;;; to presenting the dialog for editCitation. So, instead of copy + paste of
-;;; the original citation in order to duplicate it, followed by editCitation of
-;;; each, to delete the last two of them from the first cluster, and the first
-;;; citation from the second one... I would put my cursor on the semicolon
-;;; between the first two citations, and then push the keybinding or call the
-;;; menu item that automatically splits it.
-
-
-;;; Todo: I think it is spending too much time searching the document for zcite
+;;{{{ Todo: (underway) I think it is spending too much time searching the document for zcite
 ;;;       tags. It does a lot of redundant traversal of the document tree that
 ;;;       can potentially be eliminated by maintaining a data structure
 ;;;       containing positions (really observers). Positions move automatically
@@ -2045,10 +1886,28 @@
 ;;;         will be faster than the rb-tree anyway... so I'll just use a flat
 ;;;         list and `merge!' to insert, and `list-filter' to remove. After the
 ;;;         Guile 2.n port, perhaps an rb-tree can be used instead.
+;;}}}
 
+;;{{{ Todo: I want to be able to easily split a citation cluster.
+;;;
+;;; Use case: A citation cluster with two or three citations in it, but then I
+;;;           decide that I want to split them into two clusters, one for the
+;;;           first citation, and another for the remaining two, so that I can
+;;;           write a sentence or two in between them.
+;;;
+;;; So disactivate the tag, then inside of there, a keybinding can automate it,
+;;; perhaps when the cursor is on the semicolon between two of them or
+;;; something like that. Inside of the zfield-Code's JSON is the information
+;;; that Zotero's integration.js is going to look at when it retrieves it prior
+;;; to presenting the dialog for editCitation. So, instead of copy + paste of
+;;; the original citation in order to duplicate it, followed by editCitation of
+;;; each, to delete the last two of them from the first cluster, and the first
+;;; citation from the second one... I would put my cursor on the semicolon
+;;; between the first two citations, and then push the keybinding or call the
+;;; menu item that automatically splits it.
+;;}}}
 
-
-;;; Todo: I want to observe the cut or paste of trees that contain zcite or
+;;{{{ Todo: I want to observe the cut or paste of trees that contain zcite or
 ;;;       zbibliography sub-trees...
 ;;;
 ;;; This is a prerequisite for being able to maintain an rb-tree of document
@@ -2152,12 +2011,14 @@
 ;;                    (null? zt-zfield-list))))
 ;;   (zt-init-zfield-list)
 ;;   (former event t mod))
+;;}}}
 
-
+;;{{{   Result of above Todo R&D:
+;;;
 ;;; Let's try using key-events instead, to avoid what I think will be a lot of
 ;;; overhead with lots of calls to the buffer-notify, like for every
 ;;; keypush. Instead, a key-bound function happens only on the event of that
-;;; key being pushed...
+;;; key being pushed... Lazy lazy lazy.
 ;;;
 ;;; generic/generic-kbd.scm has kbd-map definitions in it. After some
 ;;; exploration, I see that the functions that I'll need to overload for sure
@@ -2204,9 +2065,13 @@
 
 ;;; Also: db-edit.scm, at structured-remove-horizontal
 ;;; selections.scm
+;;}}}
 
-;;; clipboard-cut and clipboard-paste are overloaded in fold-edit.scm.
-
+;;{{{ clipboard-cut, clipboard-paste
+;;;
+;;; Examples of how clipboard-cut and clipboard-paste can be overloaded are in
+;;; fold-edit.scm.
+;;;
 
 (tm-define (clipboard-cut which)
   (:require (and (in-tm-zotero-style?)
@@ -2237,22 +2102,26 @@
 
 ;;}}}
 
+;;}}}
+
 ;;{{{ Preferences and Settings (with-like, global, document-wide)
 ;;;
-;;; Todo: Invent a good naming convention for the below preferences and
-;;; settings... There must be a differentiation between editor-wide
-;;; preferences, document-wide ones, and ones that have either an explicit or
-;;; implicit document-wide default that can be overrided locally by using a
-;;; with-wrapper. Further, there are some that are not to be exposed to the end
-;;; user, and others that are.
+;;{{{ Todo: Invent a good naming convention for the below preferences and
+;;;         settings... There must be a differentiation between editor-wide
+;;;         preferences, document-wide ones, and ones that have either an
+;;;         explicit or implicit document-wide default that can be overrided
+;;;         locally by using a with-wrapper. Further, there are some that are
+;;;         not to be exposed to the end user, and others that are.
 ;;;
 ;;;  Idea: Make ones that are to be hidden have a special naming convention to
-;;;  make it easier to implement the below functions which are used to
-;;;  determine what to show in the toolbar menus.
-;;;
-;;; Todo: See (utils base environment), extend that logic-table with the ones
-;;; for this? Can those be contextually overloaded? I guess it doesn't
-;;; matter. It's just a variable identifier to description string mapping.
+;;;        make it easier to implement the below functions which are used to
+;;;        determine what to show in the toolbar menus.
+;;}}}
+;;{{{ Todo: See (utils base environment), extend that logic-table with the ones
+;;;         for this? Can those be contextually overloaded? I guess it doesn't
+;;;         matter. It's just a variable identifier to description string
+;;;         mapping.
+;;}}}
 ;;;
 ;;; Some CSL styles define in-text citations, and others define note style ones
 ;;; that create either a footnote or an endnote, depending on which of those
@@ -3918,10 +3787,214 @@ styles."
 
 ;;}}}
 
+
+
+;;{{{ Comment regarding tm-select vs tm-search
+;;;
+;;; I wanted to try and use the tm-select functionality to accomplish this, but
+;;; found that it does not return the list in document-order!
+;;;
+;;; Scheme]  (define the-zfields-by-select (select (buffer-tree) '(:* (:or
+;;; zcite zbibliography))))
+;;;
+;;; Scheme]  (map (lambda (t) (list (tree-label t) (tree->string (zfield-ID
+;;; t)))) the-zfields-by-select)
+;;;
+;;; ((zcite "+GHqJJmyDQVHhaO") (zcite "+28SL8xD6MxDCZI") (zcite
+;;; "+JGeR0gQNwL2AKU") (zbibliography "+hoOIoDn3p6FB0H") (zcite
+;;; "+6jApItmTysx1SJ") (zcite "+hoOIoDn3p6FB0G") (zcite "+JGeR0gQNwL2AKT")
+;;; (zcite "+KUpBSz33QCflpE") (zcite "+KUpBSz33QCflpD") (zcite
+;;; "+KUpBSz33QCflpC") (zcite "+KUpBSz33QCflpB") (zcite "+hoOIoDn3p6FB0J")
+;;; (zcite "+hoOIoDn3p6FB0I"))
+;;;
+;;; Scheme]  (define the-zfields-by-tm-search (zt-get-zfields-list
+;;; (get-documentID) "ReferenceMark"))
+;;;
+;;; Scheme]  (map (lambda (t) (list (tree-label t) (tree->string (zfield-ID
+;;; t)))) the-zfields-by-tm-search)
+;;;
+;;; ((zcite "+6jApItmTysx1SJ") (zcite "+hoOIoDn3p6FB0G") (zcite
+;;; "+JGeR0gQNwL2AKT") (zcite "+GHqJJmyDQVHhaO") (zcite "+KUpBSz33QCflpE")
+;;; (zcite "+KUpBSz33QCflpD") (zcite "+28SL8xD6MxDCZI") (zcite
+;;; "+KUpBSz33QCflpC") (zcite "+KUpBSz33QCflpB") (zcite "+hoOIoDn3p6FB0I")
+;;; (zcite "+hoOIoDn3p6FB0J") (zcite "+JGeR0gQNwL2AKU") (zbibliography
+;;; "+hoOIoDn3p6FB0H"))
+;;;
+;;;
+;;}}}
+
+;;{{{ Is this code still needed for other than reference during transition?
+
+;;;
+;;; I changed the below to "subtree" when I also added
+;;; shown-buffer-body-paragraphs. I think that the functions that the menus
+;;; call when you change the buffer-part-mode are tm-define ones and so can be
+;;; contextually overloaded within this program, calling 
+;;;
+
+;;;
+;;; Is this still needed to initialize the <document-data> when the document is
+;;; first opened? I think this is what I was working to replace, so this will
+;;; probably go away soon.
+;;; 
+(define (zt-zfield-search subtree)
+  (let ((zt-new-fieldID (get-document-new-fieldID (get-documentID))))
+    (tm-search
+     subtree
+     (lambda (t)
+       (and (tree-in? t zfield-tags)
+            (not
+             (and zt-new-fieldID
+                  (string=? zt-new-fieldID
+                            (get-zfield-zfieldID t)))))))))
+
+;;; Was: (tm-define (zt-get-zfields-list documentID fieldType)
+;;;
+;;; Maybe ensure active document is documentID? For now assume it is.
+;;; Also for now assume fieldType is always "ReferenceMark", so ignore it.
+;;;
+;;; WIP: Nothing calls this yet... is it needed? (and it's not fixed up for new
+;;; changes yet anyway...)
+;;;
+(define (init-document-zfields-list documentID)
+  ;;
+  ;; Maybe ensure active document is documentID? For now assume it is.
+  ;;
+  ;; Q: What about "save-excursion" or "save-buffer-excursion"?
+  ;; A: This is searching the document tree, not moving the cursor.
+  ;;
+  ;; Todo: What if I copy and paste a zcite from one location to another? The
+  ;; zfield-ID of the second one will need to be updated...
+  ;; (WIP: See: buffer-notify)
+  ;;
+  (let* ((fields-tmp-ht (make-hash-table))
+         (l (shown-buffer-body-paragraphs))
+         (all-fields (append-map zt-zfield-search l)))
+      (set! zt-zfield-Code-cache (make-hash-table))
+      (let loop ((in all-fields)
+                 (out '()))
+        (cond
+          ((null? in)
+           (hash-for-each (lambda (key val)
+                            (when (not (hash-ref fields-tmp-ht key #f))
+                              (hash-remove! zt-zfield-Code-cache key)))
+                          zt-zfield-Code-cache)
+           (reverse! out))
+          (else
+            ;; fixup in case of copy + paste of zcite by tracking each ID and when one
+            ;; is seen twice, change the second one.
+            (let ((id-t (zfield-ID (car in)))
+                  (new-id ""))
+              (if (hash-ref fields-tmp-ht (object->string id-t) #f)
+                  (begin
+                    (set! new-id (get-new-fieldID))
+                    (tree-set! id-t (stree->tree new-id))
+                    (hash-set! fields-tmp-ht new-id #t)
+                    (zt-get-zfield-Code-string (car in)));; caches zfield-Code
+                  (hash-set! fields-tmp-ht (object->string id-t) #t))
+              (loop (cdr in) (cons
+                              (begin
+                                (zt-get-zfield-Code-string (car in));; caches zfield-Code
+                                (car in))
+                              out))))))))
+
+;;}}}
+
+;;{{{ Dealing with fieldCode (transition in process to new way from this way)
+
+;;; The fieldCode is a JSON string. Among other things, it is how Zotero keeps
+;;; track of whether or not the user has editted the automatically formatted
+;;; citation text in the fieldText. When it has been editted, Zotero prompts
+;;; first before overwriting it. By parsing that JSON and accessing that
+;;; information ourself, we can render a red flag when it has been modified, to
+;;; create a visual signal to the user. In order to make that happen, all
+;;; setting and getting of the fieldCode must happen via these functions.
+;;;
+
+;;;REMOVING (define zt-zfield-Code-cache (make-hash-table))
+;;; moved to <zfield-data>:data
+
+;;; XXX Todo
+(define (zt-get-zfield-Code-string field)
+  (let ((id (object->string (zfield-ID field)))
+        (str_code (object->string (zt-zfield-Code field))))
+    ;; So that Document_getFields causes this to happen.
+    ;; (when the document is freshly opened, since these
+    ;; ephemeral data structures are not saved with the document)
+    (when (and (not (hash-ref zt-zfield-Code-cache id #f))
+               (not (and zt-new-fieldID
+                         (string=? zt-new-fieldID id))))
+      (zt-parse-and-cache-zfield-Code field str_code)) ;; <== first...
+    str_code))
+
+;;; Must handle empty string for tm-zotero-Field_delete. Since it does not
+;;; actually delete the tag from the document, it does not need to delete it
+;;; from the cache.
+;;;
+;;; Also: What happens when I manually delete a zcite tag? How do I maintain the
+;;; fieldCode and field positions cache?
+;;;
+;;; It is unlikely that a zcite will be manually deleted during the course of an
+;;; integration command / editor-integration command sequence... Zotero is
+;;; already designed to handle the case where you've manually removed a citation
+;;; field... So these routines simply need to check that the field is really
+;;; there before returning any cached information...
+;;;
+;;; What if I cut and paste a zcite from one location to another, and so the
+;;; cached document position is no longer valid, but the zcite really is still
+;;; in the document? For that case, I must fall back on a search of the document
+;;; tree for a field with the sought-for zfieldID, then update the cache.
+;;;
+(define (zt-set-zfield-Code-from-string field str_code)
+  (let ((code (zt-zfield-Code field))
+        )
+    (zt-parse-and-cache-zfield-Code field str_code)
+    (tree-set! code (stree->tree str_code))))
+    
+
+;;; It goes through here so that this can also be called from the
+;;; Document_getFields...
+;;;
+;;; Also handle empty string for tm-zotero-Field_removeCode.
+;;;
+(define (zt-parse-and-cache-zfield-Code field str_code)
+  (let* ((id (object->string (zfield-ID field)))
+         (code (zt-zfield-Code field))
+         (brace-idx (string-index str_code #\{))
+         (str_json (and brace-idx
+                        (substring str_code brace-idx)))
+         (scm-code (and str_json
+                        (safe-json-string->scm str_json))))
+    (if (and (pair? scm-code)
+             (string? (car scm-code))
+             (>= (string-length (car scm-code)) 4)
+             (string=? (string-take (car scm-code) 4) "ERR:"))
+      (begin
+        (zt-format-error
+         "ERR:zt-parse-and-cache-zfield-Code: Invalid JSON? : ~s\n"
+         (car scm-code))
+        (noop)) ;; silent error?
+      (cond
+       ((or (string=? "" str_code); str_code => ""
+            (not str_code)); str_code => #f
+        (hash-remove! zt-zfield-Code-cache id))
+       (scm-code
+        (hash-set! zt-zfield-Code-cache id scm-code))))))
+
+
+(define (zt-get-zfield-Code-cache-ht-by-fieldID zfieldIDstr)
+  (hash-ref zt-zfield-Code-cache zfieldIDstr #f))
+
+;;(tm-define (zt-get-zfield-Code-cache-
+
+;;}}}
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Local Variables:
 ;;; fill-column: 79
 ;;; truncate-lines: t
 ;;; folded-file: t
 ;;; End:
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
