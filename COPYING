@@ -1,10 +1,11 @@
 Zotero TeXmacs Integration, derived from Zotero OpenOffice Integration
-by Karl M. Hegbloom <karl.hegbloom@gmail.com>, 2016. This program
-shares the licences of Zotero and TeXmacs.
+by Karl M. Hegbloom <karl.hegbloom@gmail.com>, 2016, 2017. This program
+shares the GPL 3 licences of Zotero and TeXmacs.
+
 
 =========================================================================
 
-Zotero is Copyright © 2006, 2007, 2008, 2009, 2010, 2011
+Zotero is Copyright © 2006, 2007, 2008, 2009, 2010, 2011, ...
 Center for History and New Media, George Mason University,
 Fairfax, Virginia, USA  http://zotero.org
 
@@ -24,8 +25,8 @@ All rights not expressly granted are reserved.
 
 
              GNU TeXmacs: a WYSIWIG technical editor
-         ----------------------------------------------
-            Copyright (C) 1998  Joris van der Hoeven
+       --------------------------------------------------
+          Copyright (C) 1998, ...  Joris van der Hoeven
 
        GNU General Public Licence Version 3, 29 June 2007
 

@@ -211,7 +211,7 @@
 
   <assign|ztDefaultCiteURL|>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<zt-has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
@@ -223,9 +223,6 @@
       override per zcite.
     </src-comment>
   </active*>
-
-  <assign|XXXzt-flag-modified|<macro|fieldID|<extern|(lambda (id)
-  (zt-ext-flag-if-modified id))|<arg|fieldID>>>>
 
   <assign|zt-zciteID|0>
 
@@ -253,7 +250,7 @@
   </active*>
 
   <assign|ztShowID|<macro|node|cslid|body|<extern|(lambda (node cslid body)
-  (zt-ext-ztShowID id))|<arg|node>|<arg|cslid>|<arg|body>>>>
+  (tm-zotero-ext:ztShowID node cslid body))|<arg|node>|<arg|cslid>|<arg|body>>>>
 
   <\active*>
     <\src-comment>
@@ -279,7 +276,7 @@
   </active*>
 
   <assign|zbibCitationItemID|<macro|itemID|<extern|(lambda (itemID)
-  (zt-ext-zbibCitationItemID itemID))|<arg|itemID>>>>
+  (tm-zotero-ext:zbibCitationItemID itemID))|<arg|itemID>>>>
 
   <\active*>
     <\src-comment>
@@ -348,13 +345,13 @@
   \;
 
   <assign|zt-render-bibItemRefsList|<macro|sysID|<extern|(lambda (sysID)
-  (zt-ext-ztbibItemRefsList sysID))|<arg|sysID>>>>
+  (tm-zotero-ext:ztbibItemRefsList sysID))|<arg|sysID>>>>
 
   <assign|ztbibItemRefsList|<macro|sysID|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<zt-render-bibItemRefsList|<arg|sysID>>>>>>
 
   \;
 
-  <assign|ztbibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
+  <assign|ztbibitem|<macro|key|<extern|(lambda (key) (tm-zotero-ext:bibitem
   key))|<arg|key>>>>
 
   \;
@@ -380,13 +377,23 @@
       in-text without it forcing itself to be on it's own line. When I was
       trying to use a converter from rtf to TeXmacs, they kept coming out as
       blocks rather than in-line.
+
+      tm-zotero-ensure-zfield-interned! triggers adding of the zfield to the
+      tm-zotero data structures used to keep track of zfields in the buffer
+      and the information needed for the integration with Juris-M or Zotero.
+      This macro is not meant to be used outside of the expansion of the
+      zcite or zbibliography macros.
     </src-comment>
   </active*>
+
+  <assign|tm-zotero-ensure-zfield-interned!|<macro|fieldID|<extern|(lambda
+  (fieldID-t) (tm-zotero-ext:ensure-zfield-interned!
+  fieldID-t))|<arg|fieldID>>>>
 
   <assign|zcite-flag-if-modified|<macro|fieldCode|<case|<look-up|<arg|fieldCode>|2>|<flag|Modified|red>|<flag|Not
   Modified|green>>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>><zcite-flag-if-modified|<arg|fieldCode>>>>>
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>><zcite-flag-if-modified|<arg|fieldCode>>>>>
 
   <drd-props|render-zcite|accessible|1>
 
@@ -408,7 +415,7 @@
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
-      <principal-section*|<bibliography-text>>
+      <tm-zotero-ensure-zfield-interned!|<arg|fieldID>><principal-section*|<bibliography-text>>
 
       <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|<arg|fieldText>>
     </surround>
@@ -418,8 +425,35 @@
 
   \;
 
-  <assign|zt-has-zbibliography?|<macro|<extern|(lambda ()
-  (zt-ext-document-has-zbibliography?))>>>
+  <assign|has-zbibliography?|<macro|<extern|(lambda ()
+  (tm-zotero-ext:document-has-zbibliography?))>>>
+
+  \;
+
+  <assign|inside-footnote?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-footnote? t))|<arg|t>>>>
+
+  <assign|inside-endnote?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-endnote? t))|<arg|t>>>>
+
+  <assign|inside-note?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-note? t))|<arg|t>>>>
+
+  <assign|inside-zcite?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-zcite? t))|<arg|t>>>>
+
+  <assign|inside-zbibliography?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-zbibliography? t))|<arg|t>>>>
+
+  <assign|not-inside-zbibliography?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:not-inside-zbibliography? t))|<arg|t>>>>
+
+  <assign|inside-zfield?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-zfield? t))|<arg|t>>>>
+
+  \;
+
+  \;
 
   \;
 </body>
