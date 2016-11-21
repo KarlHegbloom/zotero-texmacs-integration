@@ -2,23 +2,27 @@ Zotero - TeXmacs integration plugin and citation styles.
 ========================================================
 
 This is the "Work in progress" branch for performance
-improvements... It is temporary and will merge to master when it's
-working. It's almost ready! It inserts citations and bibliographies
-again and the lazy interning of the zfield data is working very
-well... I still need to work on clipboard-cut, clipboard-paste, and
-the references list after the bibliography entries needs to be redone.
+improvements... It is temporary and will be merged into master when
+it's working.
 
-Important Changes for this branch:
+**It's almost ready!** It inserts citations and bibliographies again
+and the lazy interning of the zfield data is working very well... I
+still need to work on clipboard-cut, clipboard-paste, and the
+references list after the bibliography entries needs to be redone.
+
+## Important Changes for this branch: ##
 
 Assuming you have this repository cloned and this branch checked out
-as ~/src/Juris-M/zotero-texmacs-integration then:
+as `~/src/Juris-M/zotero-texmacs-integration` then:
 
-cd ~/.TeXmacs/plugins
-rm zotero
-ln -s ~/src/Juris-M/zotero-texmacs-integration tm-zotero
-ln -s ~/src/Juris-M/zotero-texmacs-integration legal-brief
+    cd ~/.TeXmacs/plugins
+    rm zotero
+    ln -s ~/src/Juris-M/zotero-texmacs-integration tm-zotero
+    ln -s ~/src/Juris-M/zotero-texmacs-integration legal-brief
 
 The reason is that I've changed some file names and some module names.
+
+**Yes, after it's all working again, I'll update the documentation!**
 
 
 NEWS
