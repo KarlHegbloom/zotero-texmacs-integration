@@ -16,13 +16,22 @@
 
 (kbd-commands
   ("zc" "Insert Zotero Citation"
-   (when (in-tm-zotero-style?) (tm-zotero-addCitation)))
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addCitation)))
   ("zcite" "Insert Zotero Citation"
-   (when (in-tm-zotero-style?) (tm-zotero-addCitation)))
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addCitation)))
   ("zb" "Insert Zotero Bibliography"
-   (when (in-tm-zotero-style?) (tm-zotero-addBibliography)))
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addBibliography)))
   ("zbibliography" "Insert Zotero Bibliography"
-   (when (in-tm-zotero-style?) (tm-zotero-addBibliography))))
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addBibliography))))
+
 
 (kbd-map
  (:mode in-tm-zotero-style?)
@@ -51,11 +60,11 @@
 
 
 (tm-define (kbd-tab)
-  (:require (and (in-zcite?)
+  (:require (and (focus-is-zcite?)
                  (not (in-source?))))
   (tm-zotero-editCitation))
 
 (tm-define (kbd-tab)
-  (:require (and (in-zbibliography?)
+  (:require (and (focus-is-zbibliography?)
                  (not (in-source?))))
   (tm-zotero-editBibliography))

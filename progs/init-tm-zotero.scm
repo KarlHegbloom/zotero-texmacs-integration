@@ -14,6 +14,7 @@
 (plugin-configure tm-zotero
   (:require #t))
 
+
 ;; The tm-zotero.ts will load the tm-zotero.scm module, so simply adding it to
 ;; your document as a style package will cause the Zotero menu to appear, etc.
 ;;
@@ -23,7 +24,7 @@
     (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
     (focus-is-zcite% (tree-is? (focus-tree) 'zcite) in-tm-zotero-style%)
     (focus-is-zbibliography% (tree-is? (focus-tree) 'zbibliography) in-tm-zotero-style%)
-    (focus-is-zfield% (or (in-zcite?) (in-zbibliography?)))
+    (focus-is-zfield% (or (focus-is-zcite?) (focus-is-zbibliography?)))
     (focus-is-ztHref% (tree-is? (focus-tree) 'ztHref) in-tm-zotero-style%))
   (lazy-keyboard (tm-zotero-kbd) in-tm-zotero-style?)
   (lazy-menu (tm-zotero-menu) in-tm-zotero-style?)

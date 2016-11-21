@@ -393,7 +393,7 @@
   <assign|zcite-flag-if-modified|<macro|fieldCode|<case|<look-up|<arg|fieldCode>|2>|<flag|Modified|red>|<flag|Not
   Modified|green>>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>><zcite-flag-if-modified|<arg|fieldCode>>>>>
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>
 
   <drd-props|render-zcite|accessible|1>
 
