@@ -22,6 +22,14 @@ as `~/src/Juris-M/zotero-texmacs-integration` then:
 
 The reason is that I've changed some file names and some module names.
 
+Do not open your important "production" documents with this version
+yet! It will modify the <zcite> tags in place to update them to the
+new version and I have not incorporated that into the master branch so
+opening the document then saving it will make it not work anymore in
+the other branch of this program. Use save-as immediately, or better,
+make a copy of the file first and then use it for experimentation only
+until this is nailed down well enough to not blow away your documents.
+
 **Yes, after it's all working again, I'll update the documentation!**
 
 
