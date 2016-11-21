@@ -9,7 +9,7 @@
 ;;; later. It comes WITHOUT ANY WARRANTY WHATSOEVER. For details, see the file
 ;;; LICENSE in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>
 ;;}}}
-;;;;
+;;;;;;
 
 ;;{{{ Module definition and uses
 
@@ -236,6 +236,7 @@
 ;;;
 ;;;   symbol with suffix -t means texmacs tree.
 ;;;
+;;;;;;
 
 ;;{{{ Misc. functions used within this program
 
@@ -388,9 +389,10 @@
 
 ;;}}}
 
-;;{{{ General category overloaded; update-document
+;;{{{ General category overloaded; update-document, To do: document-parts-mode
 
-;;; Todo: See  update-document  at generic/document-edit.scm:341
+;;;
+;;; To do: See update-document at generic/document-edit.scm:341
 ;;;
 ;;; Maybe this should only happen from the Zotero menu?
 ;;;
@@ -404,6 +406,12 @@
        (zotero-refresh))
      (unless (== what "bibliography")
        (former what)))))
+
+;;;
+;;; To do: When the document-part-mode changes, the entire <document-data> must
+;;;        be cleared so that the lazy internment during typesetting thing can
+;;;        start fresh with only the visible parts of the document.
+;;;
 
 ;;}}}
 
@@ -864,8 +872,10 @@
 ;;; AFAIK the only pref that this program needs access to is noteType, and that
 ;;; access is read-only. The noteType is a document-wide setting, since it goes
 ;;; with the CSL stylesheet chosen. But it is also passed to
-;;; Document_insertField, Document_convert (?), and Field_convert, so really
-;;; it could be a per-field setting. I choose to make it document-wide.
+;;; Document_insertField, Document_convert (?), and Field_convert, so really it
+;;; could be a per-field setting...? I choose to make it document-wide. I
+;;; suspect that the reason it's like that is that the protocol is only evolved
+;;; to it's version 3 form...
 ;;;
 ;;; enum noteType
 ;;;
@@ -873,29 +883,55 @@
 (define-public zotero-NOTE_FOOTNOTE 1)
 (define-public zotero-NOTE_ENDNOTE  2)
 
+;;;;;;
 ;;;
 ;;; The rest of the DocumentData settings are "opaque" from the viewpoint of
 ;;; this interface. They control Zotero, not TeXmacs.
 ;;;
+;;; The DocumentData is meant to be saved with the document, and so it is
+;;; stored inside the document's initial variable value resolution environment.
+;;;
 ;;; All of them are set via the zotero controlled dialog. That dialog is
 ;;; displayed automatically when the document does not yet have
-;;; zoteroDocumentData set, because at the start of the transaction, Zotero will
-;;; call tm-zotero-Document_getDocumentData, which returns null to Zotero unless
-;;; it's been set. After setting it, the next thing Zotero sends is a
-;;; tm-zotero-Document_setDocumentData message. It can also be invoked by sending a
-;;; zotero-setDocPrefs message, which will call tm-zotero-Document_getDocumentData,
-;;; then let you edit that in Zotero's dialog, and send it back with
-;;; tm-zotero-Document_setDocumentData. So from here, we never need to write the
-;;; prefs by any means other than having Zotero set it.
+;;; zoteroDocumentData set, because at the start of the transaction, Zotero
+;;; will call tm-zotero-Document_getDocumentData, which returns null to Zotero
+;;; unless it's been set. After setting it, the next thing Zotero sends is a
+;;; tm-zotero-Document_setDocumentData message. It can also be invoked by
+;;; sending a tm-zotero-setDocPrefs message, which will call
+;;; tm-zotero-Document_getDocumentData, then let you edit that in Zotero's
+;;; dialog, and send it back with tm-zotero-Document_setDocumentData. So from
+;;; here, we never need to write the prefs by any means other than having
+;;; Zotero set it.
 ;;;
-;;; Perhaps a future iteration could provide initial hints based on the language
-;;; of the document being editted? But that's sort of a global thing anyway, and
-;;; setting the language takes only a few clicks.
+;;{{{ To do: Perhaps a future iteration could provide initial hints based on the
+;;;          language of the document being editted? But that's sort of a
+;;;          global thing anyway, and setting the language takes only a few
+;;;          clicks.
+;;}}}
+;;{{{ To do: I think that the LibreOffice plugin (java) actually parses and
+;;;          re-emits the xml that this program is parsing below... If the xml
+;;;          sent back is acceptable to Zotero, then this can be used to set
+;;;          some of those settings via the editor (client side)
+;;;          interface. Maybe there are some kinds of things that it makes more
+;;;          sense to have the interface to changing the setting or whatever be
+;;;          on the client side?  Or maybe I could use it to sneak information
+;;;          into a monkey-patch in propachi-texmacs... But since I've got
+;;;          control of both sides via the ability to monkey-patch... I may as
+;;;          well work out a few extensions to the protocol (with it in mind
+;;;          that other editor client programs may want to utilize the same
+;;;          wire protocol or output formats).
+;;}}}
 ;;;
-;;; Access it from Guile with: (get-env "zotero-pref-noteType")
-;;; Access it from TeXmacs with: <value|zotero-pref-noteType>
-
-
+;;;   Guile: (get-env "zotero-pref-noteType")
+;;;            returns a <string>
+;;;      or: (texmacs-exec '(value "zotero-pref-noteType"))
+;;;            returns a <tree>
+;;;
+;;; TeXmacs: <value|zotero-pref-noteType>
+;;;
+;;;;;;
+;;{{{ sample sxml representation of DocumentData
+;;;;;
 ;;; Here's what the typical DocumentData looks like, parsed to sxml:
 ;;;
 ;;; (define zotero-sample-DocumentData-sxml
@@ -928,23 +964,17 @@
 ;;;       (pref (@ (name "automaticJournalAbbreviations") (value "true")))
 ;;;       (pref (@ (name "noteType")                      (value "0")))
 ;;;       (pref (@ (name "suppressTrailingPunctuation")   (value "true")))))))
+;;}}}
 
-
-;;; For now ignore documentID; assume it's always the active document anyway.  I
-;;; think it's really just meant for a key to a table of document objects for
-;;; keeping local state. For this application that state is in the actual
-;;; document itself. Depending upon the way the documentID is formed, it could
-;;; be used to obtain the buffer file name, document title, etc.
-;;;
-(define (get-env-zoteroDocumentData documentID)
+(define (get-env-zoteroDocumentData)
   (get-env "zoteroDocumentData"))
 
-(define (set-env-zoteroDocumentData! documentID str_dataString)
+(define (set-env-zoteroDocumentData! str_dataString)
   (set-init-env "zoteroDocumentData" str_dataString)
-  (set-init-env-for-zotero-document-prefs documentID str_dataString))
+  (set-init-env-for-zotero-document-prefs str_dataString))
 
 
-(define (set-init-env-for-zotero-document-prefs documentID str_dataString)
+(define (set-init-env-for-zotero-document-prefs str_dataString)
   (let ((set-init-env-for-zotero-document-prefs-sub
          (lambda (prefix attr-list)
            (let loop ((attr-list attr-list))
@@ -975,11 +1005,13 @@
          (set-init-env (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
                        (sxml-attr (car sxml) 'value))
          (when (string=? "noteType" (sxml-attr (car sxml) 'name))
+           ;;;
            ;; The TeXmacs style language case statements can not test an
            ;; environment variable that is a string against any other
            ;; string... the string it's set to has to be "true" or "false"
            ;; to make boolean tests work. It can not check for "equals 0",
            ;; "equals 1", etc.
+           ;;;
            (set-init-env "zotero-pref-noteType0" "false")
            (set-init-env "zotero-pref-noteType1" "false")
            (set-init-env "zotero-pref-noteType2" "false")
@@ -994,7 +1026,6 @@
 ;;;
 ;;; These are for accessing parts of the static source tree that are saved as
 ;;; part of the document. They deal with actual document trees.
-;;;
 ;;;
 ;;{{{ zfield tags, trees, inserters, and tree-ref based accessors
 ;;;
@@ -1322,9 +1353,8 @@
 
 ;;;;;;
 ;;;
-;;; This is for tm-zotero program state that is not saved with the
+;;; These things are for tm-zotero program state that is *not* saved with the
 ;;; document. These are scheme data structures, not in-document trees.
-;;;
 ;;;
 ;;{{{ State data for document and zfields, <zfield-data>, <document-data>
 ;;;
@@ -1641,7 +1671,10 @@
 ;;}}}
 ;;}}}
 
-
+;;;;;;
+;;;
+;;; To do: Bibliography won't render right until this part is fixed.
+;;;
 ;;{{{ ztbibItemRefs lists that follow bibliography items
 
 ;;;
@@ -1789,7 +1822,10 @@
 
 ;;}}}
 
-
+;;;;;;
+;;;
+;;; To do: lazy internment hooks for the hrefFromCiteToBib etc.
+;;;
 ;;{{{ :secure ext functions called from tm-zotero.ts style
 
 ;;;
@@ -1977,7 +2013,20 @@
 ;;}}}
 
 
-
+;;;;;;
+;;;
+;;; To do:    Mac OS-X and Windows  HELP WANTED
+;;;
+;;;   Clone this on github, send me a pull request... I do not own a computer
+;;;   with Windows nor do I own a Mac. I can not easily develop this part. It
+;;;   should be fairly simple... and there is actually a possibility that it
+;;;   will already just work without any modifications. Somebody needs to test
+;;;   it... and please, if it works, open a github "issue" with the positive
+;;;   report so I will know. Thanks.
+;;;
+;;; To do: There may be problems with the way the error thing is handled; see
+;;;        the comment in
+;;;
 ;;{{{ Wire protocol between TeXmacs and Zotero
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2001,19 +2050,36 @@
         (close-port tm-zotero-socket-port)
         (set! tm-zotero-socket-port #f))))
 
-;;; Idempotency: If this is reloaded while TeXmacs is running, close the port on reload.
-;;; I often reload this file during development by having developer-mode turned on:
-;;; (set! developer-mode? #t) is in ~/.TeXmacs/progs/my-init-texmacs.scm
-;;; and then using the Debug -> Execute -> Evaluate scheme expression... menu to execute:
-;;; (load-from-path "zotero.scm")
+;;;;;;
+;;;
+;;; Idempotency: If this is reloaded while TeXmacs is running, close the port
+;;; on reload.  I often reload this file during development by having
+;;; developer-mode turned on: (set! developer-mode? #t) is in
+;;; ~/.TeXmacs/progs/my-init-texmacs.scm and then using the Debug -> Execute ->
+;;; Evaluate scheme expression... menu to execute:
+;;;
+;;;    (load-from-path "tm-zotero.scm")
+;;;
+;;; (Actually, now that I think about it, I more often just run texmacs from a
+;;; terminal where I can watch the debugging output, and use Ctrl-c to kill it,
+;;; push up-arrow to recall the last command, and then enter to run it
+;;; again. In another terminal I run firefox from the commandline also, so that
+;;; I can use Ctrl-c to kill it, up-arrow, enter to run it again. The
+;;; turnaround time is reasonably fast between changes to the code to fix the
+;;; crash that prints to the terminal window.
 ;;;
 (when (defined? 'tm-zotero-socket-port)
   (close-tm-zotero-socket-port!))       ;; free the IP port for re-use
 
 (define tm-zotero-socket-port #f)
 
-;;; Dynamically allocate in case of multiple instances of TeXmacs running at the same time!
-;;;(define tm-zotero-socket-inet-texmacs-port-number 23117) 
+
+;;;;;;
+;;;
+;;; Allow the operating system to dynamically allocate the this-end port
+;;; number, in case of multiple instances of TeXmacs running at the same time!
+;;; (!define tm-zotero-socket-inet-texmacs-port-number 23117)
+;;;
 (define tm-zotero-socket-inet-zotero-port-number 23116)
 
 
@@ -2035,13 +2101,19 @@
 (define TCP_NODELAY 1)
 
 
-;;; Looking at the LibreOffice Integration plugin, I see that it's what opens up the TCP port that this talks to on Linux. That code
-;;; does not check what OS it's running on first, and so I think that it opens the same TCP port on both Mac OS-X and Windows and so
-;;; on those platforms, this program may already just work with no further programming required.
+;;;;;;
+;;;
+;;; !! Try this first !!   HELP WANTED
+;;;
+;;; Looking at the LibreOffice Integration plugin, I see that it's what opens
+;;; up the TCP port that this talks to on Linux. That code does not check what
+;;; OS it's running on first, and so I think that it opens the same TCP port on
+;;; both Mac OS-X and Windows and so on those platforms, this program may
+;;; already just work with no further programming required.
 ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Todo: Support Mac OS-X.
+;;{{{ To do: Support Mac OS-X.
 ;;;
 ;;; Notes: for Mac OS-X, they use a Unix domain pipe. Look first in:
 ;;;
@@ -2057,10 +2129,10 @@
 ;;;
 ;;; It speaks exactly the same protocol over that pipe as Linux does over the
 ;;; TCP socket.
+;;}}}
+;;;;;;
 ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; Todo: Support Windows
+;;{{{ To do: Support Windows
 ;;;
 ;;; On Windows, the Word plugin calls on Juris-M / Zotero by invoking firefox
 ;;; "via WM_COPYDATA rather than the command line".
@@ -2072,6 +2144,7 @@
 ;;; -ZoteroIntegrationCommand
 ;;;
 ;;; -ZoteroIntegrationDocument
+;;}}}
 ;;;
 
 (define OS-X-integration-pipe-locations
@@ -2277,18 +2350,20 @@
       (set-document-active-mark-nr! documentID #f)
       (run-hook document-mark-end-cleanup-hook documentID))))
 
-;;
-;; add-hook! pushes them onto the front of the hook list unless passed an
-;; optional third argument of #t, in which case it appends the new hook
-;; function to the end of the hook list.
-;;
+;;;;;;
+;;;
+;;; add-hook! pushes them onto the front of the hook list unless passed an
+;;; optional third argument of #t, in which case it appends the new hook
+;;; function to the end of the hook list.
+;;;
 (add-hook! document-mark-cancel-error-cleanup-hook
            cleanup-document-new-zfieldID!)
 
 
+;;;;;;
 ;;;
-;;; It's sort of a state machine; protocol is essentially synchronous, and user
-;;; expects to wait while it finishes before doing anything else anyhow.
+;;; The protocol is essentially synchronous, and user expects to wait while it
+;;; finishes before doing anything else.
 ;;;
 ;;; When this is entered, one of the Integration commands has just been sent to
 ;;; Juris-M / Zotero. Zotero will call back and begin a word processing command
@@ -2318,10 +2393,10 @@
                   (cond
                     ((and (>= (string-length editCommand) 4)
                           (string=? (string-take editCommand 4) "ERR:"))
-                     ;; editCommand is really an error string.
+                     ;; editCommand is really an error string this time.
                      (tm-zotero-format-debug "tm-zotero-listen:~s\n" editCommand)
                      ;;
-                     ;; Todo: verify that this is correct protocol:
+                     ;; To do: verify that this is correct protocol:
                      ;;
                      ;; Send the error (back) to Zotero !!! Huh? It just sent
                      ;; the error to us. Why send it back? Is this code
@@ -2412,8 +2487,13 @@
 
 ;;}}}
 
-
+;;;;;;
+;;;
+;;; To do: The "atomic undo" thing might not be working right. I need to test
+;;;        and develop it further.
+;;;
 ;;{{{ Integration-initiating commands: TeXmacs -> Zotero
+;;;;;;
 ;;;
 ;;; These expect no immediate reply packet from Zotero. Zotero will connect
 ;;; back with Editor integration commands, while tm-zotero (this program) is
@@ -2510,6 +2590,10 @@
 
 ;;}}}
 
+;;;;;;
+;;;
+;;; To do: find the rest of the to-do items below this point!
+;;;
 ;;{{{ Word Processor commands: Zotero -> TeXmacs -> Zotero
 ;;;
 ;;; Each sends: [CommandName, [Parameters,...]].
@@ -2642,7 +2726,7 @@
 ;;;
 (define (tm-zotero-Document_getDocumentData tid documentID)
   (tm-zotero-format-debug "tm-zotero-Document_getDocumentData called.\n")
-  (tm-zotero-write tid (safe-scm->json-string (get-env-zoteroDocumentData documentID))))
+  (tm-zotero-write tid (safe-scm->json-string (get-env-zoteroDocumentData))))
 
 ;;}}}
 ;;{{{ Document_setDocumentData
@@ -2654,7 +2738,7 @@
 ;;;
 (define (tm-zotero-Document_setDocumentData tid documentID str_dataString)
   (tm-zotero-format-debug "tm-zotero-Document_setDocumentData called.\n")
-  (set-env-zoteroDocumentData! documentID str_dataString)
+  (set-env-zoteroDocumentData! str_dataString)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
