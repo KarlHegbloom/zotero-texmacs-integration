@@ -3,19 +3,22 @@
 ;;;
 ;;; MODULE      : tm-zotero.scm
 ;;; DESCRIPTION : Zotero Connector Plugin
-;;; COPYRIGHT   : (C) 2016,2017  Karl M. Hegbloom <karl.hegbloom@gmail.com>
+;;; COPYRIGHT   : (C) 2016, 2017  Karl M. Hegbloom <karl.hegbloom@gmail.com>
 ;;;
-;;{{{ This software falls under the GNU general public license version 3 or
+;;{{{ This software stands with the GNU general public license version 3 or
 ;;; later. It comes WITHOUT ANY WARRANTY WHATSOEVER. For details, see the file
 ;;; LICENSE in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>
 ;;}}}
 ;;;;;;
 
 ;;{{{ Module definition and uses
-
-;;; tm-defined in (utils library cpp-wrap)
 ;;;
-(define-public tm-make make)
+;;; Save a few things to be sure not to lose them if they are needed.
+;;;
+(define-public tm-make make)            ; tm-defined in (utils library cpp-wrap)
+(define guile-user:current-time current-time)
+(define guile-user:color color)
+(define cformat format)
 
 (texmacs-module (tm-zotero)
   (:use (oop goops)
@@ -35,9 +38,22 @@
         (generic generic-edit)
         (generic format-edit)
         (convert tools sxml)
+        (tm-zotero json)
+        (srfi srfi-19)                  ; current-time, etc.
+        (ice-9 format)
+        (ice-9 regex)
+        (ice-9 common-list)
+        (compat guile-2)
+        (term ansi-color)
         ))
 
-(define <tree> (class-of (tm->tree "")))
+;;;
+;;; To do: Perhaps this ought to be already defined just as e.g., <observer>,
+;;;        <tmtable>, and <tmcolor> are.
+;;;
+(define <tree> (class-of (tm->tree ""))) ; really a <blackbox> right now.
+
+;;; <observer> is already magically defined. It is the type of a tree-pointer.
 
 (define-method (make (tag <symbol>))
   (tm-make tag))
@@ -51,7 +67,6 @@
 ;;; installed, I have bundled them with tm-zotero. Within TeXmacs, these ones
 ;;; will shadow any that are also installed in Guile's own %load-path
 ;;; directories.
-
 ;;;
 ;;; This copy of json was ported from Guile 2.0 to Guile 1.8
 ;;; by Karl M. Hegbloom.
@@ -59,17 +74,17 @@
 ;;; Todo: When TeXmacs is ported to Guile 2.n, I will need to do something to
 ;;; ensure that the correct version of this json library is loaded.
 ;;;
-(use-modules (tm-zotero json))
+;;; (use-modules (tm-zotero json))
 
 ;;; This will print a warning about replacing current-time in module zotero.
 ;;; Overriding current-time is intentional. It only affects this module's
 ;;; namespace.
 ;;;
-(define guile-user:current-time current-time)
-(use-modules (srfi srfi-19))            ; Time
+;;; (define guile-user:current-time current-time)
+;;; (use-modules (srfi srfi-19))            ; Time
 
-(define cformat format)
-(use-modules (ice-9 format))
+;;; (define cformat format)
+;;; (use-modules (ice-9 format))
 
 ;; (use-modules (md5))
 ;; (define (string->md5 str)
@@ -81,15 +96,15 @@
 ;;; R&D: (blinking cursor here)
 ;;;
 ;;}}}
-(use-modules (ice-9 regex))
+;;; (use-modules (ice-9 regex))
 
-(use-modules (ice-9 common-list))
+;;; (use-modules (ice-9 common-list))
 
 ;;; for coloring the debugging output, below.
 ;;;
-(use-modules (compat guile-2))
-(define guile-user:color color)
-(use-modules (term ansi-color))
+;;; (use-modules (compat guile-2))
+;;; (define guile-user:color color)
+;;; (use-modules (term ansi-color))
 
 ;;}}}
 
@@ -127,17 +142,17 @@
 (define timestamp-format-string-colored
   (string-concatenate
    (list
-    (colorize-string "~10,,,'0@s" 'GREEN) ;; seconds +
+    (colorize-string "~9,,,'0@s" 'GREEN) ;; seconds +
     ":"
-    (colorize-string "~10,,,'0@s" 'GREEN) ;; nanoseconds
+    (colorize-string "~9,,,'0@s" 'GREEN) ;; nanoseconds
     ":("
-    (colorize-string "~10,,,'0@s" 'CYAN)  ;; seconds since last timestamp +
+    (colorize-string "~9,,,'0@s" 'CYAN)  ;; seconds since last timestamp +
     ":"
-    (colorize-string "~10,,,'0@s" 'CYAN)  ;; nanoseconds since last timestamp
+    (colorize-string "~9,,,'0@s" 'CYAN)  ;; nanoseconds since last timestamp
     "):")))
 
 (define timestamp-format-string-plain
-  "~10,,,'0@s:~10,,,'0@s:(~10,,,'0@s:~10,,,'0@s):")
+  "~9,,,'0@s:~9,,,'0@s:(~9,,,'0@s:~9,,,'0@s):")
 
 (define timestamp-format-string timestamp-format-string-colored)
 
@@ -170,7 +185,13 @@
 
 (define zt-debug-trace? #f)
 
-
+;;;;;;
+;;;
+;;; To do: Improve. Channels, plus I want to print a newline at the beginning
+;;;        of a debug message, ahead of the timestamp, but only sometimes, like
+;;;        for the first one inside of a function. There needs to be a flag for
+;;;        it I guess.
+;;;
 (define (tm-zotero-format-debug . args)
   (when zt-debug-trace?
     (tm-output
@@ -237,9 +258,10 @@
 ;;;   symbol with suffix -t means texmacs tree.
 ;;;
 ;;;;;;
-
+;;;
 ;;{{{ Misc. functions used within this program
-
+;;;
+;;{{{   [Commented off, from old implementation, shown-body-paragraphs]
 ;;;
 ;;; When parts of the document are hidden, which is what we do when the
 ;;; document is too large to easily edit, since TeXmacs slows way down to the
@@ -258,11 +280,11 @@
 ;;; NOTE: the method by which we determine the set of zfields to send to
 ;;; Juris-M / Zotero is changing and this won't be used any longer...
 ;;;
-(define (shown-buffer-body-paragraphs)
-  (let ((l (buffer-body-paragraphs))) ;; list of tree
-    (if (buffer-test-part-mode? :all)
-        l
-        (list-filter l (cut tree-is? <> 'show-part)))))
+;; (define (shown-buffer-body-paragraphs)
+;;   (let ((l (buffer-body-paragraphs))) ;; list of tree
+;;     (if (buffer-test-part-mode? :all)
+;;         l
+;;         (list-filter l (cut tree-is? <> 'show-part)))))
 
 
 ;;;
@@ -285,17 +307,19 @@
 ;;; region about to be cut from the document should be negligible and thus
 ;;; should not affect interactive performance horribly.
 ;;; 
-(define (tm-zotero-zfield-search-in-subtree subtree)
-  (let ((zt-new-fieldID (document-new-fieldID (get-documentID))))
-    (tm-search
-     subtree
-     (lambda (t)
-       (and (tree-in? t zfield-tags)
-            (not
-             (and zt-new-fieldID
-                  (string=? zt-new-fieldID
-                            (zfield-zfieldID t)))))))))
+;; (define (tm-zotero-zfield-search-in-subtree subtree)
+;;   (let ((zt-new-fieldID (document-new-fieldID (get-documentID))))
+;;     (tm-search
+;;      subtree
+;;      (lambda (t)
+;;        (and (tree-in? t zfield-tags)
+;;             (not
+;;              (and zt-new-fieldID
+;;                   (string=? zt-new-fieldID
+;;                             (zfield-zfieldID t)))))))))
 
+;;}}}
+;;;
 
 
 (define (get-documentID)
@@ -330,16 +354,36 @@
 ;;; there regarding the necessity of letting the typesetter run in order for
 ;;; this reference binding to have a readable value.
 ;;;
-(define (zfield-NoteIndex-t zfield)
-  (let ((zfieldID (zfield-zfieldID zfield)))
-    (tm-zotero-format-debug "zfield-NoteIndex-t: zfield => ~s, zfieldID => ~s\n"
-                            (tree->stree zfield)
-                            zfieldID)
+(define (zfield-NoteIndex-t zfieldID-or-zfield)
+  (let ((zfieldID (or (and (string? zfieldID-or-zfield)
+                           zfieldID-or-zfield)
+                      (zfield-zfieldID zfieldID-or-zfield))))
+    ;; (tm-zotero-format-debug "zfield-NoteIndex-t: zfield => ~s, zfieldID => ~s\n"
+    ;;                         (tree->stree zfield)
+    ;;                         zfieldID)
     (get-refbinding
      (zfield-noteIndex-refbinding-key zfieldID))))
 
-(define (zfield-NoteIndex zfield)
-  (tree->stree (zfield-NoteIndex-t zfield)))
+
+(define (zfield-NoteIndex zfieldID-or-zfield)
+  (tree->stree (zfield-NoteIndex-t zfieldID-or-zfield)))
+
+
+;;;
+;;; For some reason there can be more than one the same in a citation cluster,
+;;; probably only for parallel citations. Just for that, make sure the lists
+;;; are uniq-equal? (since uniq uses memq, and this uses member, and we need to
+;;; compare using equal? to make it recurse through list structure.
+;;;
+(define (uniq-equal? l)
+  (let loop ((acc '())
+             (l l))
+    (if (null? l)
+        (reverse! acc)
+        (loop (if (member (car l) acc)
+                  acc
+                  (cons (car l) acc))
+              (cdr l)))))
 
 
 ;; (define (position-less? pos1 pos2)
@@ -388,7 +432,11 @@
   (not (not (tree-search-upwards t zfield-tags))))
 
 ;;}}}
-
+;;;
+;;;;;;
+;;;
+;;; To do: overloads for the document-parts-mode thing described below.
+;;;
 ;;{{{ General category overloaded; update-document, To do: document-parts-mode
 
 ;;;
@@ -434,10 +482,13 @@
 
 (tm-define (notify-activated zfield)
   (:require (and (in-tm-zotero-style?)
-                 (focus-is-zcite?)))
-  (set-message "zcite reactivated!" "Zotero Integration")
+                 (is-zfield? zfield)))
+  ;; (tm-zotero-format-debug "notify-activated called.\n")
+  (set-message "zcite reactivated! Setting is-modified? flag" "Zotero Integration")
   (let* ((origText (zfield-Code-origText zfield))
          (newText  (zfield-Text zfield)))
+    ;; (tm-zotero-format-debug "notify-activated: origText => ~s\n" origText)
+    ;; (tm-zotero-format-debug "notify-activated: newText => ~s\n" newText)
     (set! (zfield-Code-is-modified?-flag zfield)
           (if (string=? newText origText)
               "false"
@@ -671,7 +722,7 @@
     (map (lambda (zfield)
            (let* ((zfieldID (zfield-zfieldID zfield))
                   (zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
-             (unless (zfieldID-is-document-new-zfieldID? documentID zfieldID)
+             (unless (zfield-is-document-new-zfield? documentID zfieldID)
                (hash-remove! zfield-zfd-ht zfieldID)
                (document-remove!-<zfield-data> zfd)
                (when (is-zbibliography? zfield)
@@ -682,16 +733,21 @@
   (former which))
 
 
+;;;;;;
+;;;
+;;; This will allow tm-zotero-ext:ensure-zfield-interned! to pick it up after
+;;; it's changed here.
+;;;
 (tm-define (clipboard-paste which)
   (:require (and (in-tm-zotero-style?)
                  (not (focus-is-zfield?))
                  (in-text?)
                  (has-zfields? (clipboard-get which))))
   (let ((clipboard-t (clipboard-get which)))
-    (insert clipboard-t)
+    (insert (tree-ref clipboard-t 1) 1)
     (let ((zfields (tm-search clipboard-t is-zfield?)))
       (map (lambda (zfield)
-             (set! (zfield-zfieldID zfield) (get-new-fieldID)))
+             (set! (zfield-zfieldID zfield) (get-new-zfieldID)))
            zfields))))
 
 ;;}}}
@@ -700,6 +756,13 @@
 
 
 ;;{{{ Preferences and Settings (with-like, global, document-wide)
+
+(texmacs-modes
+  (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
+  (focus-is-zcite% (tree-is? (focus-tree) 'zcite) in-tm-zotero-style%)
+  (focus-is-zbibliography% (tree-is? (focus-tree) 'zbibliography) in-tm-zotero-style%)
+  (focus-is-zfield% (or (focus-is-zcite?) (focus-is-zbibliography?)))
+  (focus-is-ztHref% (tree-is? (focus-tree) 'ztHref) in-tm-zotero-style%))
 
 ;;;
 ;;{{{ Todo: Invent a good naming convention for the below preferences and
@@ -1091,6 +1154,89 @@
 ;;{{{ zfield tag definitions, insert-new-zfield
 
 (define-public zfield-tags '(zcite zbibliography))
+(define-public ztHref*-tags '(ztHrefFromBibToURL ztHrefFromCiteToBib))
+(define-public ztHref-tags '(ztHref))
+
+(define tm-zotero-bbl-formats-tags
+  '(zttextit zttexts zttextup zttextsc zttextnormal zttextbf zttextmd
+    ;; underline textsuperscript textsubscript ; not ours
+    ztbibItemText ztNewBlock ztLeftMargin ztRightInline ztbibIndent
+    ztShowId
+    ;; ztHref ztDefaultCiteURL ; wrong category
+    ))
+
+
+;;;;;;
+;;;
+;;; 
+;;;
+(define ztbibItemRefs-prefix "#zbibSysID")
+
+(define ztbibItemRefs-prefix-len
+  (string-length ztbibItemRefs-prefix))
+
+(define (ztbibItemRefs-subcite-sysID ztHref*)
+  (substring (ztHref*-hashLabel ztHref*)
+             ztbibItemRefs-prefix-len))
+
+
+;;;;;;
+;;;
+;;; Targets of the hlinks in the ztbibItemRefs trees.
+;;;
+(define ztbibItemRefs-target-label-prefix "zciteID")
+
+(define ztbibItemRefs-target-label-prefix-len
+  (string-length ztbibItemRefs-target-label-prefix))
+
+(define (ztbibItemRefs-target-label ztHref*)
+  (string-concatenate
+   (list ztbibItemRefs-target-label-prefix
+         (zfield-zfieldID (tree-search-upwards ztHref* zfield-tags)) ; zcite or zbibliography
+         (ztHref*-hashLabel ztHref*))))
+
+
+;;;;;;
+;;;
+;;; To do: Pasted from earlier incarnation, not editted yet; organizing.
+;;;
+(define (ztbibItemRefs-cache-1-zbibItemRef t)
+  (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
+         (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
+         (new (and key `((hlink
+                          ,(list 'zbibItemRef (zt-ztbibItemRefs-get-target-label t))
+                          ,(string-concatenate/shared
+                            (list "#" (zt-ztbibItemRefs-get-target-label t))))))))
+    (hash-set! zt-ztbibItemRefs-ht key (append lst new))))
+
+
+;;;;;;
+;;;
+;;; To do: Pasted from earlier incarnation, not editted yet; organizing.
+;;;
+(define (ztbibItemRefs-to-tree key)
+  (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
+         (lst (and lst1 (uniq-equal? lst1)))
+         (first-item #t)
+         (comma-like-sep (and lst
+                              (apply append
+                                     (map (lambda (elt)
+                                            (if first-item
+                                                (begin
+                                                  (set! first-item #f)
+                                                  (list elt))
+                                                (begin
+                                                  (list (list 'zbibItemRefsList-sep) elt))))
+                                          lst))))
+         (t (stree->tree (or (and comma-like-sep
+                                  `(concat (zbibItemRefsList-left)
+                                           ,@comma-like-sep
+                                           (zbibItemRefsList-right)))
+                             '(concat "")))))
+    ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:lst: ~S\n" lst)
+    ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:comma-sep: ~S\n" lst)
+    ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:t: ~S\n" (tree->stree t))
+    t))
 
 ;;; If any one of these is-*? => #t, then t is a zfield tree.
 
@@ -1108,6 +1254,14 @@
 ;;;
 (define-public (has-zfields? t)
   (tm-find t is-zfield?))
+
+(define-public (is-ztHref*? t)
+  (tm-in? t ztHref-tags))
+
+(define-public (is-tm-zotero-tag t)
+  (or (tm-in? t tm-zotero-bbl-formats-tags)
+      (tm-in? t ztHref-tags)
+      (tm-in? t zfield-tags)))
 
 
 ;;; Top-half of new zfield insertion. This always happens at the cursor
@@ -1127,27 +1281,30 @@
   (if (not (focus-is-zfield?))
       (let* ((documentID (get-documentID))
              (new-zfieldID (get-new-zfieldID))
-             (zfd (make-instance <zfield-data>))
+             (new-zfd (make-instance <zfield-data>))
              (new-zfield
               (stree->tree
                `(,tag ,new-zfieldID (tuple "3" (raw-data "") "false" (raw-data "")) ,placeholder))))
-        (tm-zotero-format-debug "insert-new-zfield called. new-zfieldID => ~s\n" new-zfieldID)
-        (set-document-new-zfieldID! documentID new-zfieldID)
-        ;; inserting the tree is magical. It connects the tree with a buffer
+        ;;
+        ;; Inserting the tree is magical. It connects the tree with a buffer
         ;; and thus with an editor. That makes the tree->tree-pointer work
         ;; right.
+        ;;
         (insert new-zfield 1)
-        (set! (zfd-tree-pointer zfd) (tree->tree-pointer new-zfield))
-        ;; This is put into the ht but not the ls until tm-zotero-Document_insertField.
-        (hash-set! (document-zfield-zfd-ht documentID) new-zfieldID zfd))
+        (set! (zfd-tree new-zfd) new-zfield)
+        (set-document-new-zfield-zfd! documentID new-zfd))
+      ;;
       (begin ;; focus-is-zfield? => #t
-        ;; Todo: This ought to be a dialog if it actually happens much...
-        ;; Alternatively, perhaps it could move the cursor out of the zfield,
-        ;; arbitrarily to the right or left of it, then proceed with inserting
-        ;; the new zfield... Or perhaps it ought to convert it into an
-        ;; editCitation rather than an insertCitation?
+        ;;
+        ;; To do: This ought to be a dialog if it actually happens much...
+        ;;        Alternatively, perhaps it could move the cursor out of the
+        ;;        zfield, arbitrarily to the right or left of it, then proceed
+        ;;        with inserting the new zfield... Or perhaps it ought to
+        ;;        convert it into an editCitation rather than an
+        ;;        insertCitation?
+        ;;
         (tm-zotero-format-error "ERR: insert-new-zfield ~s : focus-tree is a ~s\n"
-                         tag (tree-label (focus-tree)))
+                                tag (tree-label (focus-tree)))
         #f)))
 
 ;;}}}
@@ -1171,9 +1328,9 @@
    (lambda (zfield)
      (let* ((zfieldID-t (zfield-zfieldID-t zfield))
             (zfieldID (tree->stree zfieldID-t)))
-       (tm-zotero-format-debug "zfield-zfieldID: zfield => ~s\n" (tree->stree zfield))
-       (tm-zotero-format-debug "zfield-zfieldID: zfieldID-t => ~s\n" (tree->stree zfieldID-t))
-       (tm-zotero-format-debug "zfield-zfieldID: zfieldID => ~s\n" zfieldID)
+       ;; (tm-zotero-format-debug "zfield-zfieldID: zfield => ~s\n" (tree->stree zfield))
+       ;; (tm-zotero-format-debug "zfield-zfieldID: zfieldID-t => ~s\n" (tree->stree zfieldID-t))
+       ;; (tm-zotero-format-debug "zfield-zfieldID: zfieldID => ~s\n" zfieldID)
        zfieldID))
    ;; set!
    (lambda (zfield str)
@@ -1208,7 +1365,7 @@
                                        ,(tree->stree code)
                                        "false"
                                        (raw-data ""))))
-                   (ref zfield) ; tail-call
+                   (ref-impl zfield) ; tail-call
                    )
                   ((tm-atomic? code)    ; v.1
                    (tree-set! code
@@ -1217,7 +1374,7 @@
                                        (raw-data ,(tree->stree code))
                                        "false"
                                        (raw-data ""))))
-                   (ref zfield) ; tail-call
+                   (ref-impl zfield) ; tail-call
                    )
                   (else ; ? I don't think this can really happen.
                     (tree-set! code
@@ -1226,7 +1383,7 @@
                                         (raw-data "")
                                         "false"
                                         (raw-data ""))))
-                    (ref zfield) ; tail-call
+                    (ref-impl zfield) ; tail-call
                     )))))
            (set!-impl
             (lambda (zfield t)
@@ -1293,17 +1450,10 @@
    (lambda (zfield)
      (tree->stree (zfield-Code-origText-t zfield)))
    ;; set!
-   (lambda (zfield str)
+   (lambda (zfield t)
      (let ((origText-t (zfield-Code-origText-t zfield)))
        (tree-set! origText-t
-                  (stree->tree str))))))
-
-(define-accessor zfield-Code-origText)
-
-(define-method (setter:zfield-Code-origText zfield (t <tree>))
-  (let ((origText-t (zfield-Code-origText-t zfield)))
-    (tree-set! origText-t
-               (stree->tree (format #f "~s" (tree->stree t))))))
+                  (format #f "~s" (tree->stree t)))))))
 
 
 ;;; This next field is set automatically, below, with the result of converting
@@ -1349,8 +1499,120 @@
 ;;; There is no setter for zfield-Text.
 
 ;;}}}
-;;}}}
+;;{{{ ztHref* trees and tree-ref based accessors
+;;;;;;
+;;;
+;;; ztHrefFromCiteToBib hashLabel url display
+;;;
+;;; ztHrefFromBibToURL hashLabel url display
+;;; 
+;;; ztHref url display
+;;;
 
+(define ztHref*-hashLabel-t
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref*)
+     (tree-ref ztHref* 0))
+   ;; set!
+   (lambda (ztHref* t)
+     (let ((hashLabel-t (tree-ref ztHref* 0)))
+       (tree-set! hashLabel-t t)))))
+
+(define ztHref*-hashLabel
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref*)
+     (tree-stree (ztHref*-hashLabel-t ztHref*)))
+   ;; set!
+   (lambda (ztHref* str)
+     (let ((hashLabel-t (ztHref*-hashLabel-t ztHref*)))
+       (tree-set! hashLabel-t
+                  (stree->tree str))))))
+
+
+(define ztHref*-url-t
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref*)
+     (tree-ref ztHref* 1))
+   ;; set!
+   (lambda (ztHref* t)
+     (let ((url-t (tree-ref ztHref* 1)))
+       (tree-set! hashLabel-t t)))))
+
+(define ztHref*-url
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref*)
+     (tree-stree (ztHref*-url-t ztHref*)))
+   ;; set!
+   (lambda (ztHref* str)
+     (let ((url-t (ztHref*-url-t ztHref*)))
+       (tree-set! url-t
+                  (stree->tree str))))))
+
+
+(define ztHref*-display-t
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref*)
+     (tree-ref ztHref* 2))
+   ;; set!
+   (lambda (ztHref* t)
+     (let ((display-t (tree-ref ztHref* 2)))
+       (tree-set! display-t t)))))
+
+
+
+(define ztHref-url-t
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref)
+     (tree-ref ztHref 0))
+   ;; set!
+   (lambda (ztHref t)
+     (let ((url-t (tree-ref ztHref 0)))
+       (tree-set! url-t t)))))
+
+(define ztHref-url
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref)
+     (tree->stree (ztHref-url-t ztHref)))
+   ;; set!
+   (lambda (ztHref str)
+     (let ((url-t (ztHref-url-t ztHref)))
+       (tree-set! url-t
+                  (stree->tree str))))))
+
+
+(define ztHref-display-t
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref)
+     (tree-ref ztHref 1))
+   ;; set!
+   (lambda (ztHref t)
+     (let ((display-t (tree-ref ztHref 1)))
+       (tree-set! display-t t)))))
+
+
+;;}}}
+;;{{{ ztBibItemText trees and tree-ref based accessors
+;;;;;;
+;;;
+;;; Each item in the zbibliography is represented by a ztBibItemText.
+;;;
+;;; ztBibItemText sysID insert citekey body
+;;;
+;;;   Each one's expansion sets a reference label just before including the
+;;;   expansion of body, defined by: (merge "zbibSysID" (arg sysID))
+;;;
+
+;;}}}
+;;}}}
+;;;
 ;;;;;;
 ;;;
 ;;; These things are for tm-zotero program state that is *not* saved with the
@@ -1400,6 +1662,7 @@
 ;;{{{ define-class for <zfield-data>
 
 (define-class-with-accessors-keywords <zfield-data> ()
+  (zfd-zfieldID #:init-value "")        ; cache here for speed
   ;; TeXmacs tree-pointer
   (zfd-tree-pointer #:init-value #f)
   (zfd-tree #:allocation #:virtual
@@ -1409,10 +1672,29 @@
                                (tree-pointer->tree tp)
                                #f)))
             #:slot-set! (lambda (zfd t)
-                          (slot-set! zfd 'zfd-tree-pointer (tree->tree-pointer t))))
+                          (slot-set! zfd 'zfd-tree-pointer (tree->tree-pointer t))
+                          (slot-set! zfd 'zfd-zfieldID (zfield-zfieldID t))))
   ;; String, original unmodified text for comparison
   (zfd-orig-text #:init-value "")
   )
+
+;;}}}
+;;{{{ define-class for <ztHref*-data>
+
+;; (define-class-with-accessors-keywords <ztHref*-data> ()
+;;   ;; TeXmacs tree-pointer
+;;   (zhd-tree-pointer #:init-value #f)
+;;   (zhd-tree #:allocation #:virtual
+;;             #:slot-ref (lambda (zhd)
+;;                          (let ((tp (slot-ref zhd 'zhd-tree-pointer)))
+;;                            (if tp
+;;                                (tree-pointer->tree tp)
+;;                                #f)))
+;;             #:slot-set (lambda (zhd t)
+;;                          (slot-set! zhd 'zhd-tree-pointer (tree->tree-pointer t))))
+;;   ;; what else?
+;;   )
+
 
 ;;}}}
 ;;{{{ define-class for <document-data>
@@ -1427,16 +1709,13 @@
   ;;
   ;; one new zfield at a time per document
   ;;
-  (document-new-zfieldID #:init-value #f)     ; #f | string
+  (document-new-zfield-zfd #:init-value #f)     ; #f | <zfield-data>
   ;;
   ;; in-document-order list of <zfield-data>
   ;;
   (document-zfield-zfd-ls #:init-thunk list) 
   ;;
   ;; hash-table of zfieldID => <zfield-data>
-  ;;
-  ;; The new-zfieldID will lead to the <zfield-data> for it here, but it's not
-  ;; in the above list until it's finalized by tm-zotero-Document_insertField.
   ;;
   (document-zfield-zfd-ht #:init-thunk make-hash-table)
   ;;
@@ -1504,42 +1783,45 @@
 
 
 ;;}}}
-;;{{{ document-new-zfieldID
+;;{{{ get-new-zfieldID, document-new-zfield-zfd
 
 (define get-new-zfieldID create-unique-id)
 
 
-(define-method (document-new-zfieldID (documentID <string>))
-  (document-new-zfieldID (get-<document-data> documentID)))
+(define-method (document-new-zfield-zfd (documentID <string>))
+  (document-new-zfield-zfd (get-<document-data> documentID)))
 
-(define-method (set-document-new-zfieldID! (documentID <string>) zfieldID-or-f)
-  (if (or (== (class-of zfieldID-or-f) <string>)
-          (== zfieldID-or-f #f))
-      (set! (document-new-zfieldID (get-<document-data> documentID))
-            zfieldID-or-f)
-      (texmacs-error "set-document-new-zfieldID!: Wrong type argument, expecting <string> or #f: zfieldID-or-f => ~s" zfieldID-or-f)))
+(define-method (set-document-new-zfield-zfd! (documentID <string>) zfd-or-f)
+  (if (or (== (class-of zfd-or-f) <zfield-data>)
+          (== zfd-or-f #f))
+      (set! (document-new-zfield-zfd (get-<document-data> documentID))
+            zfd-or-f)
+      (texmacs-error "set-document-new-zfield-zfd!: Wrong type argument, expecting <zfield-data> or #f: zfd-or-f => ~s" zfd-or-f)))
 
 
-(define (zfieldID-is-document-new-zfieldID? documentID zfieldID)
-  (let ((new-zfieldID (document-new-zfieldID documentID)))
-    (tm-zotero-format-debug "zfieldID-is-document-new-zfieldID?: new-zfieldID => ~s, zfieldID => ~s\n" new-zfieldID zfieldID)
-    (if (or (not new-zfieldID)
-            (not zfieldID))
-        #f
-        (string=? new-zfieldID zfieldID))))
+(define (zfield-is-document-new-zfield? documentID zfield-or-zfieldID)
+  (let* ((zfieldID (or (and (string? zfield-or-zfieldID)
+                            zfield-or-zfieldID)
+                       (zfield-zfieldID zfield-or-zfieldID)))
+         (zfd (document-new-zfield-zfd documentID))
+         (new-zfieldID (or (and zfd
+                                (zfd-zfieldID zfd))
+                           "")))
+    ;; (tm-zotero-format-debug "zfield-is-document-new-zfield?: new-zfieldID => ~s, zfieldID => ~s\n" new-zfieldID zfieldID)
+    (if zfd
+        (string=? zfieldID new-zfieldID)
+        #f)))
 
 ;;;
-;;; Called from the document-mark-cancel-error-cleanup-hook
+;;; Called from the   document-mark-cancel-error-cleanup-hook
 ;;;
 (define (cleanup-document-new-zfieldID! documentID)
-  (let* ((new-zfieldID (document-new-zfieldID documentID))
-         (zfd (and new-zfieldID
-                   (get-document-<zfield-data>-by-zfieldID new-zfieldID))))
-    (set-document-new-zfieldID! documentID #f)
-    (hash-remove! (document-zfield-zfd-ht documentID) new-zfieldID)
+  (and-with zfd (document-new-zfield-zfd documentID)
+    (hash-remove! (document-zfield-zfd-ht documentID) (zfd-zfieldID zfd))
     (document-remove!-<zfield-data> zfd)
     (when (is-zbibliography? (zfd-tree zfd))
-      (document-remove!-zbibliography-zfd zfd))))
+      (document-remove!-zbibliography-zfd zfd))
+    (set-document-new-zfield-zfd! documentID #f)))
 
 ;;}}}
 ;;{{{ document-zfield-zfd-ls
@@ -1548,7 +1830,7 @@
   (document-zfield-zfd-ls (get-<document-data> documentID)))
 
 (define (set-document-zfield-zfd-ls! documentID ls)
-  (set! (document-zfield-zfd-ls documentID) ls))
+  (set! (document-zfield-zfd-ls (get-<document-data> documentID)) ls))
 
 ;;}}}
 ;;{{{ document-zfield-zfd-ht
@@ -1556,15 +1838,10 @@
 (define-method (document-zfield-zfd-ht (documentID <string>))
   (document-zfield-zfd-ht (get-<document-data> documentID)))
 
-;;; I wonder if this will work right?
 (define (reset-document-zfield-zfd-ht! documentID)
-  (set! (document-zfield-zfd-ht documentID) (make-hash-table)))
+  (set! (document-zfield-zfd-ht (get-<document-data> documentID))
+        (make-hash-table)))
 
-;;; vs this one?
-;; (define (reset-document-zfield-zfd-ht! documentID)
-;;   (set! (document-zfield-zfd-ht (get-<document-data> documentID)) (make-hash-table)))
-
-;;; (define ( ????
 
 ;;}}}
 ;;{{{ document-zbibliography-zfd-ls
@@ -1665,8 +1942,8 @@
   (let* ((documentID (get-documentID))
          (zfl (document-zfield-zfd-ls documentID)))
     (set-document-zfield-zfd-ls! documentID
-                             (list-filter zfl (lambda (elt)
-                                                (not (eq? zfd elt)))))))
+                                 (list-filter zfl (lambda (elt)
+                                                    (not (eq? zfd elt)))))))
 
 ;;}}}
 ;;}}}
@@ -1676,7 +1953,6 @@
 ;;; To do: Bibliography won't render right until this part is fixed.
 ;;;
 ;;{{{ ztbibItemRefs lists that follow bibliography items
-
 ;;;
 ;;; Returns list of trees that are like:
 ;;;                        "zciteBibLabel" "displayed text"
@@ -1715,25 +1991,26 @@
 ;;; This will be the hash key since the sysID is what's known to the macro
 ;;; being expanded after the end of each bibliography entry.
 ;;;
-(define (zt-ztbibItemRefs-get-subcite-sysID t)
-  (substring (zt-ztbibItemRefs-get-zciteBibLabel t)
-             zt-ztbibItemRefs-prefix-len))
+;; done
+;; (define (zt-ztbibItemRefs-get-subcite-sysID t)
+;;   (substring (zt-ztbibItemRefs-get-zciteBibLabel t)
+;;              zt-ztbibItemRefs-prefix-len))
+
+;; done
+;; (define (zt-ztbibItemRefs-zfieldID t)
+;;   (let loop ((t t))
+;;     (cond
+;;       ((eqv? t #f) "")
+;;       ((tree-func? t 'zcite) (object->string (zfield-ID t)))
+;;       (else (loop (tree-outer t))))))
 
 
-(define (zt-ztbibItemRefs-zfieldID t)
-  (let loop ((t t))
-    (cond
-      ((eqv? t #f) "")
-      ((tree-func? t 'zcite) (object->string (zfield-ID t)))
-      (else (loop (tree-outer t))))))
-
-
-
-(define (zt-ztbibItemRefs-get-target-label t)
-  (string-concatenate/shared
-   (list "zciteID"
-         (zt-ztbibItemRefs-zfieldID t)
-         (zt-ztbibItemRefs-get-zciteBibLabel t))))
+;; done
+;; (define (zt-ztbibItemRefs-get-target-label t)
+;;   (string-concatenate/shared
+;;    (list "zciteID"
+;;          (zt-ztbibItemRefs-zfieldID t)
+;;          (zt-ztbibItemRefs-get-zciteBibLabel t))))
 
 ;;;
 ;;; For some reason there can be more than one the same in a citation cluster,
@@ -1741,50 +2018,50 @@
 ;;; are uniq-equal? (since uniq uses memq, and this uses member, and we need to
 ;;; compare using equal? to make it recurse through list structure.
 ;;;
-(define (uniq-equal? l)
-  (let loop ((acc '())
-             (l l))
-    (if (null? l)
-        (reverse! acc)
-        (loop (if (member (car l) acc)
-                  acc
-                  (cons (car l) acc))
-              (cdr l)))))
+;; (define (uniq-equal? l)
+;;   (let loop ((acc '())
+;;              (l l))
+;;     (if (null? l)
+;;         (reverse! acc)
+;;         (loop (if (member (car l) acc)
+;;                   acc
+;;                   (cons (car l) acc))
+;;               (cdr l)))))
 
-(define (zt-ztbibItemRefs-cache-1-zbibItemRef t)
-  (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
-         (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
-         (new (and key `((hlink
-                          ,(list 'zbibItemRef (zt-ztbibItemRefs-get-target-label t))
-                          ,(string-concatenate/shared
-                            (list "#" (zt-ztbibItemRefs-get-target-label t))))))))
-    (hash-set! zt-ztbibItemRefs-ht key (append lst new))))
+;; (define (zt-ztbibItemRefs-cache-1-zbibItemRef t)
+;;   (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
+;;          (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
+;;          (new (and key `((hlink
+;;                           ,(list 'zbibItemRef (zt-ztbibItemRefs-get-target-label t))
+;;                           ,(string-concatenate/shared
+;;                             (list "#" (zt-ztbibItemRefs-get-target-label t))))))))
+;;     (hash-set! zt-ztbibItemRefs-ht key (append lst new))))
 
 
 
-(define-public (zt-ztbibItemRefs-to-tree key)
-  (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
-         (lst (and lst1 (uniq-equal? lst1)))
-         (first-item #t)
-         (comma-like-sep (and lst
-                              (apply append
-                                     (map (lambda (elt)
-                                            (if first-item
-                                                (begin
-                                                  (set! first-item #f)
-                                                  (list elt))
-                                                (begin
-                                                  (list (list 'zbibItemRefsList-sep) elt))))
-                                          lst))))
-         (t (stree->tree (or (and comma-like-sep
-                                  `(concat (zbibItemRefsList-left)
-                                           ,@comma-like-sep
-                                           (zbibItemRefsList-right)))
-                             '(concat "")))))
-    ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:lst: ~S\n" lst)
-    ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:comma-sep: ~S\n" lst)
-    ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:t: ~S\n" (tree->stree t))
-    t))
+;; (define-public (zt-ztbibItemRefs-to-tree key)
+;;   (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
+;;          (lst (and lst1 (uniq-equal? lst1)))
+;;          (first-item #t)
+;;          (comma-like-sep (and lst
+;;                               (apply append
+;;                                      (map (lambda (elt)
+;;                                             (if first-item
+;;                                                 (begin
+;;                                                   (set! first-item #f)
+;;                                                   (list elt))
+;;                                                 (begin
+;;                                                   (list (list 'zbibItemRefsList-sep) elt))))
+;;                                           lst))))
+;;          (t (stree->tree (or (and comma-like-sep
+;;                                   `(concat (zbibItemRefsList-left)
+;;                                            ,@comma-like-sep
+;;                                            (zbibItemRefsList-right)))
+;;                              '(concat "")))))
+;;     ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:lst: ~S\n" lst)
+;;     ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:comma-sep: ~S\n" lst)
+;;     ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:t: ~S\n" (tree->stree t))
+;;     t))
 
 
 
@@ -1809,7 +2086,6 @@
 
 
 
-
 (tm-define (zt-ext-ztbibItemRefsList sysID)
   (:secure)
   (let* ((sysID (object->string sysID))
@@ -1821,48 +2097,161 @@
       (hash-ref zt-ztbibItemRefs-ht key-t (stree->tree '(concat "")))))))
 
 ;;}}}
-
+;;;
 ;;;;;;
 ;;;
 ;;; To do: lazy internment hooks for the hrefFromCiteToBib etc.
 ;;;
+;;; wip: make new-zfieldID be instead a tree-pointer to the new zfield, and
+;;; leave all of the interning up to tm-zotero-ext:ensure-zfield-interned!
+;;;
 ;;{{{ :secure ext functions called from tm-zotero.ts style
-
+;;;;;;
+;;;
+;;; These must be tm-define'd and carry the (:secure) attribute so that they
+;;; can be called from within macros in the style package.
+;;;
+;;;;;;
+;;;
+;;; To do: micro-formats meta-data support in citeproc-js output format or
+;;;        variableWrapper. For: the citation cluster (zcite) splitter feature
+;;;        mentioned in another to-do entry inside this program. The semantic
+;;;        information might be useful for finding the matching CSL-JSON stuff
+;;;        to move to the split-off zcite.
+;;;
+;;;;;;
+;;;
+;;; Lazy interning of <zfield-data>, triggered by the typesetter.
 ;;;
 ;;; When the <zcite|...> or <zbibliography|...> are typeset, the expansion
-;;; calls on this routine. It implements "lazy" interning of the <zfield-data>.
+;;; calls on this routine.
+;;;
+;;; The fast path will hopefully be a fast path, so this won't slow it down by
+;;; being called often.
 ;;;
 (tm-define (tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:secure)
-  (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => ~s\n" zfieldID-t)
+  ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => ~s\n" zfieldID-t)
   (let* ((documentID (get-documentID))
          (zfieldID (tree->stree zfieldID-t))
          ;;         fail if this is the new-zfield not yet finalized by
          ;;         Document_insertField.
-         (is-new? (zfieldID-is-document-new-zfieldID? documentID zfieldID))
-         (zfd (and (not is-new?)
-                   (get-document-<zfield-data>-by-zfieldID documentID zfieldID))))
-    (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: zfieldID => ~s\n" zfieldID)
-    (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: is-new? => ~s\n" is-new?)
-    (if (or is-new? zfd)
-        ;; then we're done here, that quick.
-        ""
-        ;; else...
-        ;;
-        ;; This is designed to be called only from inside of the zcite or
-        ;; zbibliography expansion, during typesetting of the enclosing
-        ;; zfield-tag. This tree-search-upwards will terminate very quickly
-        ;; because it will never be very deeply nested inside of the zfield.
-        ;;
-        (and-with zfield (tree-search-upwards zfieldID-t zfield-tags)
-          (set! zfd (make-instance <zfield-data>
-                       #:tree-pointer (tree->tree-pointer zfield)))
-          (hash-set! (document-zfield-zfd-ht documentID) zfieldID zfd)
-          (document-merge!-<zfield-data> zfd)
-          (when (is-zbibliography? zfield)
-            (document-merge!-zbibliography-zfd zfd))
-          ""))))
+         (is-new? (zfield-is-document-new-zfield? documentID zfieldID)))
+    ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: zfieldID => ~s\n" zfieldID)
+    ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: is-new? => ~s\n" is-new?)
+    (if is-new?
+        (begin
+          ;; Then we're done here, that quick, since the new zfield is already
+          ;; partly interned, and isn't finalized until
+          ;; tm-zotero-Document_insertField.
+          ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, is-new? => #t\n")
+          "")
+        (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
+          (if zfd
+              (begin
+                ;; then we're done, it's already interned.
+                ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, zfd was already interned, zfd => ~s\n" zfd)
+                "")
+              ;;
+              ;; else...
+              ;;
+              ;; This is designed to be called only from inside of the zcite or
+              ;; zbibliography expansion, during typesetting of the enclosing
+              ;; zfield-tag. This tree-search-upwards will terminate very
+              ;; quickly because it will never be very deeply nested inside of
+              ;; the zfield. Remember, this happens during typesetting.
+              ;;
+              (and-with zfield (tree-search-upwards zfieldID-t zfield-tags)
+                (set! zfd (make-instance <zfield-data> #:zfd-tree zfield))
+                (hash-set! (document-zfield-zfd-ht documentID) zfieldID zfd)
+                (document-merge!-<zfield-data> zfd)
+                (when (is-zbibliography? zfield)
+                  (document-merge!-zbibliography-zfd zfd))
+                ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Interned new zfield, zfd => ~s\n" zfd)
+                ""))))))
 
+;;;;;;
+;;;
+;;; This does a similar thing for the ztHref* macros, since their data is
+;;; needed to gather the ztbibItemRefsList trees. The variableWrapper installed
+;;; into the Juris-M / Zotero citeproc by propachi-texmacs always emits the
+;;; \ztHrefFromBibToURL and \ztHrefFromCiteToBib macros. tm-zotero can decide
+;;; what to do with them. They can be switched on and off as hyperlinks, but
+;;; are always needed when the ztbibItemRefsList is displayed. When it's not,
+;;; this won't really cost much time anyway, so it will always intern these.
+;;;
+;;; So that means that the list of tags that this or other similar "lazy
+;;; interning" functions needs to cover must be kept in sync with what's
+;;; actually being output via the propachi-texmacs citeproc-js output format
+;;; definition this uses, and with the variableWrapper function that's defined
+;;; by a monkey patch you will find inside the bootstrap.js for
+;;; propachi-texmacs.
+;;;
+;;;
+;;; \ztbibItemText{2332}{}{sysID2332}{\ztHrefFromBibToURL{#zbibSysID2332}{\path{http://heinonlinebackup.com/hol-cgi-bin/get\_pdf.cgi?handle=hein.journals/helr17\&section=14}}{Wilk}ins, T.A., 1993. Mootness doctrine and the post-compliance pursuit of civil penalties in environmental citizen suits. Harv. Envtl. L. Rev. 17, 389.}%
+;;;
+
+;;;
+(tm-define (tm-zotero-ext:ensure-ztHref*-interned! hashLabel-t)
+  (:secure)
+  ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-ztHref*-interned! called, hashLabel-t => ~s\n" hashLabel-t)
+  (let* ((documentID (get-documentID))
+         (hashLabel (tree->stree hashLabel-t)))
+    (and-with ztHref* (tree-search-upwards hashLabel-t ztHref*-tags)
+      (case (tree-label ztHref*)
+        ;;
+        ;; MLA citation as an example:
+        ;;
+        ;; (\ztHrefFromCiteToBib{#zbibSysID224}{}{Benn}et)
+        ;;
+        (("ztHrefFromCiteToBib")
+         (noop)
+         )
+        ;;
+        ;; MLA Bibliography entry as an example:
+        ;;
+        ;; \ztHrefFromBibToURL{#zbibSysID4329}{https://en.wikipedia.org/w/index.php?title=Trial_by_ordeal}{``Tri}al
+        ;;
+        (("ztHrefFromBibToURL")
+         (noop)
+         ))))
+  ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-ztHref*-interned! returning.\n")
+  "")
+
+
+
+;;;;;;
+;;;
+;;; To do:  STUB   Do I need this for anything?
+;;;
+(tm-define (tm-zotero-ext:ensure-ztHref-interned! url-for-tree-t)
+  (:secure)
+  ;; (tm-zotero-format-debug "STUB:tm-zotero-ext:ensure-ztHref-interned! called, url-for-tree-t => ~s\n"
+  ;;                         url-for-tree-t)
+  "")
+
+
+;;;;;;
+;;;
+;;; Return the ztbibItemRefsList for this zfieldID.
+;;;
+;;; The first time it's called, the result <tree> will be cached and that value
+;;; returned, just as for the "lazy interning" triggers above.
+;;; 
+;;;
+(tm-define (tm-zotero-ext:ztbibItemRefsList zfieldID-t)
+  (:secure)
+  ;; (tm-zotero-format-debug "STUB:tm-zotero-ext:ztbibItemRefsList called.\n")
+  " [STUB:tm-zotero-ext:ztbibItemRefsList]")
+
+
+
+
+;;;;;;
+;;;
+;;; 
+;;;
+;;;;;;
 ;;;
 ;;; This won't return the real true result until the zbibliography zfield is
 ;;; typeset, thereby calling on tm-zotero-ext:ensure-zfield-interned!, which
@@ -1884,30 +2273,30 @@
 
 
 
+;;;;;;
+;;;
+;;; The arguments to these are always of class <tree>, because it is handed to
+;;; these ext functions by the typesetter, and that's what it works with and
+;;; what it gives us.
+;;;
 (tm-define (tm-zotero-ext:is-zcite? zfieldID-t)
   (:secure)
   (if (is-zcite?
-       (get-document-zfield-by-zfieldID
-        (object->string zfieldID-t)))
+       (get-document-zfield-by-zfieldID (tree->stree zfieldID-t)))
       "true"
       "false"))
             
-
-
 (tm-define (tm-zotero-ext:is-zbibliography? zfieldID-t)
   (:secure)
   (if (is-zbibliography?
-       (get-document-zfield-by-zfieldID 
-        (object->string zfieldID-t)))
+       (get-document-zfield-by-zfieldID (tree->stree zfieldID-t)))
       "true"
       "false"))
   
-
 (tm-define (tm-zotero-ext:is-zfield? zfieldID-t)
   (:secure)
   (if (is-zfield?
-       (get-document-zfield-by-zfieldID
-        (object->string zfieldID-t)))
+       (get-document-zfield-by-zfieldID (tree->stree zfieldID-t)))
       "true"
       "false"))
 
@@ -1930,6 +2319,7 @@
   (if (inside-note? zfieldID-t)
       "true"
       "false"))
+
 
 
 (tm-define (tm-zotero-ext:inside-zcite? t)
@@ -1957,6 +2347,10 @@
       "false"))
 
 
+;;{{{ Older stuff below from past experiments, not really in use, but
+;;; referenced from the style sheet, so leave them here for now in case a
+;;; revisit of the experiments discover a use for them.
+
 ;;; ztShowID
 ;;;
 ;;; I don't think this one will ever really show up, but just in case, I've
@@ -1968,7 +2362,7 @@
 ;;;
 (tm-define (tm-zotero-ext:ztShowID node cslid body)
   (:secure)
-  (tm-zotero-format-debug "zt-ext-ztShowID: ~s ~s ~s\n" node clsid body)
+  ;; (tm-zotero-format-debug "zt-ext-ztShowID: ~s ~s ~s\n" node clsid body)
   '(concat ""))
 
 
@@ -2002,14 +2396,15 @@
 ;;;
 (tm-define (tm-zotero-ext:zbibCitationItemID sysID)
   (:secure)
-  (tm-zotero-format-debug "STUB:zt-ext-zbibCitationItemID: ~s\n\n" sysID)
-  '(concat ""))
+  ;; (tm-zotero-format-debug "STUB:zt-ext-zbibCitationItemID: ~s\n\n" sysID)
+  "")
 
 (tm-define (tm-zotero-ext:bibitem key)
   (:secure)
-  (tm-zotero-format-debug "STUB:zt-ext-bibitem: ~s\n" key)
-  '(concat ""))
+  ;; (tm-zotero-format-debug "STUB:zt-ext-bibitem: ~s\n" key)
+  "")
 
+;;}}}
 ;;}}}
 
 
@@ -2334,6 +2729,7 @@
 (define document-mark-cancel-error-cleanup-hook (make-hook 1))
 
 (define (document-mark-cancel-and-error-cleanup documentID)
+  ;; (tm-zotero-format-debug "document-mark-cancel-and-error-cleanup called, documentID => ~s\n" documentID)
   (let ((mark-nr (document-active-mark-nr documentID)))
     (when mark-nr
       (mark-cancel mark-nr) ; causes undo to happen
@@ -2344,6 +2740,7 @@
 (define document-mark-end-cleanup-hook (make-hook 1))
 
 (define (document-mark-end-and-cleanup documentID)
+  ;; (tm-zotero-format-debug "document-mark-end-and-cleanup called, documentID => ~s\n" documentID)
   (let ((mark-nr (document-active-mark-nr documentID)))
     (when mark-nr
       (mark-end mark-nr) ; causes undo to happen
@@ -2373,7 +2770,9 @@
 ;;; The document-active-mark-nr must only be set by
 ;;; call-zotero-integration-command, and only canceled (undo) or ended (keep) here.
 ;;;
-(define (tm-zotero-listen cmd)          ; cmd is only used for system-wait display.
+(define (tm-zotero-listen cmd)
+  ;; cmd is only used for system-wait and debug display.
+  (tm-zotero-format-debug "tm-zotero-listen called by: cmd => ~s\n" cmd)
   (let* ((documentID (get-documentID))
          (mark-nr (document-active-mark-nr documentID)))
     (system-wait (string-append "Zotero: " cmd) "Please wait. (tm-zotero-listen)")
@@ -2385,16 +2784,16 @@
         ;; Only run when data is ready to be read...
         (when (char-ready? tm-zotero-socket-port)
           (with (tid len cmdstr) (tm-zotero-read)
-            (tm-zotero-format-debug "tm-zotero-listen:tid:~s:len:~s:cmdstr:~s\n" tid len cmdstr)
+            (tm-zotero-format-debug "tm-zotero-listen delayed read: tid => ~s, len => ~s, cmdstr => ~s\n" tid len cmdstr)
             (if (> len 0)
                 ;; then
                 (with (editCommand args) (safe-json-string->scm cmdstr)
-                  (tm-zotero-format-debug "~s\n" (list editCommand (cons tid args)))
+                  ;; (tm-zotero-format-debug "~s\n" (list editCommand (cons tid args)))
                   (cond
                     ((and (>= (string-length editCommand) 4)
                           (string=? (string-take editCommand 4) "ERR:"))
                      ;; editCommand is really an error string this time.
-                     (tm-zotero-format-debug "tm-zotero-listen:~s\n" editCommand)
+                     ;; (tm-zotero-format-debug "tm-zotero-listen:~s\n" editCommand)
                      ;;
                      ;; To do: verify that this is correct protocol:
                      ;;
@@ -2420,7 +2819,7 @@
                      wait
                      )
                     ((string=? editCommand "Document_complete") ; special case
-                     (tm-zotero-format-debug "tm-zotero-Document_complete called.\n")
+                     ;; (tm-zotero-format-debug "tm-zotero-Document_complete called.\n")
                      (set-message "Zotero: Document complete." "Zotero integration")
                      (system-wait "Zotero: Document complete." "(soon ready)")
                      (tm-zotero-write tid (scm->json-string '()))
@@ -2542,8 +2941,8 @@
 
 (define (tm-zotero-add str-kind)
   (let* ((documentID (get-documentID))
-         (new-zfieldID (document-new-zfieldID documentID)))
-    (unless new-zfieldID                ; one at a time only
+         (new-zfield-zfd (document-new-zfield-zfd documentID)))
+    (unless new-zfield-zfd              ; one at a time only
       (cond
         ((== str-kind "citation")
          (insert-new-zfield 'zcite "{Citation}")
@@ -2706,12 +3105,12 @@
                     (not (in-math?))
                     (if (focus-is-zfield?)
                         (let ((zfield (focus-tree)))
-                          (tm-zotero-format-debug
-                           "tm-zotero-Document_canInsertField:focus-is-zfield? => #t, document-new-zfieldID => ~s, (focus-tree) => ~s\n"
-                           (document-new-zfieldID documentID)
-                           zfield)
+                          ;; (tm-zotero-format-debug
+                          ;;  "tm-zotero-Document_canInsertField:focus-is-zfield? => #t, document-new-zfieldID => ~s, (focus-tree) => ~s\n"
+                          ;;  (document-new-zfieldID documentID)
+                          ;;  zfield)
                           ;; Ok if zfield is the newly being-inserted zfield.
-                          (if (zfieldID-is-document-new-zfieldID? documentID (zfield-zfieldID zfield))
+                          (if (zfield-is-document-new-zfield? documentID zfield)
                               #t
                               #f))
                         #t))))))
@@ -2763,16 +3162,16 @@
   (tm-zotero-format-debug "tm-zotero-Document_cursorInField called.\n")
   (let ((ret (if (focus-is-zfield?)
                  (begin
-                   (tm-zotero-format-debug "tm-zotero-Document_cursorInField: focus-is-zfield? => #t\n")
+                   ;; (tm-zotero-format-debug "tm-zotero-Document_cursorInField: focus-is-zfield? => #t\n")
                    (let* ((zfield (focus-tree))
                           (zfieldID (zfield-zfieldID zfield)))
-                     (if (not (zfieldID-is-document-new-zfieldID? documentID zfieldID))
+                     (if (not (zfield-is-document-new-zfield? documentID zfieldID))
                          (begin
                            (let ((zfieldCode (zfield-Code-code zfield))
                                  (noteIndex (zfield-NoteIndex zfield)))
-                             (tm-zotero-format-debug
-                              "tm-zotero-Document_cursorInField:id:~s:code:~s:ni:~s\n"
-                              zfieldID zfieldCode noteIndex)
+                             ;; (tm-zotero-format-debug
+                             ;;  "tm-zotero-Document_cursorInField:id:~s:code:~s:ni:~s\n"
+                             ;;  zfieldID zfieldCode noteIndex)
                              (list zfieldID zfieldCode noteIndex)))
                          '()))) ;; is the new field not finalized by Document_insertField
                  '()))) ;; focus is not a zfield.
@@ -2819,44 +3218,39 @@
                                         str_fieldType
                                         int_noteType)
   (tm-zotero-format-debug "tm-zotero-Document_insertField called.\n")
-  (let* ((new-zfieldID (document-new-zfieldID documentID))
-         (blah (tm-zotero-format-debug "tm-zotero-Document_insertField:let*: new-zfieldID => ~s\n" new-zfieldID))
-         (new-zfield-zfd (and new-zfieldID
-                              (get-document-<zfield-data>-by-zfieldID documentID new-zfieldID)))
-         (blah (tm-zotero-format-debug "tm-zotero-Document_insertField:let*: new-zfield-zfd => ~s\n" new-zfield-zfd))
-         (blah (describe new-zfield-zfd))
+  (let* ((new-zfield-zfd (document-new-zfield-zfd documentID))
+         (new-zfieldID (and new-zfield-zfd
+                            (zfd-zfieldID new-zfield-zfd)))
          (new-zfield (and new-zfield-zfd
                           (zfd-tree new-zfield-zfd)))
-         (blah (tm-zotero-format-debug "tm-zotero-Document_insertField:let*: new-zfield => ~s\n" new-zfield))
-         (new-noteIndex (and new-zfield
-                             (zfield-NoteIndex new-zfield)))
-         (blah (tm-zotero-format-debug "tm-zotero-Document_insertField:let*: new-noteIndex => ~s\n" new-noteIndex)))
+         (new-noteIndex (and new-zfieldID
+                             (zfield-NoteIndex new-zfieldID))))
     ;; (describe new-zfield-zfd)
-    (if new-zfield
+    (if new-zfield-zfd
         ;; then
         (begin
           ;; Just in case somebody moved the cursor during the GUI mainloop
           ;; while waiting for Zotero transactions to take place...
           (tree-go-to new-zfield 1)
-          ;; clear document-new-zfieldID
-          (set-document-new-zfieldID! documentID #f)
+          ;; clear document-new-zfield-zfd
+          (set-document-new-zfield-zfd! documentID #f)
           ;;
-          ;; Add it to the zfield-ls.
+          ;; Add it to the <document-data>-*
           ;;
           ;; This is done explicitly here rather than lazily by
           ;; tm-zotero-ext:ensure-zfield-interned! because in this case, the
-          ;; <zfield-data> for this zfield already exists in the document's
-          ;; <zfield-data>-ht... and I want to be sure that it's in the list
-          ;; for the about to happen call for the list of fields via
-          ;; Document_getFields.
+          ;; <zfield-data> for this zfield already exists... and I want to be
+          ;; sure that it's in the list for the about to happen call for the
+          ;; list of fields via Document_getFields.
           ;;
+          (hash-set! (document-zfield-zfd-ht documentID) new-zfieldID new-zfield-zfd)
           (document-merge!-<zfield-data> new-zfield-zfd)
           (when (is-zbibliography? new-zfield)
             (document-merge!-zbibliography-zfd new-zfield-zfd))
           ;; Report success to Zotero.
           (tm-zotero-write tid (safe-scm->json-string
                                 (list new-zfieldID ""
-                                      (zfield-NoteIndex new-zfield))))
+                                      new-noteIndex)))
           )
         ;; else
         (tm-zotero-write tid (safe-scm->json-string "ERR:no new-zfield in tm-zotero-Document_insertField???")))))
@@ -2880,14 +3274,14 @@
   (let ((ret
          (let loop ((zfield-zfd-ls (document-zfield-zfd-ls documentID)) ; list of <zfield-data>.
                     (ids '()) (codes '()) (indx '()))
-           (tm-zotero-format-debug "tm-zotero-Document_getFields:zfield-zfd-ls => ~s\n" zfield-zfd-ls)
-           (tm-zotero-format-debug "tm-zotero-Document_getFields: ~s\n" (map (lambda (zfd)
-                                                                               (if zfd
-                                                                                   (if (zfd-tree-pointer zfd)
-                                                                                       (zfield-zfieldID (zfd-tree zfd))
-                                                                                       "No tree pointer in zfd?")
-                                                                                   "No zfd?"))
-                                                                             zfield-zfd-ls))
+           ;; (tm-zotero-format-debug "tm-zotero-Document_getFields:zfield-zfd-ls => ~s\n" zfield-zfd-ls)
+           ;; (tm-zotero-format-debug "tm-zotero-Document_getFields: ~s\n" (map (lambda (zfd)
+           ;;                                                                     (if zfd
+           ;;                                                                         (if (zfd-tree-pointer zfd)
+           ;;                                                                             (zfield-zfieldID (zfd-tree zfd))
+           ;;                                                                             "No tree pointer in zfd?")
+           ;;                                                                         "No zfd?"))
+           ;;                                                                   zfield-zfd-ls))
            (cond
              ((null? zfield-zfd-ls) (if (nnull? ids)
                                         (list (reverse! ids)
@@ -3593,7 +3987,7 @@
 will not overflow into the page margins. Keep punctuation before and after,
 including parentheses and <less> <gtr> around the link put there by some
 styles."
-  (tm-zotero-format-debug "move-link-to-own-line called.\n")
+  (tm-zotero-format-debug "move-link-to-own-line called, lnk => ~s\n" lnk)
   (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
          (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt)))
          (post-lnk-txt (tree-ref (tree-up lnk) (+ (tree-index lnk) 1)))
@@ -3602,11 +3996,11 @@ styles."
                        (or (string-suffix? "doi:" pre-lnk-str)
                            (string-suffix? "doi: " pre-lnk-str)
                            (string-suffix? "doi: " pre-lnk-str)))))
-    (tm-zotero-format-debug "lnk before: ~s\n" lnk)
-    (tm-zotero-format-debug "pre-lnk-str: ~s\n" pre-lnk-str)
-    (tm-zotero-format-debug "post-lnk-str: ~s\n" post-lnk-str)
+    ;; (tm-zotero-format-debug "lnk before: ~s\n" lnk)
+    ;; (tm-zotero-format-debug "pre-lnk-str: ~s\n" pre-lnk-str)
+    ;; (tm-zotero-format-debug "post-lnk-str: ~s\n" post-lnk-str)
     (unless is-doi?
-      (tm-zotero-format-debug "is-doi? => #f\n")
+      ;; (tm-zotero-format-debug "is-doi? => #f\n")
       (when (string? pre-lnk-str)
         (cond
           ((and (string? post-lnk-str)
@@ -3690,7 +4084,7 @@ styles."
                     (string-prefix? " " post-lnk-str))
             (set! post-lnk-str (substring post-lnk-str 1 (string-length post-lnk-str)))
             (tree-set! post-lnk-txt (stree->tree post-lnk-str))))))
-    (tm-zotero-format-debug "lnk after: ~s\n" lnk))
+    (tm-zotero-format-debug "move-link-to-own-line returning, lnk => ~s\n" lnk))
   lnk)
 
 
@@ -3893,10 +4287,11 @@ styles."
 
 (define (tm-zotero-regex-transform str_text)
   (set-message "Zotero: regex transform..." "Zotero integration")
-  (tm-zotero-format-debug "tm-zotero-regex-transform:before...\n")
+  (tm-zotero-format-debug "tm-zotero-regex-transform called, str_text => ~s\n" str_text)
   (let ((text str_text))
     (do ((rc tm-zotero-regex-replace-clauses (cdr rc)))
         ((null? rc)
+         (tm-zotero-format-debug "tm-zotero-regex-transform returning, text => ~s\n" text)
          text)
       ;; each is applied in turn, so later ones can modify results of earlier
       ;; ones if you like.
@@ -3917,7 +4312,7 @@ styles."
 ;;; Todo: It spends a looonnnngggg time in here when typesetting a large zbibliography.
 ;;;
 (define (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)
-  (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs called... !!!\n")
+  (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs called, str_text => ~s, is-note? => ~s, is-bib? => ~s\n" str_text is-note? is-bib?)
   ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
   ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
   ;; strings in {\rtf ,Body}. This removes it when it has done that.
@@ -3945,7 +4340,7 @@ styles."
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
     (set-message "Zotero: str_text->texmacs..." "Zotero integration")
-    (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs after let*. !!!\n")
+    ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs after let*. !!!\n")
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
@@ -3991,11 +4386,11 @@ styles."
     ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:before tree-simplify\n")
     (tree-simplify t)
     ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:after tree-simplify\n")
-    (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:after.\n")
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
     (buffer-close b)
     (recall-message)
+    (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs returning, t => ~s\n" t)
     t))
 
 ;;}}}

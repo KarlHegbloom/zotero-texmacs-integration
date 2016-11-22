@@ -20,12 +20,6 @@
 ;;
 (when (supports-tm-zotero?)
   (import-from (tm-zotero))
-  (texmacs-modes
-    (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
-    (focus-is-zcite% (tree-is? (focus-tree) 'zcite) in-tm-zotero-style%)
-    (focus-is-zbibliography% (tree-is? (focus-tree) 'zbibliography) in-tm-zotero-style%)
-    (focus-is-zfield% (or (focus-is-zcite?) (focus-is-zbibliography?)))
-    (focus-is-ztHref% (tree-is? (focus-tree) 'ztHref) in-tm-zotero-style%))
   (lazy-keyboard (tm-zotero-kbd) in-tm-zotero-style?)
   (lazy-menu (tm-zotero-menu) in-tm-zotero-style?)
   (extend-table style-menu-name

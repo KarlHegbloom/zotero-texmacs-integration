@@ -60,7 +60,15 @@
 
   \;
 
-  <assign|usepackage*|<macro|ign1|ign2|<concealed|<arg|ign1><arg|ign2>>>>
+  <assign|XXXusepackage*|<macro|ign1|ign2|<concealed|<arg|ign1><arg|ign2>>>>
+
+  <\active*>
+    <\src-comment>
+      In order to prevent the latex to texmacs conversion from mangling
+      these, I had to prefix them with zt to get it past the substitution
+      phase of the converter.
+    </src-comment>
+  </active*>
 
   <assign|zttextit|<macro|body|<with|font-shape|italic|<arg|body>>>>
 
@@ -78,8 +86,8 @@
 
   <\active*>
     <\src-comment>
-      Default values to avoid transcient "bad case" errors prior to setting
-      documentData.
+      Default values to avoid transcient "bad case" errors being thrown
+      (regarding a \\case macro) prior to setting documentData.
     </src-comment>
   </active*>
 
@@ -190,7 +198,11 @@
     </src-comment>
   </active*>
 
-  <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
+  <assign|tm-zotero-ext-ensure-ztHref-interned!|<macro|url-for-tree|<extern|(lambda
+  (url-for-tree-t) (tm-zotero-ext:ensure-ztHref-interned!
+  url-for-tree-t))|<arg|url-for-tree>>>>
+
+  <assign|ztHref|<macro|url|display|<tm-zotero-ext-ensure-ztHref-interned!|<arg|url>><if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
 
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 
@@ -201,9 +213,13 @@
     </src-comment>
   </active*>
 
+  <assign|tm-zotero-ext-ensure-ztHref*-interned!|<macro|hashLabel|<extern|(lambda
+  (fieldID-t) (tm-zotero-ext:ensure-ztHref*-interned!
+  fieldID-t))|<arg|hashLabel>>>>
+
   <assign|zt-link-BibToURL|true>
 
-  <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<tm-zotero-ext-ensure-ztHref*-interned!|<arg|hashLabel>><with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromBibToURL*|<value|ztHrefFromBibToURL>>
 
@@ -211,7 +227,7 @@
 
   <assign|ztDefaultCiteURL|>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<tm-zotero-ext-ensure-ztHref*-interned!|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
