@@ -440,6 +440,34 @@
       ((in? mode '(:all)) #t))))
 
 
+(define right-message "Juris-M / Zotero <---> TeXmacs Integration")
+
+;;; These strings might ultimately (inside the C++) end up going through a
+;;; language translation table lookup, so I'm using the same strings that are
+;;; found throughout the TeXmacs scheme sources. ☺
+;;;
+(define please-wait "please wait")
+(define soon-ready "(soon ready)")
+
+
+(define (prefix-message message)
+  (string-append "tm-zotero: " message))
+
+(define (tm-zotero-set-message message . timeout)
+  (if (nnull? timeout)
+      (set-temporary-message (prefix-message message) right-message (car timeout))
+      (set-temporary-message (prefix-message message) right-message 1000)))
+
+(define (tm-zotero-system-wait message arg)
+  (system-wait (prefix-message message) arg))
+
+(define (tm-zotero-set-message-and-system-wait message arg . timeout)
+  (if (nnull? timeout)
+      (tm-zotero-set-message message (car timeout))
+      (tm-zotero-set-message message))
+  (tm-zotero-system-wait message arg))
+
+
 ;;}}}
 
 ;;{{{ General category overloaded; update-document, buffer-set-part-mode
@@ -463,7 +491,7 @@
 
 (tm-define (buffer-set-part-mode mode)
   (:require (in-tm-zotero-style?))
-  (tm-zotero-format-debug "buffer-get-part-mode called, mode => ~s\n" mode)
+  ;;(tm-zotero-format-debug "buffer-get-part-mode called, mode => ~s\n" mode)
   (clear-<document-data>! (get-documentID))
   (former mode))
 
@@ -494,15 +522,17 @@
   (:require (and (in-tm-zotero-style?)
                  (is-zfield? zfield)))
   ;; (tm-zotero-format-debug "notify-activated called.\n")
-  (set-message "zcite reactivated! Setting is-modified? flag" "Zotero Integration")
+  (tm-zotero-set-message "zcite reactivated! Checking for modification...")
   (let* ((origText (zfield-Code-origText zfield))
-         (newText  (zfield-Text zfield)))
+         (newText  (zfield-Text zfield))
+         (is-modified? (if (string=? newText origText) "false" "true"))
     ;; (tm-zotero-format-debug "notify-activated: origText => ~s\n" origText)
     ;; (tm-zotero-format-debug "notify-activated: newText => ~s\n" newText)
-    (set! (zfield-Code-is-modified?-flag zfield)
-          (if (string=? newText origText)
-              "false"
-              "true"))))
+    (set! (zfield-Code-is-modified?-flag zfield) is-modified?)
+    (tm-zotero-set-message
+     (string-append "zcite reactivated! Checking for modification... is-modified? => "
+                    is-modified? ". Done."))))
+  #t)
 
 ;;}}}
 
@@ -728,17 +758,27 @@
          (zfields (or (and selection-t
                            (tm-search selection-t is-zfield?))
                       '()))
-         (zfield-zfd-ht (get-document-zfield-zfd-ht documentID)))
+         (zfield-zfd-ht (get-document-zfield-zfd-ht documentID))
+         ;; outside the lambda; do it once only.
+         (new-zfield-zfd (get-document-new-zfield-zfd documentID)))
     (map (lambda (zfield)
            (let* ((zfieldID (zfield-zfieldID zfield))
-                  (zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
-             (unless (zfield-is-document-new-zfield? documentID zfieldID)
-               (hash-remove! zfield-zfd-ht zfieldID)
-               (document-remove!-<zfield-data> zfd)
-               (when (is-zbibliography? zfield)
-                 (document-remove!-zbibliography-zfd zfd)))
-             (tree-pointer-detach (zfd-tree-pointer zfd))
-             (set! (zfd-tree-pointer zfd) #f)))
+                  (zfd (hash-ref zfield-zfd-ht zfieldID #f)))
+             (if (not (zfield-is-document-new-zfield? documentID zfieldID))
+                 (begin
+                   (hash-remove! zfield-zfd-ht zfieldID)
+                   (when zfd
+                     (document-remove!-<zfield-data> zfd)
+                     (when (is-zbibliography? zfield)
+                       (document-remove!-zbibliography-zfd zfd))
+                     (let ((tp (zfd-tree-pointer zfd)))
+                       (when tp
+                         (tree-pointer-detach tp)
+                         (set! (zfd-tree-pointer zfd) #f)))))
+                 (let ((tp (zfd-tree-pointer new-zfield-zfd))) ; is the new one??? How?
+                   (when tp
+                     (tree-pointer-detach tp)
+                     (set-document-new-zfield-zfd! #f))))))
          zfields))
   (former which))
 
@@ -925,8 +965,7 @@
 
 
 (define (zt-notify-debug-trace var val)
-  (set-message (string-append "zt-debug-trace? set to " val)
-               "Zotero integration")
+  (tm-zotero-set-message (string-append "Setting zt-debug-trace? to " val "."))
   (set! zt-debug-trace? (== val "on")))
 
 
@@ -2162,7 +2201,7 @@
 ;;;
 (tm-define (tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:secure)
-  (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => ~s\n" zfieldID-t)
+  ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => ~s\n" zfieldID-t)
   (let* ((documentID (get-documentID))
          (zfieldID (tree->stree zfieldID-t))
          ;;         fail if this is the new-zfield not yet finalized by
@@ -2175,13 +2214,13 @@
           ;; Then we're done here, that quick, since the new zfield is already
           ;; partly interned, and isn't finalized until
           ;; tm-zotero-Document_insertField.
-          (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, is-new? => #t\n")
+          ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, is-new? => #t\n")
           "")
         (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
           (if zfd
               (begin
                 ;; then we're done, it's already interned.
-                (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, zfd was already interned, zfd => ~s\n" zfd)
+                ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, zfd was already interned, zfd => ~s\n" zfd)
                 "")
               ;;
               ;; else...
@@ -2200,9 +2239,13 @@
                       (document-merge!-<zfield-data> zfd)
                       (when (is-zbibliography? zfield)
                         (document-merge!-zbibliography-zfd zfd))
-                      (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Interned new zfield, zfd => ~s\n" zfd))
-                    (begin
-                      (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Not inside show-part. Nothing interned.\n")))
+                      ;;(tm-zotero-format-debug
+                      ;;"tm-zotero-ext:ensure-zfield-interned!
+                      ;;returning. Interned new zfield, zfd => ~s\n" zfd)
+                      )
+                    ;; (begin
+                    ;;   (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Not inside show-part. Nothing interned.\n"))
+                    )
                 ""))))))
 
 ;;;;;;
@@ -2655,7 +2698,7 @@
 
 ;; (sigaction SIGPIPE
 ;;   (lambda (sig)
-;;     (set-message "SIGPIPE on tm-zotero-socket-port!" "Zotero integration")
+;;     (tm-zotero-set-message "SIGPIPE on tm-zotero-socket-port!")
 ;;     (hash-for-each
 ;;      (lambda (key val)
 ;;        (set-document-active-mark-nr! key #f))
@@ -2808,11 +2851,12 @@
 ;;; call-zotero-integration-command, and only canceled (undo) or ended (keep) here.
 ;;;
 (define (tm-zotero-listen cmd)
-  ;; cmd is only used for system-wait and debug display.
+  ;; cmd is only used for set-message and debug display.
   (tm-zotero-format-debug "tm-zotero-listen called by: cmd => ~s\n" cmd)
   (let* ((documentID (get-documentID))
          (mark-nr (get-document-active-mark-nr documentID)))
-    (system-wait (string-append "Zotero: " cmd) "Please wait. (tm-zotero-listen)")
+    (tm-zotero-set-message
+     (string-append "Waiting for response for " cmd "..."))
     (with (counter wait) '(40 10)
       (delayed
         (:while (get-document-active-mark-nr documentID))
@@ -2856,9 +2900,9 @@
                      wait
                      )
                     ((string=? editCommand "Document_complete") ; special case
-                     ;; (tm-zotero-format-debug "tm-zotero-Document_complete called.\n")
-                     (set-message "Zotero: Document complete." "Zotero integration")
-                     (system-wait "Zotero: Document complete." "(soon ready)")
+                     ;; (tm-zotero-format-debug "tm-zotero-Document_complete
+                     ;; called.\n")
+                     (tm-zotero-set-message-and-system-wait "Document complete!" soon-ready 2500)
                      (tm-zotero-write tid (scm->json-string '()))
                      ;; keep the changes unless already cancelled
                      (document-mark-end-and-cleanup documentID)
@@ -2867,7 +2911,10 @@
                      )
                     (else               ; We have an editCommand to process.
                       ;;
-                      (system-wait (string-append "Zotero: " editCommand) "Please wait...")
+                      
+                      ;; (tm-zotero-set-message
+                      ;;  (string-append "Processing command: " editCommand "..."))
+                      
                       ;;
                       ;; wrt document-active-mark-nr, it must not be altered
                       ;; here, since these are the intermediate edit commands
@@ -2950,10 +2997,6 @@
 (define (call-zotero-integration-command cmd)
   (let ((documentID (get-documentID)))
     (when (not (get-document-active-mark-nr documentID)) ;; one at a time only
-      (set-message (string-append "Calling Zotero integration command: " cmd)
-                   "Zotero Integration")
-      (system-wait (string-append "Calling Zotero integration command: " cmd)
-                   "Please wait.")
       (let ((zp (get-tm-zotero-socket-port))
             (mark-nr (mark-new)))       ; for "atomic undo" on failure
         (if (and (port? zp)
@@ -3048,7 +3091,8 @@
 ;;; For now it ignores the protocol version.
 ;;;
 (define (tm-zotero-Application_getActiveDocument tid pv)
-  (tm-zotero-format-debug "zotero-Application_getActiveDocument called.\n")
+  ;;(tm-zotero-set-message "Processing command: Application_getActiveDocument...")
+  ;;(tm-zotero-format-debug "zotero-Application_getActiveDocument called.\n")
   (tm-zotero-write tid (safe-scm->json-string (list pv (get-documentID)))))
 
 ;;}}}
@@ -3110,7 +3154,8 @@
 ;;;
 (define (tm-zotero-Document_displayAlert tid documentID str_dialogText int_icon
                                          int_buttons)
-  (tm-zotero-format-debug "tm-zotero-Document_displayAlert called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_displayAlert...")
+  ;;(tm-zotero-format-debug "tm-zotero-Document_displayAlert called.\n")
   (dialogue-window (zotero-display-alert documentID str_dialogText int_icon int_buttons)
                    (lambda (val)
                      (tm-zotero-write tid (safe-scm->json-string val)))
@@ -3125,6 +3170,8 @@
 ;;; ["Document_activate", [documentID]] -> null
 ;;;
 (define (tm-zotero-Document_activate tid documentID)
+  ;;(tm-zotero-set-message "Processing command: Document_activate...")
+  ;;(tm-zotero-format-debug "tm-zotero-Document_activate called.\n")
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
@@ -3135,7 +3182,8 @@
 ;;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
 ;;;
 (define (tm-zotero-Document_canInsertField tid documentID str_fieldType)
-  (tm-zotero-format-debug "tm-zotero-Document_canInsertField called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_canInsertField...")
+  ;; (tm-zotero-format-debug "tm-zotero-Document_canInsertField called.\n")
   (let ((ret (not
               (not
                (and (in-text?)
@@ -3161,7 +3209,8 @@
 ;;; ["Document_getDocumentData", [documentID]] -> str_dataString
 ;;;
 (define (tm-zotero-Document_getDocumentData tid documentID)
-  (tm-zotero-format-debug "tm-zotero-Document_getDocumentData called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_getDocumentData...")
+  ;; (tm-zotero-format-debug "tm-zotero-Document_getDocumentData called.\n")
   (tm-zotero-write tid (safe-scm->json-string (get-env-zoteroDocumentData))))
 
 ;;}}}
@@ -3173,7 +3222,8 @@
 ;;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
 ;;;
 (define (tm-zotero-Document_setDocumentData tid documentID str_dataString)
-  (tm-zotero-format-debug "tm-zotero-Document_setDocumentData called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_setDocumentData...")
+  ;; (tm-zotero-format-debug "tm-zotero-Document_setDocumentData called.\n")
   (set-env-zoteroDocumentData! str_dataString)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
@@ -3196,7 +3246,8 @@
 ;;;   str_fieldType is ignored for now.
 ;;;
 (define (tm-zotero-Document_cursorInField tid documentID str_fieldType)
-  (tm-zotero-format-debug "tm-zotero-Document_cursorInField called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_cursorInField...")
+  ;; (tm-zotero-format-debug "tm-zotero-Document_cursorInField called.\n")
   (let ((ret (if (focus-is-zfield?)
                  (begin
                    ;; (tm-zotero-format-debug "tm-zotero-Document_cursorInField: focus-is-zfield? => #t\n")
@@ -3254,7 +3305,8 @@
 (define (tm-zotero-Document_insertField tid documentID
                                         str_fieldType
                                         int_noteType)
-  (tm-zotero-format-debug "tm-zotero-Document_insertField called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_insertField...")
+  ;; (tm-zotero-format-debug "tm-zotero-Document_insertField called.\n")
   (let* ((new-zfield-zfd (get-document-new-zfield-zfd documentID))
          (new-zfieldID (and new-zfield-zfd
                             (zfd-zfieldID new-zfield-zfd)))
@@ -3307,20 +3359,21 @@
 ;;;  that the BIBL field is also sent as one of the fields in this list.
 ;;;
 (define (tm-zotero-Document_getFields tid documentID str_fieldType)
-  (tm-zotero-format-debug "tm-zotero-Document_getFields called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_getFields...")
+  ;; (tm-zotero-format-debug "tm-zotero-Document_getFields called.\n")
   (let ((ret
          (let loop ((zfield-zfd-ls (get-document-zfield-zfd-ls documentID)) ; list of <zfield-data>.
                     (ids '()) (codes '()) (indx '()))
-           (tm-zotero-format-debug "tm-zotero-Document_getFields:zfield-zfd-ls => ~s\n" zfield-zfd-ls)
-           (tm-zotero-format-debug "tm-zotero-Document_getFields: ~s\n" (map (lambda (zfd)
-                                                                               (if zfd
-                                                                                   (if (zfd-tree-pointer zfd)
-                                                                                       (list
-                                                                                        (zfd-zfieldID zfd)
-                                                                                        (zfield-zfieldID (zfd-tree zfd)))
-                                                                                       "No tree pointer in zfd?")
-                                                                                   "No zfd?"))
-                                                                             zfield-zfd-ls))
+           ;; (tm-zotero-format-debug "tm-zotero-Document_getFields:zfield-zfd-ls => ~s\n" zfield-zfd-ls)
+           ;; (tm-zotero-format-debug "tm-zotero-Document_getFields: ~s\n" (map (lambda (zfd)
+           ;;                                                                     (if zfd
+           ;;                                                                         (if (zfd-tree-pointer zfd)
+           ;;                                                                             (list
+           ;;                                                                              (zfd-zfieldID zfd)
+           ;;                                                                              (zfield-zfieldID (zfd-tree zfd)))
+           ;;                                                                             "No tree pointer in zfd?")
+           ;;                                                                         "No zfd?"))
+           ;;                                                                   zfield-zfd-ls))
            (cond
              ((null? zfield-zfd-ls) (if (nnull? ids)
                                         (list (reverse! ids)
@@ -3351,7 +3404,8 @@
 ;;; TeXmacs?  Better to make a new flag; and just ignore this one?
 ;;;
 (define (tm-zotero-Document_convert tid . args)
-  (tm-zotero-format-debug "tm-zotero-Document_convert called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_convert...")
+  ;; (tm-zotero-format-debug "tm-zotero-Document_convert called.\n")
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
@@ -3761,7 +3815,8 @@
          tid documentID
          firstLineIndent bodyIndent lineSpacing entrySpacing
          arrayList tabStopCount)
-  (tm-zotero-format-debug "tm-zotero-Document_setBibliographyStyle called.\n")
+  ;;(tm-zotero-set-message "Processing command: Document_setBibliographyStyle...")
+  ;;(tm-zotero-format-debug "tm-zotero-Document_setBibliographyStyle called.\n")
   (set-init-env "zotero-BibliographyStyle_firstLineIndent"
                 (tm-zotero-firstLineIndent->tmlen firstLineIndent))
   (set-init-env "zotero-BibliographyStyle_bodyIndent"
@@ -3784,6 +3839,7 @@
 ;;; connector. It appears to do nothing there either.
 ;;;
 (define (tm-zotero-Document_cleanup tid documentID)
+  ;;(tm-zotero-set-message "Processing command: Document_cleanup...")
   (tm-zotero-format-debug "STUB:tm-zotero-Document_cleanup: ~s\n" documentID)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
@@ -3819,7 +3875,9 @@
 ;;; ["Field_delete", [documentID, fieldID]] -> null
 ;;;
 (define (tm-zotero-Field_delete tid documentID zfieldID)
-  (tm-zotero-format-debug "tm-zotero-Field_delete called.\n")
+  ;; (tm-zotero-set-message
+  ;;  (string-append "Processing command: Field_delete " zfieldID "..."))
+  ;;(tm-zotero-format-debug "tm-zotero-Field_delete called.\n")
   (let* ((zfd (get-document-zfield-by-zfieldID zfieldID))
          (zfield (and zfd (zfd-tree zfd)))
          (code (and zfield (zfield-Code-code zfield)))
@@ -3846,7 +3904,9 @@
 ;;; light blue box, after it.... (writing this comment prior to testing. FLW.)
 ;;;
 (define (tm-zotero-Field_select tid documentID zfieldID)
-  (tm-zotero-format-debug "tm-zotero-Field_select called.\n")
+  ;; (tm-zotero-set-message
+  ;;  (string-append "Processing command: Field_select " zfieldID "..."))
+  ;;(tm-zotero-format-debug "tm-zotero-Field_select called.\n")
   (go-to-document-zfield-by-zfieldID documentID zfieldID)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
@@ -3856,7 +3916,9 @@
 ;;; ["Field_removeCode", [documentID, fieldID]] -> null
 ;;;
 (define (tm-zotero-Field_removeCode tid documentID zfieldID)
-  (tm-zotero-format-debug "tm-zotero-Field_removeCode called.\n")
+  ;; (tm-zotero-set-message
+  ;;  (string-append "Processing command: Field_removeCode " zfieldID "..."))
+  ;;(tm-zotero-format-debug "tm-zotero-Field_removeCode called.\n")
   (set! (zfield-Code-code (get-document-zfield-by-zfieldID documentID zfieldID)) "")
   (tm-zotero-write tid (safe-scm->json-string '())))
 
@@ -4026,7 +4088,7 @@
 will not overflow into the page margins. Keep punctuation before and after,
 including parentheses and <less> <gtr> around the link put there by some
 styles."
-  (tm-zotero-format-debug "move-link-to-own-line called, lnk => ~s\n" lnk)
+  ;;(tm-zotero-format-debug "move-link-to-own-line called, lnk => ~s\n" lnk)
   (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
          (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt)))
          (post-lnk-txt (tree-ref (tree-up lnk) (+ (tree-index lnk) 1)))
@@ -4123,7 +4185,8 @@ styles."
                     (string-prefix? " " post-lnk-str))
             (set! post-lnk-str (substring post-lnk-str 1 (string-length post-lnk-str)))
             (tree-set! post-lnk-txt (stree->tree post-lnk-str))))))
-    (tm-zotero-format-debug "move-link-to-own-line returning, lnk => ~s\n" lnk))
+    ;; (tm-zotero-format-debug "move-link-to-own-line returning, lnk => ~s\n" lnk)
+    )
   lnk)
 
 
@@ -4329,16 +4392,15 @@ styles."
 
 
 (define (tm-zotero-regex-transform str_text)
-  (set-message "Zotero: regex transform..." "Zotero integration")
-  (tm-zotero-format-debug "tm-zotero-regex-transform called, str_text => ~s\n" str_text)
+  ;;(tm-zotero-format-debug "tm-zotero-regex-transform called, str_text => ~s\n" str_text)
   (let ((text str_text))
     (do ((rc tm-zotero-regex-replace-clauses (cdr rc)))
         ((null? rc)
-         (tm-zotero-format-debug "tm-zotero-regex-transform returning, text => ~s\n" text)
+         ;;(tm-zotero-format-debug "tm-zotero-regex-transform returning, text => ~s\n" text)
          text)
       ;; each is applied in turn, so later ones can modify results of earlier
       ;; ones if you like.
-      (tm-zotero-format-debug "tm-zotero-regex-transform:during:text: ~S\n" text)
+      ;;(tm-zotero-format-debug "tm-zotero-regex-transform:during:text: ~S\n" text)
       (set! text (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))))))
 
 
@@ -4353,6 +4415,11 @@ styles."
 ;;; This runs for both in-text or note citations as well as for the bibliography.
 ;;;
 (define (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)
+  (tm-zotero-set-message-and-system-wait
+   "Munging, transcoding, and parsing input..." please-wait)
+  (noop)
+  (tm-zotero-set-message-and-system-wait ; try to force refresh so it is readable
+   "Munging, transcoding, and parsing input..." please-wait)
   (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs called, str_text => ~s, is-note? => ~s, is-bib? => ~s\n" str_text is-note? is-bib?)
   ;;
   ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
@@ -4380,7 +4447,6 @@ styles."
                     "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
-    (set-message "Zotero: str_text->texmacs..." "Zotero integration")
     ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs after let*. !!!\n")
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
@@ -4431,7 +4497,7 @@ styles."
     (buffer-pretend-saved b)
     (buffer-close b)
     (recall-message)
-    (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs returning, t => ~s\n" t)
+    (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs returning.\n")
     t))
 
 ;;}}}
@@ -4498,7 +4564,9 @@ styles."
 ;;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;;
 (define (tm-zotero-Field_setText tid documentID zfieldID str_text isRich)
-  (tm-zotero-format-debug "tm-zotero-Field_setText called.\n")
+  ;; (tm-zotero-set-message
+  ;;  (string-append "Processing command: Field_setText " zfieldID "..."))
+  ;; (tm-zotero-format-debug "tm-zotero-Field_setText called.\n")
   (let* ((zfield   (get-document-zfield-by-zfieldID documentID zfieldID))
          (is-note? (and zfield (zfield-IsNote? zfield)))
          (is-bib?  (and zfield (zfield-IsBib? zfield)))
@@ -4517,7 +4585,9 @@ styles."
 ;;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;;
 (define (tm-zotero-Field_getText tid documentID zfieldID)
-  (tm-zotero-format-debug "tm-zotero-Field_getText called.\n")
+  ;; (tm-zotero-set-message
+  ;;  (string-append "Processing command: Field_getText " zfieldID "..."))
+  ;; (tm-zotero-format-debug "tm-zotero-Field_getText called.\n")
   (tm-zotero-write tid (safe-scm->json-string
                         (string-convert (zfield-Text
                                          (get-document-zfield-by-zfieldID documentID zfieldID))
@@ -4532,7 +4602,9 @@ styles."
 ;;; ["Field_setCode", [documentID, fieldID, str_code]] -> null
 ;;;
 (define (tm-zotero-Field_setCode tid documentID zfieldID str_code)
-  (tm-zotero-format-debug "tm-zotero-Field_setCode called.\n")
+  ;; (tm-zotero-set-message
+  ;;  (string-append "Processing command: Field_setCode " zfieldID "..."))
+  ;; (tm-zotero-format-debug "tm-zotero-Field_setCode called.\n")
   (set! (zfield-Code-code (get-document-zfield-by-zfieldID documentID zfieldID))
         str_code)
   (tm-zotero-write tid (safe-scm->json-string '())))
@@ -4545,7 +4617,9 @@ styles."
 ;;; ["Field_getCode", [documentID, fieldID]] -> str_code
 ;;;
 (define (tm-zotero-Field_getCode tid documentID zfieldID)
-  (tm-zotero-format-debug "tm-zotero-Field_getCode called.\n")
+  ;; (tm-zotero-set-message
+  ;;  (string-append "Processing command: Field_getCode " zfieldID "..."))
+  ;; (tm-zotero-format-debug "tm-zotero-Field_getCode called.\n")
   (tm-zotero-write tid
                    (safe-scm->json-string
                     (zfield-Code-code
@@ -4561,6 +4635,8 @@ styles."
 ;;;
 (define (tm-zotero-Field_convert tid documentID
                                  zfieldID str_fieldType int_noteType)
+  ;; (tm-zotero-set-message
+  ;;  (string-append "Processing command: Field_convert " zfieldID "..."))
   (tm-zotero-format-debug "STUB:zotero-Field_convert: ~s ~s ~s ~s\n"
                    documentID zfieldID
                    str_fieldType int_noteType)
