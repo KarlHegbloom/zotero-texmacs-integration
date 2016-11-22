@@ -46,6 +46,7 @@ The reason is that I've changed some file names and some module names.
 
 **Yes, after it's all working again, I'll update the documentation!**
 
+http://www.sciencedirect.com/science/article/pii/S1571066107001727
 
 NEWS
 ----
