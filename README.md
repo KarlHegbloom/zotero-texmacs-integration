@@ -46,6 +46,8 @@ The reason is that I've changed some file names and some module names.
 
 **Yes, after it's all working again, I'll update the documentation!**
 
+This article is very interesting. It talks about verified mathematical documents... it makes me wonder if there can be verified legal documents? 
+
 http://www.sciencedirect.com/science/article/pii/S1571066107001727
 
 NEWS
