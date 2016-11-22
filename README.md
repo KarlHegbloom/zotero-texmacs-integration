@@ -5,10 +5,31 @@ This is the "Work in progress" branch for performance
 improvements... It is temporary and will be merged into master when
 it's working.
 
+Do not open your important "production" documents with this version
+yet! It will modify the <zcite> tags in place to update them to the
+new version and I have not incorporated that into the master branch so
+opening the document then saving it will make it not work anymore in
+the other branch of this program. Use save-as immediately, or better,
+make a copy of the file first and then use it for experimentation only
+until this is nailed down well enough to not blow away your documents.
+
 **It's almost ready!** It inserts citations and bibliographies again
-and the lazy interning of the zfield data is working very well... I
-still need to work on clipboard-cut, clipboard-paste, and the
-references list after the bibliography entries needs to be redone.
+and the lazy interning of the zfield data is working very well...
+
+    * clipboard-cut and clipboard-paste do the right thing when
+      zfields are cut and pasted.
+        
+    * buffer-set-part-mode is overloaded and clears the interned
+      <zfield-data> so that the tm-zotero-ext:ensure reinterns only
+      the visible tags... sort of; it actually typesets the invisible
+      ones too for some reason, so I have to actually look at the
+      part-mode and tree-search-upwards for the show-part tag.
+      
+      * It is still not working quite right... But is fairly useable
+        now. It is very quick!
+
+    * The references list after the bibliography entries needs to
+      be re-done. That's probably next.
 
 ## Important Changes for this branch: ##
 
@@ -22,13 +43,6 @@ as `~/src/Juris-M/zotero-texmacs-integration` then:
 
 The reason is that I've changed some file names and some module names.
 
-Do not open your important "production" documents with this version
-yet! It will modify the <zcite> tags in place to update them to the
-new version and I have not incorporated that into the master branch so
-opening the document then saving it will make it not work anymore in
-the other branch of this program. Use save-as immediately, or better,
-make a copy of the file first and then use it for experimentation only
-until this is nailed down well enough to not blow away your documents.
 
 **Yes, after it's all working again, I'll update the documentation!**
 
