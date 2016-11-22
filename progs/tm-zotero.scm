@@ -4201,8 +4201,10 @@ styles."
 
 ;;}}}
 
-;;; Todo: Perhaps this ought to be configurable, by making it possible for the
-;;; user to put their own ones into a separate configuration file?
+;;;;;;
+;;;
+;;; To do: Perhaps this ought to be configurable, by making it possible for the
+;;;        user to put their own ones into a separate configuration file?
 ;;;
 (define tm-zotero-regex-replace-clauses
   (map (lambda (elt)
@@ -4212,8 +4214,10 @@ styles."
        ;; Remember that these execute one after the next, and are applied using regexp-substitute/global, so they must contain
        ;; 'post' as an element in order to have them work on the entire string.
        ;;
-       `((("(\r\n)")
-          pre "\n" post);; The standard "integration.js" sends RTF, which uses \r\n pairs. Turn them to \n only.
+       `(
+         ;; (("(\r\n)")
+         ;;  pre "\n" post)
+         ;; The standard "integration.js" sends RTF, which uses \r\n pairs. Turn them to \n only.
          ;;
          ;; Template
          ;;
@@ -4334,8 +4338,8 @@ styles."
          text)
       ;; each is applied in turn, so later ones can modify results of earlier
       ;; ones if you like.
-      ;;(tm-zotero-format-debug "tm-zotero-regex-transform:during:text: ~S\n" text)
-      (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc))))))
+      (tm-zotero-format-debug "tm-zotero-regex-transform:during:text: ~S\n" text)
+      (set! text (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))))))
 
 
 (cond-expand
@@ -4348,10 +4352,9 @@ styles."
 ;;;
 ;;; This runs for both in-text or note citations as well as for the bibliography.
 ;;;
-;;; Todo: It spends a looonnnngggg time in here when typesetting a large zbibliography.
-;;;
 (define (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)
   (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs called, str_text => ~s, is-note? => ~s, is-bib? => ~s\n" str_text is-note? is-bib?)
+  ;;
   ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
   ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
   ;; strings in {\rtf ,Body}. This removes it when it has done that.
@@ -4367,9 +4370,8 @@ styles."
   (let* ((str_text (if (string-prefix? "{\\rtf " str_text)
                        (substring str_text 6 (1- (string-length str_text)))
                        str_text))
-         ;; (strls (string-split str_text creturn))
-         ;; (strls (map (cut string-trim <> cnewline) strls))
-         (strls (string-decompose str_text "\r\n"))
+         (strls (string-split str_text creturn))
+         (strls (map (cut string-trim <> cnewline) strls))
          (strls (map tm-zotero-regex-transform strls))
          ;; Q: What advantage would there be to have parse-latex accept a
          ;; UTF-8, rather than Cork encoded, string?
