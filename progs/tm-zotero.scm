@@ -1137,6 +1137,18 @@
 ;;; These are for accessing parts of the static source tree that are saved as
 ;;; part of the document. They deal with actual document trees.
 ;;;
+;;;;;;
+;;;
+;;; To do: Extend the zfield-Code-code tuple, adding a slot with a tuple inside
+;;;        of it that will contain "with-like" key value pairs that can be
+;;;        embedded as the arguments to an actual with wrapper emitted during
+;;;        zcite or zbibliography typesetter macro expansion.
+;;;
+;;;        Declare some of them as standard or internal... thinking of the
+;;;        formatting problem involving label widths of Harvard-style
+;;;        [authorDate] bibliography entry labels.
+;;;
+;;;
 ;;{{{ zfield tags, trees, inserters, and tree-ref based accessors
 ;;;
 ;;{{{ Documentation Notes
@@ -1373,15 +1385,7 @@
 ;;;
 ;;;;;;
 ;;;
-;;; To do: I'm being stalked by an angry female who is bitching about me not
-;;;        working "on the lawsuit" because she's too self-centered and stupid
-;;;        to understand that I have to finish the remaining show-stopper
-;;;        features in this program before I can use this thing to write the
-;;;        stupid lawsuit that reiterates and regurgitates a zillion already
-;;;        obvious and already long since established supreme court caselaw
-;;;        that any paralegal already knows after 101... I hate working on
-;;;        lawsuits. I love working on software. Todo: move away and never tell
-;;;        anyone where I went so I can have peace of mind again.
+;;; To do: 
 ;;;
 ;;;;;;
 
