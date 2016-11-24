@@ -53,6 +53,10 @@
 
   <assign|rdquo|\Q>
 
+  <assign|ztlt|\<less\>>
+
+  <assign|ztgt|\<gtr\>>
+
   \;
 
   <assign|ztDebug|<macro|body|<extern|(lambda (body) (zt-format-debug
@@ -299,27 +303,32 @@
       The indent will be the same as that set by the firstLineIndent and
       bodyIndent.
 
-      So, maxoffset could be used, but I don't think I need to worry about
-      it. If it turns out to need it, I will deal with it then.
-
-      Remember that there might, eventually, be more than one zbibliography
-      field in a document.
-
       Look at std-utils.ts for the indentation macros and see if they can be
       used to improve this sometime when I'm not about to run out of
       batteries.
+
+      The amount of space after the label in ztLeftMargin ought to be such
+      that the text following it lines up exactly with the rest of the
+      bibliography entry, that is, at zotero-BibliographyStyle_bodyIndent...
+      but whenever the width of a label is such that it's first line is
+      pushed over to the right, then perhaps the bodyIndent ought to increase
+      by that amount?
+
+      Anyway, this works pretty good now.
     </src-comment>
   </active*>
 
-  <assign|ztNewBlock|<macro|body|<arg|body><next-line>>>
+  <assign|ztNewBlock|<macro|body|<surround|<next-line>|<next-line>|<arg|body>>>>
 
   \;
 
   <assign|ztbibIndent|<macro|body|<arg|body>>>
 
+  <assign|zt-item-hsep|1spc>
+
   \;
 
-  <assign|ztLeftMargin|<macro|body|<arg|body><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<ztRawWidth|<arg|body>>>|<ztRawWidth|<ztRigidHspace|<value|item-hsep>>>>>|<value|item-hsep>>>>>>
+  <assign|ztLeftMargin|<macro|label|<arg|label><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<plus|<ztRawWidth|<arg|label>>|<ztRawWidth|<ztRigidHspace|<value|zt-item-hsep>>>>>|<ztRawWidth|<ztRigidHspace|<value|zt-item-hsep>>>>>|<value|zt-item-hsep>>>>>>
 
   \;
 

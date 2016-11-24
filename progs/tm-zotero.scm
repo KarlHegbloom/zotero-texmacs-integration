@@ -1355,7 +1355,36 @@
         #f)))
 
 ;;}}}
+
+;;;;;;
 ;;;
+;;; To do: The bibliography formatting for bibliographies that use a Harvard
+;;;        style author-date in square brackets at the left followed by a block
+;;;        of bib are not laid out quite right when the labels are too
+;;;        wide. Make it increase the zotero-BibliographyStyle_bodyIndent
+;;;        locally inside of the bibliography to make them all line up.
+;;;
+;;;        The way to do that is to add another thing inside of the tuple
+;;;        that's inside the zfield-Data... add a tuple of "with" like
+;;;        bindings, which will be used as exactly that inside of the expansion
+;;;        of the zbibliography (and zcite) macro, with-wrapping everything
+;;;        inside of there using the key | value pairs in that tuple as the key
+;;;        | value pairs in that typesetter-created inner with.
+;;;
+;;;;;;
+;;;
+;;; To do: I'm being stalked by an angry female who is bitching about me not
+;;;        working "on the lawsuit" because she's too self-centered and stupid
+;;;        to understand that I have to finish the remaining show-stopper
+;;;        features in this program before I can use this thing to write the
+;;;        stupid lawsuit that reiterates and regurgitates a zillion already
+;;;        obvious and already long since established supreme court caselaw
+;;;        that any paralegal already knows after 101... I hate working on
+;;;        lawsuits. I love working on software. Todo: move away and never tell
+;;;        anyone where I went so I can have peace of mind again.
+;;;
+;;;;;;
+
 ;;{{{ zfield trees and tree-ref based accessors
 
 (define zfield-zfieldID-t
@@ -2188,6 +2217,15 @@
 ;;;        mentioned in another to-do entry inside this program. The semantic
 ;;;        information might be useful for finding the matching CSL-JSON stuff
 ;;;        to move to the split-off zcite.
+;;;
+;;;;;;
+;;;
+;;; To do: instead of walking the document-zfield-zfd-ls to build the output
+;;;        form in tm-zotero-Document_insertField, the data structure that it
+;;;        sends to Zotero there can be built by
+;;;        tm-zotero-ext:ensure-zfield-interned!, and maintained in
+;;;        clipboard-cut, etc... That way, the work it does can be amortized
+;;;        across many calls, rather than doing that work all at once.
 ;;;
 ;;;;;;
 ;;;
@@ -3769,23 +3807,36 @@
 ;;; 12 bp    == 240 twip
 ;;; 720 twip == 2 tab
 
+(define (careful-divide a b)
+  (let ((a (exact->inexact (round (* a 1000000))))
+        (b (exact->inexact (round (* b 1000000)))))
+    (/ a b)))
+
+;;(define (careful
+
 (define (tm-zotero-lineSpacing->tmlen meas)
-  (let ((sep-mult (/ (if (= meas 0) 240 meas)
-                     240)))
-    (format #f "~,4f" (exact->inexact sep-mult)))) ;; times par-sep
+  (let* ((meas (exact->inexact meas))
+         (sep-mult (careful-divide (if (= meas 0) 240.0 meas)
+                      240.0
+                      ;; 480.0
+                      )))
+    (format #f "~,4f" sep-mult))) ;; times par-sep
 
 (define (tm-zotero-entrySpacing->tmlen meas)
-  (let ((sep-mult (/ (if (= meas 0) 240 meas)
-                     240)))
-    (format #f "~,4f" (exact->inexact sep-mult)))) ;; times item-vsep
+  (let* ((meas (exact->inexact meas))
+         (sep-mult (careful-divide (if (= meas 0) 240.0 meas)
+                     240.0)))
+    (format #f "~,4f" sep-mult))) ;; times item-vsep
 
 (define (tm-zotero-firstLineIndent->tmlen meas)
-  (let ((indent-tabs (/ meas 360))) ; can be zero
-    (format #f "~,4ftab" (exact->inexact indent-tabs))))
+  (let* ((meas (exact->inexact meas))
+         (indent-tabs (careful-divide meas 360.0))) ; can be zero
+    (format #f "~,4ftab" indent-tabs)))
 
 (define (tm-zotero-bodyIndent->tmlen meas)
-  (let ((indent-tabs (/ meas 360))) ; can be zero
-    (format #f "~,4ftab" (exact->inexact indent-tabs))))
+  (let* ((meas (exact->inexact meas))
+         (indent-tabs (careful-divide meas 360.0))) ; can be zero
+    (format #f "~,4ftab" indent-tabs)))
 
 
 (define (tm-zotero-tabstop-arrayList->tmlen-ls tab-ls)
@@ -3794,11 +3845,12 @@
     (cond
      ((null? tab-ls)
       (stree->tree `(tuple ,@(reverse! ret))))
-      (#t (loop (cdr tab-ls)
-                (cons (format #f "~,4ftab"
-                              (exact->inexact
-                               (/ (car tab-ls) 360)))
-                      ret))))))
+     (else
+       (loop (cdr tab-ls)
+             (cons (format #f "~,4ftab"
+                           (careful-divide (exact->inexact (car tab-ls))
+                              360.0))
+                   ret))))))
 
 (define (tm-zotero-read-tabstop-arrayList)
   (with-input-from-string
@@ -4096,7 +4148,10 @@ styles."
          (is-doi? (and (string? pre-lnk-str)
                        (or (string-suffix? "doi:" pre-lnk-str)
                            (string-suffix? "doi: " pre-lnk-str)
-                           (string-suffix? "doi: " pre-lnk-str)))))
+                           (string-suffix? "doi: " pre-lnk-str)
+                           (string-suffix? "DOI:" pre-lnk-str)
+                           (string-suffix? "DOI: " pre-lnk-str)
+                           (string-suffix? "DOI: " pre-lnk-str)))))
     ;; (tm-zotero-format-debug "lnk before: ~s\n" lnk)
     ;; (tm-zotero-format-debug "pre-lnk-str: ~s\n" pre-lnk-str)
     ;; (tm-zotero-format-debug "post-lnk-str: ~s\n" post-lnk-str)
@@ -4104,12 +4159,24 @@ styles."
       ;; (tm-zotero-format-debug "is-doi? => #f\n")
       (when (string? pre-lnk-str)
         (cond
+          ((and (string? post-lnk-str)  ;; translation error hack hack hack
+                (string-suffix? "<" pre-lnk-str)
+                (string-prefix? ">" post-lnk-str))
+           (set! pre-lnk-str (substring pre-lnk-str
+                                        0
+                                        (- (string-length pre-lnk-str)
+                                           1)))
+           (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
+           (set! post-lnk-str (substring post-lnk-str
+                                         1
+                                         (string-length post-lnk-str)))
+           (tree-set! post-lnk-txt (stree->tree post-lnk-str))
+           (tree-set! lnk (stree->tree
+                           `(concat (next-line)
+                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
           ((and (string? post-lnk-str)
                 (string-suffix? "<less>" pre-lnk-str)
                 (string-prefix? "<gtr>" post-lnk-str))
-           ;; Keep link wrapped in <less> <gtr> and put on it's own line
-           ;; (tm-zotero-format-debug
-           ;;  "Keep link wrapped in <less> <gtr> and put on it's own line (1).\n")
            (set! pre-lnk-str (substring pre-lnk-str
                                         0
                                         (- (string-length pre-lnk-str)
@@ -4121,13 +4188,10 @@ styles."
            (tree-set! post-lnk-txt (stree->tree post-lnk-str))
            (tree-set! lnk (stree->tree
                            `(concat (next-line)
-                                    (small (concat "<less>" ,lnk "<gtr>"))))))
+                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
           ((and (string? post-lnk-str)  ;; translation error hack hack hack
                 (string-suffix? "<less>less<gtr>" pre-lnk-str)
                 (string-prefix? "<less>gtr<gtr>" post-lnk-str))
-           ;; Keep link wrapped in <less> <gtr> and put on it's own line
-           ;; (tm-zotero-format-debug
-           ;;  "Keep link wrapped in <less> <gtr> and put on it's own line (2).\n")
            (set! pre-lnk-str (substring pre-lnk-str
                                         0
                                         (- (string-length pre-lnk-str)
@@ -4139,9 +4203,20 @@ styles."
            (tree-set! post-lnk-txt (stree->tree post-lnk-str))
            (tree-set! lnk (stree->tree
                            `(concat (next-line)
-                                    (small (concat "<less>" ,lnk "<gtr>"))))))
-          ((or (and (string-suffix? "http://doi.org/"    pre-lnk-str) "http://doi.org/")
-               (and (string-suffix? "http://dx.doi.org/" pre-lnk-str) "http://dx.doi.org/"))
+                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
+          ((or (and (string-suffix? "DOI:http://doi.org/"     pre-lnk-str) "DOI:http://doi.org/")
+               (and (string-suffix? "doi:http://doi.org/"     pre-lnk-str) "doi:http://doi.org/")
+               (and (string-suffix? "http://doi.org/"         pre-lnk-str) "http://doi.org/")
+               (and (string-suffix? "DOI:https://doi.org/"    pre-lnk-str) "DOI:https://doi.org/")
+               (and (string-suffix? "doi:https://doi.org/"    pre-lnk-str) "doi:https://doi.org/")
+               (and (string-suffix? "https://doi.org/"        pre-lnk-str) "https://doi.org/")
+               (and (string-suffix? "DOI:http://dx.doi.org/"  pre-lnk-str) "DOI:http://dx.doi.org/")
+               (and (string-suffix? "doi:http://dx.doi.org/"  pre-lnk-str) "doi:http://dx.doi.org/")
+               (and (string-suffix? "http://dx.doi.org/"      pre-lnk-str) "http://dx.doi.org/")
+               (and (string-suffix? "DOI:https://dx.doi.org/" pre-lnk-str) "DOI:https://dx.doi.org/")
+               (and (string-suffix? "doi:https://dx.doi.org/" pre-lnk-str) "doi:https://dx.doi.org/")
+               (and (string-suffix? "https://dx.doi.org/"     pre-lnk-str) "https://dx.doi.org/")
+               )
            => (lambda (lnstr)
                 ;; Keep link next to the prefix text.
                 ;;(tm-zotero-format-debug "Keep link next to the prefix text.\n")
@@ -4287,6 +4362,12 @@ styles."
          ;;(("")
          ;; pre "" post);; comment
          ;;
+         (("(``)")
+          pre "“" post)
+         (("('')")
+          pre "”" post)
+         (("(<varspace>)")
+          pre " " post)
          ;;
          ;; Categorized sort hack utilizing Juris-M abbrevs mechanism. 03USC#@18#@00241#@
          ;; (for Title 18 U.S.C. §241, where federal laws are the 03'd category in the larger category of items of type "statute")
@@ -4347,6 +4428,11 @@ styles."
           pre "\\SectionSignGlyph{}" post)
          (("(\\SectionSignGlyph\\{\\})([  ])")
           pre 1 "\\hspace{0.5spc}" post)
+         ;;
+         (("(<doi:)")
+          pre "\\ztlt{}doi:" post)
+         (("(}>)")
+          pre "}\\ztgt{}" post)
          ;;
          ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation) When a legal case is cited twice in a row
          ;; in a citation cluster, they are collapsed into a parallel citation. With Indigobook, the in-text citation looks perfect,
@@ -4412,7 +4498,30 @@ styles."
 (define cnewline #\newline)
 
 ;;;
-;;; This runs for both in-text or note citations as well as for the bibliography.
+;;; This runs for both in-text or note citations as well as for the
+;;; bibliography.
+;;;
+;;;;;;
+;;;
+;;; To do: Instead of having zotero's xpcom/integration.js paste together all
+;;;        of the bibliography entries into one long string that I then go and
+;;;        split again here, for bbl output format, it can instead send back a
+;;;        JSON representation of the list of bibliography entries. Why paste
+;;;        them there then split them here when it can just pass the list?
+;;;
+;;;;;;
+;;;
+;;; To do: When it is receiving a list of bibliography items, when that list is
+;;;        for the entire bibliography but only some parts of it have actually
+;;;        changed, then it doesn't really need to re-run the regexp transform
+;;;        and LaTeX parsing on the items that have not changed.
+;;;
+;;;        It knows which items have changed...  insert-new-zfield,
+;;;        tm-zotero-Document_insertField, notify-activate,
+;;;        clipboard-cut... (any others?) can keep that information up to
+;;;        date.
+;;;
+;;;;;;
 ;;;
 (define (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)
   (tm-zotero-set-message-and-system-wait
