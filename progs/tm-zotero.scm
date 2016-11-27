@@ -11,6 +11,50 @@
 ;;}}}
 ;;;;;;
 
+;;{{{ General "To do" items:
+
+;;{{{ To do: Put this into the "tools" page on TeXmacs.org... when? As soon as
+;;;          it is ready for at least Beta testing pre-release?
+;;;
+;;;            http://texmacs.org/tmweb/plugins/tools.en.html
+;;}}}
+
+;;{{{ To do: micro-formats meta-data support in citeproc-js output format or
+;;;          variableWrapper. For: the citation cluster (zcite) splitter
+;;;          feature mentioned in another to-do entry inside this program. The
+;;;          semantic information might be useful for finding the matching
+;;;          CSL-JSON stuff to move to the split-off zcite.
+;;}}}
+
+;;{{{ To do: Look into the idea of validated mathematical documents, Plat\Omega,
+;;;          and at using something similar to create validated legal documents
+;;;          so to speak..
+;;;
+;;{{{ To do: Subitem: Think about the list of accepted and contested factual
+;;;                   claims in a lawsuit. Mark them up with semantic tags, so
+;;;                   that they can be extracted from the document to create at
+;;;                   least a checklist for court use...
+;;}}}
+;;}}}
+
+;;{{{ To do: Base protocol improvements:
+
+;;{{{ To do: See if instead of sending the entire bibliography back, it can be
+;;;          made to send only the modified ones. Look at:
+;;;          Zotero.Integration.CitationEditInterface in integration.js
+;;}}}
+
+;;{{{ To do: Make the citeproc-js or Zotero sort functions strip out html tags
+;;;          or pseudo-html tags that are part of either a Zotero field or
+;;;          returned as the result of the Abbrevs mechanism. e.g., <abbr> or
+;;;          <hidden>, and also even ones like <em> or <uc>... though since
+;;;          they affect the text's font style, they should not be used there.
+;;;
+;;}}}
+
+;;}}}
+;;}}}
+
 ;;{{{ Module definition and uses
 ;;;
 ;;; Save a few things to be sure not to lose them if they are needed.
@@ -48,9 +92,9 @@
         ))
 
 ;;;
-;;; To do: Perhaps this ought to be already defined just as e.g., <observer>,
-;;;        <tmtable>, and <tmcolor> are.
-;;;
+;;{{{ To do: Perhaps this ought to be already defined just as e.g., <observer>,
+;;;          <tmtable>, and <tmcolor> are.
+;;}}}
 (define <tree> (class-of (tm->tree ""))) ; really a <blackbox> right now.
 
 ;;; <observer> is already magically defined. It is the type of a tree-pointer.
@@ -187,11 +231,11 @@
 
 ;;;;;;
 ;;;
-;;; To do: Improve. Channels, plus I want to print a newline at the beginning
-;;;        of a debug message, ahead of the timestamp, but only sometimes, like
-;;;        for the first one inside of a function. There needs to be a flag for
-;;;        it I guess.
-;;;
+;;{{{ To do: Improve. Channels, plus I want to print a newline at the beginning
+;;;          of a debug message, ahead of the timestamp, but only sometimes,
+;;;          like for the first one inside of a function. There needs to be a
+;;;          flag for it I guess.
+;;}}}
 (define (tm-zotero-format-debug . args)
   (when zt-debug-trace?
     (tm-output
@@ -346,14 +390,35 @@
   (string-append "zotero" zfieldID "-noteIndex"))
 
 
+;;;;;;
 ;;;
 ;;; For "note" styles, this reference binding links a citation field with
 ;;; the footnote number that it appears in.
 ;;;
-;;; Used by tm-zotero-Document_insertField to form it's response. See note
-;;; there regarding the necessity of letting the typesetter run in order for
-;;; this reference binding to have a readable value.
+;;; See note at tm-zotero-Document_insertField regarding the necessity of
+;;; letting the typesetter run in order for this reference binding to have a
+;;; get-binding value (vs undefined).
 ;;;
+;;{{{ Done: When the document being editted is a book (or any one of a number of
+;;;         styles that do this), the footnotes are numbered per-chapter, like
+;;;         1.1 for the first footnote of the first chapter. The problem is
+;;;         that AFAIK zotero / citeproc expects the noteIndex to be an
+;;;         integer! So 1.1 should be sent as 1001, 1.123 as 1123, 2.123 as
+;;;         2123, 42.1 as 42001, 42.123 as 42123; 1.1.1 as 001001001, 12.1.123
+;;;         as 012001123 (but trim leading zeros). Does anyone ever really put
+;;;         more than 999 footnotes in a chapter?
+;;;
+;;;       A result of this method that I find acceptible is that because a
+;;;       near-note is output by citeproc for note styles only for anything
+;;;       within 5 footnotes, near-notes will never reference back past a
+;;;       chapter beginning in the book style.
+;;}}}
+;;;
+;;{{{ To do: If any style file defines the footnote numbering any differently,
+;;;          this might not work right any longer... Actually, that happens in
+;;;          book style when you have an Appendix that is labelled not by a
+;;;          number, but by a letter.
+;;}}}
 (define (zfield-NoteIndex-t zfieldID-or-zfield)
   (let ((zfieldID (or (and (string? zfieldID-or-zfield)
                            zfieldID-or-zfield)
@@ -364,16 +429,29 @@
     (get-refbinding
      (zfield-noteIndex-refbinding-key zfieldID))))
 
-
+;;;;;;
+;;;
+;;{{{ To do: ... cont: This works fine for numbered chapters separated by a
+;;;          period. Maybe there needs to be support inside the style sheets
+;;;          for the NoteIndex or something?  Or just a better way to turn a
+;;;          footnote label into a NoteIndex... maybe overloading or overriding
+;;;          the thing that increments the footnote number?
+;;}}}
 (define (zfield-NoteIndex zfieldID-or-zfield)
-  (tree->stree (zfield-NoteIndex-t zfieldID-or-zfield)))
+  (let* ((NoteIndex-str (tree->stree (zfield-NoteIndex-t zfieldID-or-zfield)))
+         (NoteIndex-parts (string-tokenize-by-char NoteIndex-str #\.)))
+    (do ((ls NoteIndex-parts (cdr ls))
+         (n 0 (+ (* n 1000) (string->number (car ls)))))
+        ((null? ls) (number->string n)))))
 
 
+
+;;;;;;
 ;;;
 ;;; For some reason there can be more than one the same in a citation cluster,
-;;; probably only for parallel citations. Just for that, make sure the lists
-;;; are uniq-equal? (since uniq uses memq, and this uses member, and we need to
-;;; compare using equal? to make it recurse through list structure.
+;;; probably only for parallel legal citations. Just for that, make sure the
+;;; lists are uniq-equal? (since uniq uses memq, and this uses member, and we
+;;; need to compare using equal? to make it recurse through list structure.
 ;;;
 (define (uniq-equal? l)
   (let loop ((acc '())
@@ -432,6 +510,20 @@
   (not (not (tree-search-upwards t zfield-tags))))
 
 
+;;;;;;
+;;;
+;;; I had assumed that when a zfield is not inside of a shown part, that it
+;;; would not be even seen by the typesetter... but now that I've learned
+;;; otherwise, I can see that it makes sense, since if I have sections 1 and 4
+;;; showing, at least the things that affect the environment of section 4 that
+;;; happen during typestting of sections 2 and 3 must be evaluated by the
+;;; typesetter. (e.g., footnote numbers, section numbers, potentially macro or
+;;; redefinitions... Of course the preamble is usually hidden.)
+;;;
+;;; So tm-zotero-ext:ensure-zfield-interned! must look and see that the zfield
+;;; it is ensuring the internment of is inside of a shown part first,
+;;; otherwise, it does not need to intern it.
+;;;
 (define (inside-shown-part? t)
   (let ((mode (buffer-get-part-mode)))
     (cond                               ; don't return a <tree>, return <boolean>
@@ -439,6 +531,11 @@
       ((in? mode '(:preamble)) #f)
       ((in? mode '(:all)) #t))))
 
+
+;;;;;;
+;;;
+;;; Status line messages and system-wait messages.
+;;;
 
 (define right-message "Juris-M / Zotero <---> TeXmacs Integration")
 
@@ -448,7 +545,6 @@
 ;;;
 (define please-wait "please wait")
 (define soon-ready "(soon ready)")
-
 
 (define (prefix-message message)
   (string-append "tm-zotero: " message))
@@ -473,8 +569,8 @@
 ;;{{{ General category overloaded; update-document, buffer-set-part-mode
 
 ;;;
-;;; To do: See update-document at generic/document-edit.scm:341
-;;;
+;;{{{ To do: See update-document at generic/document-edit.scm:341
+;;}}}
 ;;; Maybe this should only happen from the Zotero menu?
 ;;;
 (tm-define (update-document what)
@@ -978,6 +1074,7 @@
 
 ;;}}}
 
+
 ;;{{{ DocumentData (from Zotero, saved, parsed -> document initial environment
 ;;;
 ;;; AFAIK the only pref that this program needs access to is noteType, and that
@@ -1132,23 +1229,28 @@
 
 ;;}}}
 
+
 ;;;;;;
 ;;;
 ;;; These are for accessing parts of the static source tree that are saved as
 ;;; part of the document. They deal with actual document trees.
 ;;;
 ;;;;;;
+
+;;{{{ To do: Extend the zfield-Code-code tuple, adding a slot with a tuple inside
+;;;          of it that will contain "with-like" key value pairs that can be
+;;;          embedded as the arguments to an actual with wrapper emitted during
+;;;          zcite or zbibliography typesetter macro expansion.
 ;;;
-;;; To do: Extend the zfield-Code-code tuple, adding a slot with a tuple inside
-;;;        of it that will contain "with-like" key value pairs that can be
-;;;        embedded as the arguments to an actual with wrapper emitted during
-;;;        zcite or zbibliography typesetter macro expansion.
-;;;
-;;;        Declare some of them as standard or internal... thinking of the
-;;;        formatting problem involving label widths of Harvard-style
-;;;        [authorDate] bibliography entry labels.
-;;;
-;;;
+;;;          Declare some of them as standard or internal... thinking of the
+;;;          formatting problem involving label widths of Harvard-style
+;;;          [authorDate] bibliography entry labels.
+;;}}}
+
+;;{{{ To do: Consider moving the zfieldID inside the attribute tuple. Do so
+;;;          before the beta release, to avoid breaking older documents later!
+;;}}}
+
 ;;{{{ zfield tags, trees, inserters, and tree-ref based accessors
 ;;;
 ;;{{{ Documentation Notes
@@ -1216,6 +1318,8 @@
 (define-public ztHref*-tags '(ztHrefFromBibToURL ztHrefFromCiteToBib))
 (define-public ztHref-tags '(ztHref))
 
+(define-public ztRefsList-ensure-interned-tags '(zcite ztbibItemText))
+
 (define tm-zotero-bbl-formats-tags
   '(zttextit zttexts zttextup zttextsc zttextnormal zttextbf zttextmd
     ;; underline textsuperscript textsubscript ; not ours
@@ -1227,7 +1331,7 @@
 
 ;;;;;;
 ;;;
-;;; 
+;;; XXX HERE XXX
 ;;;
 (define ztbibItemRefs-prefix "#zbibSysID")
 
@@ -1257,8 +1361,8 @@
 
 ;;;;;;
 ;;;
-;;; To do: Pasted from earlier incarnation, not editted yet; organizing.
-;;;
+;;{{{ To do: Pasted from earlier incarnation, not editted yet; organizing.
+;;}}}
 (define (ztbibItemRefs-cache-1-zbibItemRef t)
   (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
          (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
@@ -1271,8 +1375,8 @@
 
 ;;;;;;
 ;;;
-;;; To do: Pasted from earlier incarnation, not editted yet; organizing.
-;;;
+;;{{{ To do: Pasted from earlier incarnation, not editted yet; organizing.
+;;}}}
 (define (ztbibItemRefs-to-tree key)
   (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
          (lst (and lst1 (uniq-equal? lst1)))
@@ -1355,13 +1459,13 @@
       ;;
       (begin ;; focus-is-zfield? => #t
         ;;
-        ;; To do: This ought to be a dialog if it actually happens much...
+        ;;{{{ To do: This ought to be a dialog if it actually happens much...
         ;;        Alternatively, perhaps it could move the cursor out of the
         ;;        zfield, arbitrarily to the right or left of it, then proceed
         ;;        with inserting the new zfield... Or perhaps it ought to
         ;;        convert it into an editCitation rather than an
         ;;        insertCitation?
-        ;;
+        ;;}}}
         (tm-zotero-format-error "ERR: insert-new-zfield ~s : focus-tree is a ~s\n"
                                 tag (tree-label (focus-tree)))
         #f)))
@@ -1370,11 +1474,11 @@
 
 ;;;;;;
 ;;;
-;;; To do: The bibliography formatting for bibliographies that use a Harvard
-;;;        style author-date in square brackets at the left followed by a block
-;;;        of bib are not laid out quite right when the labels are too
-;;;        wide. Make it increase the zotero-BibliographyStyle_bodyIndent
-;;;        locally inside of the bibliography to make them all line up.
+;;{{{ To do: The bibliography formatting for bibliographies that use a Harvard
+;;;          style author-date in square brackets at the left followed by a
+;;;          block of bib are not laid out quite right when the labels are too
+;;;          wide. Make it increase the zotero-BibliographyStyle_bodyIndent
+;;;          locally inside of the bibliography to make them all line up.
 ;;;
 ;;;        The way to do that is to add another thing inside of the tuple
 ;;;        that's inside the zfield-Data... add a tuple of "with" like
@@ -1382,11 +1486,11 @@
 ;;;        of the zbibliography (and zcite) macro, with-wrapping everything
 ;;;        inside of there using the key | value pairs in that tuple as the key
 ;;;        | value pairs in that typesetter-created inner with.
-;;;
+;;}}}
 ;;;;;;
 ;;;
-;;; To do: 
-;;;
+;;{{{ To do: 
+;;}}}
 ;;;;;;
 
 ;;{{{ zfield trees and tree-ref based accessors
@@ -1480,11 +1584,12 @@
      (tree->stree (zfield-Code-code-t zfield)))
    ;; set!
    ;;
-   ;; To do: maybe it can do more again like it tried to before wrt parsing the
-   ;;        JSON and using the information within it... It will need to use
-   ;;        that information in order to implement the zcite citation cluster
-   ;;        splitting feature in the other todo item in this program.
-   ;;
+   ;;{{{ To do: maybe it can do more again like it tried to before wrt parsing
+   ;;           the JSON and using the information within it... It will need to
+   ;;           use that information in order to implement the zcite citation
+   ;;           cluster splitting feature in the other todo item in this
+   ;;           program.
+   ;;}}}
    (lambda (zfield str)
      (let ((code-t (zfield-Code-code-t zfield)))
        (tree-set! code-t
@@ -1693,6 +1798,7 @@
 ;;}}}
 ;;}}}
 
+
 ;;;;;;
 ;;;
 ;;; These things are for tm-zotero program state that is *not* saved with the
@@ -1742,8 +1848,48 @@
 ;;{{{ define-class for <zfield-data>
 
 (define-class-with-accessors-keywords <zfield-data> ()
-  (zfd-zfieldID #:init-value "")        ; cache here for speed
-  ;; TeXmacs tree-pointer
+  ;;;;;
+  ;;
+  ;; Here will be gathered, by tm-zotero-ext:ensure-zfield-interned!
+  ;; information that will ultimately be quickly sent to Zotero in response to
+  ;; Document_getFields. Also, in the style sheet, notice that the call to the
+  ;; tm-zotero-ext-ensure-zfield-interned! is not placed prior to the setting
+  ;; of the zfield's noteIndex binding... but the noteIndex can change during
+  ;; the course of editting the document in ways that it would not be easy to
+  ;; recieve a notification of... and so retrieval of the noteIndex must be
+  ;; done at the last minute so they are fresh and correct when sent to Zotero
+  ;; in the response to the Document_getFields editor command.
+  ;;
+  ;; It is assumed that nothing will call for the value of the
+  ;; zfd-zfield-noteIndex slot of a <zfield-data> prior to the time that the
+  ;; zfd-zfieldID slot has been set. Since the only thing that needs to care
+  ;; about noteIndex is citeproc, this works very well, since it won't get sent
+  ;; any information about zfields that are not part of the actual visible
+  ;; document and so none of the <zfield-data> that it will process will have
+  ;; an empty zfd-zfieldID.
+  ;;
+  ;;;;;
+  (zfd-zfieldID #:init-value "")
+  ;; (zfd-zfield-Code #:init-value "") ; redundant, just look in in the zfield
+  ;; for it.
+  ;; (zfd-zfield-noteIndex #:allocation #:virtual
+  ;;                       #:slot-ref (lambda (zfd)
+  ;;                                    (zfield-NoteIndex
+  ;;                                     (slot-ref zfd 'zfd-zfieldID)))
+  ;;                       #:slot-set!
+  ;;                       (lambda (zfd val) ; run-time programmer error
+  ;;                         (texmacs-error
+  ;;                          "tm-zotero:<zfield-data>"
+  ;;                          "No setter for read-only #:virtual zfd-zfield-noteIndex")))
+  ;;;;;
+  ;;
+  ;; The remainder is information required internally by this plugin.
+  ;;
+  ;;;;;
+  ;;
+  ;; TeXmacs tree-pointer, locating the zfield's tree, for fast access with no
+  ;; searching the document. They are of type <observer>.
+  ;;
   (zfd-tree-pointer #:init-value #f)
   (zfd-tree #:allocation #:virtual
             #:slot-ref (lambda (zfd)
@@ -1752,8 +1898,12 @@
                                (tree-pointer->tree tp)
                                #f)))
             #:slot-set! (lambda (zfd t)
+                          (and-with tp (slot-ref zfd 'zfd-tree-pointer)
+                            (tree-pointer-detach tp))
                           (slot-set! zfd 'zfd-tree-pointer (tree->tree-pointer t))
-                          (slot-set! zfd 'zfd-zfieldID (zfield-zfieldID t))))
+                          (slot-set! zfd 'zfd-zfieldID (zfield-zfieldID t))
+                          ;; (slot-set! zfd 'zfd-zfield-Code (zfield-zfield-Code-code t))
+                          ))
   ;; String, original unmodified text for comparison
   (zfd-orig-text #:init-value "")
   )
@@ -1780,6 +1930,24 @@
 ;;{{{ define-class for <document-data>
 
 (define-class-with-accessors-keywords <document-data> ()
+  ;;
+  ;;{{{ To do: This undo marking thing needs to be looked over because in
+  ;;           zotero/chrome/content/zotero/xpcom/integration.js inside of
+  ;;           Zotero.Integration.Fields.prototype.addEditCitation at the end,
+  ;;           if it fails, it deletes the citation field.
+  ;;
+  ;;           Q: But what about all the other changes that might get made to
+  ;;              the document during the addCitation or editCitation? If those
+  ;;              only happen when the addCitation or editCitation are
+  ;;              successful, then that's fine... and this undo marking isn't
+  ;;              needed. It's also possible that the normal undo that already
+  ;;              happens is sufficient... And so maybe this ought to be a
+  ;;              boolean, or maybe a hashtable with transaction numbers, so
+  ;;              that concurrent calls can be made, as for the getFields that
+  ;;              the comment says can happen during the same time that the
+  ;;              setDocPrefs dialog is open.
+  ;;
+  ;;}}}
   ;;
   ;; is a zotero command active? If so, then a modification undo mark (I think
   ;; it's a number from the code in (utils library tree) try-modification) is
@@ -1853,10 +2021,11 @@
         dd)))
 
 ;;;
-;;; To do: UTSL and find out if those tree-pointers automatically get cleaned
-;;;        up or do I need to detach them like this? Maybe when I let go of the
-;;;        reference to the tree-pointer, it gets cleaned up and detached?
-;;;
+;;{{{ To do: UTSL and find out if those tree-pointers automatically get cleaned
+;;;          up or do I need to detach them like this? Maybe when I let go of
+;;;          the reference to the tree-pointer, it gets cleaned up and
+;;;          detached?
+;;}}}
 (define (clear-<document-data>! documentID)
   (letrec ((clear-tp (lambda (zfd)
                        (let ((tp (zfd-tree-pointer zfd)))
@@ -2053,10 +2222,10 @@
 ;;}}}
 ;;}}}
 
-;;;;;;
-;;;
-;;; To do: Bibliography won't render right until this part is fixed.
-;;;
+
+;;{{{ To do: Bibliography won't render right until this part is fixed.
+;;}}}
+
 ;;{{{ ztbibItemRefs lists that follow bibliography items
 ;;;
 ;;; Returns list of trees that are like:
@@ -2203,12 +2372,8 @@
 
 ;;}}}
 
-;;;;;;
-;;;
-;;; To do: lazy internment hooks for the hrefFromCiteToBib etc.
-;;;        I need to think this over some, maybe simplify tags.
-;;;
-;;{{{ :secure ext functions called from tm-zotero.ts style
+
+;;{{{ :secure tm-zotero-ext:* functions called from tm-zotero.ts style
 ;;;;;;
 ;;;
 ;;; These must be tm-define'd and carry the (:secure) attribute so that they
@@ -2216,21 +2381,13 @@
 ;;;
 ;;;;;;
 ;;;
-;;; To do: micro-formats meta-data support in citeproc-js output format or
-;;;        variableWrapper. For: the citation cluster (zcite) splitter feature
-;;;        mentioned in another to-do entry inside this program. The semantic
-;;;        information might be useful for finding the matching CSL-JSON stuff
-;;;        to move to the split-off zcite.
-;;;
-;;;;;;
-;;;
-;;; To do: instead of walking the document-zfield-zfd-ls to build the output
-;;;        form in tm-zotero-Document_insertField, the data structure that it
-;;;        sends to Zotero there can be built by
-;;;        tm-zotero-ext:ensure-zfield-interned!, and maintained in
-;;;        clipboard-cut, etc... That way, the work it does can be amortized
-;;;        across many calls, rather than doing that work all at once.
-;;;
+;;{{{ To do: instead of walking the document-zfield-zfd-ls to build the output
+;;;          form in tm-zotero-Document_insertField, the data structure that it
+;;;          sends to Zotero there can be built by
+;;;          tm-zotero-ext:ensure-zfield-interned!, and maintained in
+;;;          clipboard-cut, etc... That way, the work it does can be amortized
+;;;          across many calls, rather than doing that work all at once.
+;;}}}
 ;;;;;;
 ;;;
 ;;; Lazy interning of <zfield-data>, triggered by the typesetter.
@@ -2292,13 +2449,16 @@
 
 ;;;;;;
 ;;;
-;;; This does a similar thing for the ztHref* macros, since their data is
-;;; needed to gather the ztbibItemRefsList trees. The variableWrapper installed
-;;; into the Juris-M / Zotero citeproc by propachi-texmacs always emits the
-;;; \ztHrefFromBibToURL and \ztHrefFromCiteToBib macros. tm-zotero can decide
-;;; what to do with them. They can be switched on and off as hyperlinks, but
-;;; are always needed when the ztbibItemRefsList is displayed. When it's not,
-;;; this won't really cost much time anyway, so it will always intern these.
+;;; This does a similar thing for the ztHrefFromCiteToBib and ztbibItemText
+;;; macros, since their data is needed to gather the ztbibItemRefsList
+;;; trees. (ztHrefFromCiteToBib isn't needed for this)
+;;;
+;;; The variableWrapper installed into the Juris-M / Zotero citeproc by
+;;; propachi-texmacs always emits the \ztHrefFromBibToURL and
+;;; \ztHrefFromCiteToBib macros. tm-zotero can decide what to do with
+;;; them. They can be switched on and off as hyperlinks, but are always needed
+;;; when the ztbibItemRefsList is displayed. When it's not, this won't really
+;;; cost much time anyway, so it will always intern these.
 ;;;
 ;;; So that means that the list of tags that this or other similar "lazy
 ;;; interning" functions needs to cover must be kept in sync with what's
@@ -2342,8 +2502,8 @@
 
 ;;;;;;
 ;;;
-;;; To do:  STUB   Do I need this for anything?
-;;;
+;;{{{ To do:  STUB   Do I need this for anything?
+;;}}}
 (tm-define (tm-zotero-ext:ensure-ztHref-interned! url-for-tree-t)
   (:secure)
   ;; (tm-zotero-format-debug "STUB:tm-zotero-ext:ensure-ztHref-interned! called, url-for-tree-t => ~s\n"
@@ -2530,9 +2690,7 @@
 ;;}}}
 
 
-;;;;;;
-;;;
-;;; To do:    Mac OS-X and Windows  HELP WANTED
+;;{{{ To do:    Mac OS-X and Windows  HELP WANTED
 ;;;
 ;;;   Clone this on github, send me a pull request... I do not own a computer
 ;;;   with Windows nor do I own a Mac. I can not easily develop this part. It
@@ -2540,13 +2698,16 @@
 ;;;   will already just work without any modifications. Somebody needs to test
 ;;;   it... and please, if it works, open a github "issue" with the positive
 ;;;   report so I will know. Thanks.
-;;;
-;;; To do: There may be problems with the way the error thing is handled; see
-;;;        the comment in tm-zotero-listen.
-;;;
+;;}}}
+
+;;{{{ To do: There may be problems with the way the error thing is handled; see
+;;;          the comment in tm-zotero-listen.
+;;}}}
+
+
 ;;{{{ Wire protocol between TeXmacs and Zotero
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;
 ;;;
 ;;; Protocol between tm_zotero and ZoteroTeXmacsIntegration.js
 ;;;
@@ -2558,8 +2719,8 @@
 ;;; specifying the length of the payload, and the payload itself, which is
 ;;; either UTF-8 encoded JSON or an unescaped string beginning with “ERR:”.
 ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
+;;;;;;
+
 (define (close-tm-zotero-socket-port!)
   (if (and (port? tm-zotero-socket-port)
            (not (port-closed? tm-zotero-socket-port)))
@@ -2628,7 +2789,7 @@
 ;;; both Mac OS-X and Windows and so on those platforms, this program may
 ;;; already just work with no further programming required.
 ;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;
 ;;;
 ;;{{{ To do: Support Mac OS-X.
 ;;;
@@ -2845,6 +3006,8 @@
               args scm))))
 
 
+;;{{{ Cleanup hooks for the undo mark handling
+
 ;;;
 ;;; info:(guile-1.8) * Hooks. (§ 5.9.6)
 ;;;
@@ -2878,11 +3041,15 @@
 (add-hook! document-mark-cancel-error-cleanup-hook
            cleanup-document-new-zfieldID!)
 
+;;}}}
 
 ;;;;;;
 ;;;
-;;; The protocol is essentially synchronous, and user expects to wait while it
-;;; finishes before doing anything else.
+;;; The protocol is essentially "synchronous" from the point of view of the
+;;; user, who expects to wait while it finishes before doing anything
+;;; else... But once an integration command has been sent, some of the
+;;; "internal" parts of the protocol might be able to happen
+;;; concurrently... See to-do item below.
 ;;;
 ;;; When this is entered, one of the Integration commands has just been sent to
 ;;; Juris-M / Zotero. Zotero will call back and begin a word processing command
@@ -2892,6 +3059,14 @@
 ;;; The document-active-mark-nr must only be set by
 ;;; call-zotero-integration-command, and only canceled (undo) or ended (keep) here.
 ;;;
+;;{{{ To do: See if this can be improved to allow possible concurrency.
+;;;
+;;; In zotero/chrome/content/zotero/xpcom/integration.js, there is a comment
+;;; inside of Zotero.Integration.Document.prototype.setDocPrefs that says
+;;; "// Can get fields while dialog is open".
+;;}}}
+;;;;;;
+
 (define (tm-zotero-listen cmd)
   ;; cmd is only used for set-message and debug display.
   (tm-zotero-format-debug "tm-zotero-listen called by: cmd => ~s\n" cmd)
@@ -2918,7 +3093,7 @@
                      ;; editCommand is really an error string this time.
                      ;; (tm-zotero-format-debug "tm-zotero-listen:~s\n" editCommand)
                      ;;
-                     ;; To do: verify that this is correct protocol:
+                     ;;{{{ To do: verify that this is correct protocol:
                      ;;
                      ;; Send the error (back) to Zotero !!! Huh? It just sent
                      ;; the error to us. Why send it back? Is this code
@@ -2929,7 +3104,7 @@
                      ;; Document_displayAlert first?
                      ;;
                      ;; Leaving it for now.
-                     ;;
+                     ;;}}}
                      (tm-zotero-write tid editCommand)
                      ;; causes undo to happen
                      (document-mark-cancel-and-error-cleanup documentID)
@@ -2953,14 +3128,12 @@
                      )
                     (else               ; We have an editCommand to process.
                       ;;
-                      
                       ;; (tm-zotero-set-message
                       ;;  (string-append "Processing command: " editCommand "..."))
-                      
                       ;;
                       ;; wrt document-active-mark-nr, it must not be altered
                       ;; here, since these are the intermediate edit commands
-                      ;; that will culminate with 
+                      ;; that will culminate with Document_complete.
                       ;;
                       ;; Todo: This traps the event where there's a syntax or
                       ;;       other error in the zotero.scm program itself,
@@ -3012,11 +3185,12 @@
 
 ;;}}}
 
-;;;;;;
-;;;
-;;; To do: The "atomic undo" thing might not be working right. I need to test
+
+;;{{{ To do: The "atomic undo" thing might not be working right. I need to test
 ;;;        and develop it further.
-;;;
+;;}}}
+
+
 ;;{{{ Integration-initiating commands: TeXmacs -> Zotero
 ;;;;;;
 ;;;
@@ -3111,17 +3285,21 @@
 
 ;;}}}
 
-;;;;;;
-;;;
-;;; To do: find the rest of the to-do items below this point!
-;;;
+
+;;{{{ To do: find the rest of the to-do items below this point!
+;;}}}
+
+
 ;;{{{ Word Processor commands: Zotero -> TeXmacs -> Zotero
+
+;;;;;;
 ;;;
 ;;; Each sends: [CommandName, [Parameters,...]].
 ;;;
 ;;; The response is expected to be a JSON encoded payload, or the unquoted and
 ;;; unescaped string: ERR: Error string goes here
 ;;;
+;;;;;;
 
 ;;{{{ Application_getActiveDocument
 ;;;
@@ -4345,9 +4523,9 @@ styles."
 
 ;;;;;;
 ;;;
-;;; To do: Perhaps this ought to be configurable, by making it possible for the
-;;;        user to put their own ones into a separate configuration file?
-;;;
+;;{{{ To do: Perhaps this ought to be configurable, by making it possible for the
+;;;          user to put their own ones into a separate configuration file?
+;;}}}
 (define tm-zotero-regex-replace-clauses
   (map (lambda (elt)
          (cons (apply make-regexp `,(car elt))
@@ -4507,24 +4685,25 @@ styles."
 ;;;
 ;;;;;;
 ;;;
-;;; To do: Instead of having zotero's xpcom/integration.js paste together all
-;;;        of the bibliography entries into one long string that I then go and
-;;;        split again here, for bbl output format, it can instead send back a
-;;;        JSON representation of the list of bibliography entries. Why paste
-;;;        them there then split them here when it can just pass the list?
-;;;
+;;{{{ To do: Instead of having zotero's xpcom/integration.js paste together all
+;;;          of the bibliography entries into one long string that I then go
+;;;          and split again here, for bbl output format, it can instead send
+;;;          back a JSON representation of the list of bibliography
+;;;          entries. Why paste them there then split them here when it can
+;;;          just pass the list?
+;;}}}
 ;;;;;;
 ;;;
-;;; To do: When it is receiving a list of bibliography items, when that list is
-;;;        for the entire bibliography but only some parts of it have actually
-;;;        changed, then it doesn't really need to re-run the regexp transform
-;;;        and LaTeX parsing on the items that have not changed.
+;;{{{ To do: When it is receiving a list of bibliography items, when that list is
+;;;          for the entire bibliography but only some parts of it have
+;;;          actually changed, then it doesn't really need to re-run the regexp
+;;;          transform and LaTeX parsing on the items that have not changed.
 ;;;
 ;;;        It knows which items have changed...  insert-new-zfield,
 ;;;        tm-zotero-Document_insertField, notify-activate,
 ;;;        clipboard-cut... (any others?) can keep that information up to
 ;;;        date.
-;;;
+;;}}}
 ;;;;;;
 ;;;
 (define (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)
@@ -4757,7 +4936,6 @@ styles."
 
 ;;}}}
 ;;}}}
-
 
 ;;;;;;
 ;;; Local Variables:

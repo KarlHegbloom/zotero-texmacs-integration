@@ -39,6 +39,19 @@
     </src-license>
   </src-title>>
 
+  <\active*>
+    <\src-comment>
+      <with|color|red|I realize that this is very disorganized! So: To do:
+      Organize this style sheet source better.><with|font-series|bold|>
+
+      To do: Clean out XXX'd out ones.
+
+      To do: Simplify
+
+      To do: uniform naming convention\ 
+    </src-comment>
+  </active*>
+
   <use-module|(tm-zotero)>
 
   <use-package|std-counter|std-utils|env-float|std-list|std-markup>
@@ -58,6 +71,18 @@
   <assign|ztgt|\<gtr\>>
 
   \;
+
+  <\active*>
+    <\src-comment>
+      Because the underlying zt-format-debug function prints timing
+      information, this can be used to benchmark how long it takes to typeset
+      a document by putting one of these at the top, and another at the
+      bottom.
+
+      To do: extend and improve this mechanism, integrating it with the
+      normal TeXmacs debugging console thing...
+    </src-comment>
+  </active*>
 
   <assign|ztDebug|<macro|body|<extern|(lambda (body) (zt-format-debug
   "Debug:ztDebug: ~s\\n" body))|<arg|body>>>>
@@ -167,6 +192,17 @@
       End-notes <with|color|red|ARE NOT WORKING.> I do not know how to do
       this without it storing typesetter-expanded things into the endnote
       attachment aux... quote / eval ?
+
+      I think that end-notes are sort of a kind of bibliography... I wonder
+      if TeXmacs ought to just have an end-notes thing, that can put end
+      notes at the end of sections, chapters, or the entire document or
+      whatever. I think they should be gathered by something, and then all
+      displayed when called for by the insertion of an environment where they
+      get displayed, just like a bibliography or table of contents.
+
+      Remember that storing them in reference bindings does not work right.
+      Instead, see the way that the bibtex information gets cached inside
+      documents in the default TeXmacs bibliography generation system.
     </src-comment>
   </active*>
 
@@ -202,11 +238,15 @@
     </src-comment>
   </active*>
 
-  <assign|tm-zotero-ext-ensure-ztHref-interned!|<macro|url-for-tree|<extern|(lambda
+  <assign|XXXtm-zotero-ext-ensure-ztHref-interned!|<macro|url-for-tree|<extern|(lambda
   (url-for-tree-t) (tm-zotero-ext:ensure-ztHref-interned!
   url-for-tree-t))|<arg|url-for-tree>>>>
 
-  <assign|ztHref|<macro|url|display|<tm-zotero-ext-ensure-ztHref-interned!|<arg|url>><if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
+  <assign|XXXztHref|<macro|url|display|<tm-zotero-ext-ensure-ztHref-interned!|<arg|url>><if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
+
+  <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
+
+  \;
 
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 
@@ -217,13 +257,15 @@
     </src-comment>
   </active*>
 
-  <assign|tm-zotero-ext-ensure-ztHref*-interned!|<macro|hashLabel|<extern|(lambda
+  <assign|XXXtm-zotero-ext-ensure-ztHref*-interned!|<macro|hashLabel|<extern|(lambda
   (fieldID-t) (tm-zotero-ext:ensure-ztHref*-interned!
   fieldID-t))|<arg|hashLabel>>>>
 
   <assign|zt-link-BibToURL|true>
 
-  <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<tm-zotero-ext-ensure-ztHref*-interned!|<arg|hashLabel>><with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|XXXztHrefFromBibToURL|<macro|hashLabel|url|display|<tm-zotero-ext-ensure-ztHref*-interned!|<arg|hashLabel>><with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+
+  <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromBibToURL*|<value|ztHrefFromBibToURL>>
 
@@ -231,7 +273,9 @@
 
   <assign|ztDefaultCiteURL|>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<tm-zotero-ext-ensure-ztHref*-interned!|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|XXXztHrefFromCiteToBib|<macro|hashLabel|url|display|<tm-zotero-ext-ensure-ztHref*-interned!|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
@@ -334,9 +378,21 @@
 
   <assign|ztRightInline|<value|identity>>
 
-  \;
+  <\active*>
+    <\src-comment>
+      The embeddedBibliographyEntry is going to be blank unless the
+      state.sys.prototype.embedBibliographyEntry(state, this.itemID) is
+      defined inside of citeproc. I honestly don't know what it's for right
+      now; there are not any examples of it that I can find with a Google
+      search. I want to remove it now, but it's already there and I don't
+      want to break my older documents... and maybe it will prove useful to
+      define it someday... or remove it later. It is something for injecting
+      behavior into citeproc.js by defining it. Search the citeproc.js
+      sources to see how it's actually referenced in there.
+    </src-comment>
+  </active*>
 
-  <assign|ztbibItemText|<\macro|sysID|insert|citekey|body>
+  <assign|ztbibItemText|<\macro|sysID|embeddedBibliographyEntry|citekey|body>
     <\with|par-sep|<times|<value|par-sep>|<value|zotero-BibliographyStyle_lineSpacing>>|ztbibItem-vsep|<times|<value|ztbibItem-vsep>|<value|zotero-BibliographyStyle_entrySpacing>>>
       <\surround|<vspace*|<value|item-vsep>>|<right-flush>>
         <\with|par-no-first|false|par-first|<value|zotero-BibliographyStyle_firstLineIndent>|par-left|<value|zotero-BibliographyStyle_bodyIndent>>
@@ -376,7 +432,7 @@
 
   \;
 
-  <assign|ztbibitem|<macro|key|<extern|(lambda (key) (tm-zotero-ext:bibitem
+  <assign|XXztbibitem|<macro|key|<extern|(lambda (key) (tm-zotero-ext:bibitem
   key))|<arg|key>>>>
 
   \;
@@ -418,7 +474,7 @@
   <assign|zcite-flag-if-modified|<macro|fieldCode|<case|<look-up|<arg|fieldCode>|2>|<flag|Modified|red>|<flag|Not
   Modified|green>>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>><tm-zotero-ensure-zfield-interned!|<arg|fieldID>>>>>
 
   <drd-props|render-zcite|accessible|1>
 
@@ -436,13 +492,13 @@
 
   <assign|zt-extra-surround-before|>
 
-  \;
+  <assign|zbibliography-heading|<principal-section*|<bibliography-text>>>
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
-      <tm-zotero-ensure-zfield-interned!|<arg|fieldID>><principal-section*|<bibliography-text>>
+      <zbibliography-heading>
 
-      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|<arg|fieldText>>
+      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|<arg|fieldText><tm-zotero-ensure-zfield-interned!|<arg|fieldID>>>
     </surround>
   </macro>>
 
