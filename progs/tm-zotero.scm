@@ -480,13 +480,17 @@
 
 ;;; <zfield-data> is defined below.
 ;;;
-(define (<zfield-data>-less? zfd1 zfd2)
-  (if (or (not zfd1)
-          (not zfd2))
+;;; This is effectively a generic function because tree-pointer is an accessor
+;;; method in both the <zfield-data> and the <ztHrefFromCiteToBib-data>.
+;;;
+;;; This is used for keeping lists of them sorted in document order.
+;;;
+(define (<*-data>-less? z*d1 z*d2)
+  (if (or (not z*d1)
+          (not z*d2))
       #t
-      (tree-pointer-less? (zfd-tree-pointer zfd1)
-                          (zfd-tree-pointer zfd2))))
-
+      (tree-pointer-less? (tree-pointer z*d1)
+                          (tree-pointer z*d2))))
 
 
 (define (inside-footnote? t)
@@ -591,10 +595,6 @@
   (clear-<document-data>! (get-documentID))
   (former mode))
 
-;;; make the list iteration that returns the list of fields check for ones to
-;;; trim out?
-                    
-
 ;;}}}
 
 ;;{{{ Keyboard event handling (overloads to maintain <document-data>)
@@ -621,23 +621,25 @@
   (tm-zotero-set-message "zcite reactivated! Checking for modification...")
   (let* ((origText (zfield-Code-origText zfield))
          (newText  (zfield-Text zfield))
-         (is-modified? (if (string=? newText origText) "false" "true"))
+         (is-modified? (if (string=? newText origText) "false" "true")))
     ;; (tm-zotero-format-debug "notify-activated: origText => ~s\n" origText)
     ;; (tm-zotero-format-debug "notify-activated: newText => ~s\n" newText)
     (set! (zfield-Code-is-modified?-flag zfield) is-modified?)
     (tm-zotero-set-message
      (string-append "zcite reactivated! Checking for modification... is-modified? => "
-                    is-modified? ". Done."))))
+                    is-modified? ". Done.")))
   #t)
 
 ;;}}}
 
-;;{{{ Mostly done: (underway) I think it is spending too much time searching the
-;;;         document for zcite tags. It does a lot of redundant traversal of
-;;;         the document tree that can potentially be eliminated by maintaining
-;;;         a data structure containing positions (really observers). Positions
-;;;         move automatically when the document is edited, so that they remain
-;;;         attached to the same tree they were created at, even as it moves.
+;;{{{ Mostly Done: To do: (underway) I think it is spending too much time
+;;;                searching the document for zcite tags. It does a lot of
+;;;                redundant traversal of the document tree that can
+;;;                potentially be eliminated by maintaining a data structure
+;;;                containing positions (really observers). Positions move
+;;;                automatically when the document is edited, so that they
+;;;                remain attached to the same tree they were created at, even
+;;;                as it moves.
 ;;;
 ;;; The data structure must be able to maintain the list of zfields in document
 ;;; order. It should be cheap to insert a new item or remove an item. I will
@@ -855,6 +857,7 @@
                            (tm-search selection-t is-zfield?))
                       '()))
          (zfield-zfd-ht (get-document-zfield-zfd-ht documentID))
+         (ztbibItemRefs-ht (get-document-ztbibItemRefs-ht documentID))
          ;; outside the lambda; do it once only.
          (new-zfield-zfd (get-document-new-zfield-zfd documentID)))
     (map (lambda (zfield)
@@ -867,11 +870,21 @@
                      (document-remove!-<zfield-data> zfd)
                      (when (is-zbibliography? zfield)
                        (document-remove!-zbibliography-zfd zfd))
-                     (let ((tp (zfd-tree-pointer zfd)))
+                     (let ((tp (tree-pointer zfd)))
                        (when tp
                          (tree-pointer-detach tp)
-                         (set! (zfd-tree-pointer zfd) #f)))))
-                 (let ((tp (zfd-tree-pointer new-zfield-zfd))) ; is the new one??? How?
+                         (set! (tree-pointer zfd) #f))))
+                   (and-with hrefs (tm-search
+                                    zfield
+                                    (cut tm-func? <> 'ztHrefFromCiteToBib))
+                     (map (lambda (href)
+                            (and-with zhd (hash-ref zfield-zfd-ht
+                                                    (string-append zfieldID
+                                                                   "+"
+                                                                   (ztHref*-sysID href)))
+                              (document-remove!-<ztHrefFromCiteToBib-data> zhd)))
+                          hrefs)))
+                 (let ((tp (tree-pointer new-zfield-zfd))) ; is the new one??? How?
                    (when tp
                      (tree-pointer-detach tp)
                      (set-document-new-zfield-zfd! #f))))))
@@ -1251,6 +1264,7 @@
 ;;;          before the beta release, to avoid breaking older documents later!
 ;;}}}
 
+
 ;;{{{ zfield tags, trees, inserters, and tree-ref based accessors
 ;;;
 ;;{{{ Documentation Notes
@@ -1328,6 +1342,9 @@
     ;; ztHref ztDefaultCiteURL ; wrong category
     ))
 
+;;{{{ Inside of a zcite's "with" environment is defined:
+;;;   zt-zciteID which is bound to the fieldID.
+;;}}}
 
 ;;;;;;
 ;;;
@@ -1363,6 +1380,7 @@
 ;;;
 ;;{{{ To do: Pasted from earlier incarnation, not editted yet; organizing.
 ;;}}}
+
 (define (ztbibItemRefs-cache-1-zbibItemRef t)
   (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
          (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
@@ -1377,6 +1395,7 @@
 ;;;
 ;;{{{ To do: Pasted from earlier incarnation, not editted yet; organizing.
 ;;}}}
+
 (define (ztbibItemRefs-to-tree key)
   (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
          (lst (and lst1 (uniq-equal? lst1)))
@@ -1690,7 +1709,7 @@
 ;;; ztHrefFromCiteToBib hashLabel url display
 ;;;
 ;;; ztHrefFromBibToURL hashLabel url display
-;;; 
+;;;
 ;;; ztHref url display
 ;;;
 
@@ -1708,12 +1727,23 @@
   (make-procedure-with-setter
    ;; get
    (lambda (ztHref*)
-     (tree-stree (ztHref*-hashLabel-t ztHref*)))
+     (tree->stree (ztHref*-hashLabel-t ztHref*)))
    ;; set!
    (lambda (ztHref* str)
      (let ((hashLabel-t (ztHref*-hashLabel-t ztHref*)))
        (tree-set! hashLabel-t
                   (stree->tree str))))))
+
+(define ztHref*-sysID
+  (make-procedure-with-setter
+   ;; get
+   (lambda (ztHref*)
+     (string-tail (ztHref*-hashLabel ztHref*)
+                  ztbibItemRefs-prefix-len))
+   ;; set!
+   (lambda (ztHref* sysID)
+     (set! (ztHref*-hashLabel ztHref*)
+           (string-append ztbibItemRefs-prefix sysID)))))
 
 
 (define ztHref*-url-t
@@ -1730,7 +1760,7 @@
   (make-procedure-with-setter
    ;; get
    (lambda (ztHref*)
-     (tree-stree (ztHref*-url-t ztHref*)))
+     (tree->stree (ztHref*-url-t ztHref*)))
    ;; set!
    (lambda (ztHref* str)
      (let ((url-t (ztHref*-url-t ztHref*)))
@@ -1862,20 +1892,20 @@
   ;;
   ;; It is assumed that nothing will call for the value of the
   ;; zfd-zfield-noteIndex slot of a <zfield-data> prior to the time that the
-  ;; zfd-zfieldID slot has been set. Since the only thing that needs to care
+  ;; zfieldID slot has been set. Since the only thing that needs to care
   ;; about noteIndex is citeproc, this works very well, since it won't get sent
   ;; any information about zfields that are not part of the actual visible
   ;; document and so none of the <zfield-data> that it will process will have
-  ;; an empty zfd-zfieldID.
+  ;; an empty zfieldID.
   ;;
   ;;;;;
-  (zfd-zfieldID #:init-value "")
+  (the-zfieldID-of #:init-value "")
   ;; (zfd-zfield-Code #:init-value "") ; redundant, just look in in the zfield
   ;; for it.
   ;; (zfd-zfield-noteIndex #:allocation #:virtual
   ;;                       #:slot-ref (lambda (zfd)
   ;;                                    (zfield-NoteIndex
-  ;;                                     (slot-ref zfd 'zfd-zfieldID)))
+  ;;                                     (slot-ref zfd 'zfieldID)))
   ;;                       #:slot-set!
   ;;                       (lambda (zfd val) ; run-time programmer error
   ;;                         (texmacs-error
@@ -1890,40 +1920,48 @@
   ;; TeXmacs tree-pointer, locating the zfield's tree, for fast access with no
   ;; searching the document. They are of type <observer>.
   ;;
-  (zfd-tree-pointer #:init-value #f)
+  (tree-pointer #:init-value #f)
   (zfd-tree #:allocation #:virtual
             #:slot-ref (lambda (zfd)
-                         (let ((tp (slot-ref zfd 'zfd-tree-pointer)))
+                         (let ((tp (slot-ref zfd 'tree-pointer)))
                            (if tp
                                (tree-pointer->tree tp)
                                #f)))
             #:slot-set! (lambda (zfd t)
-                          (and-with tp (slot-ref zfd 'zfd-tree-pointer)
+                          (and-with tp (slot-ref zfd 'tree-pointer)
                             (tree-pointer-detach tp))
-                          (slot-set! zfd 'zfd-tree-pointer (tree->tree-pointer t))
-                          (slot-set! zfd 'zfd-zfieldID (zfield-zfieldID t))
+                          (slot-set! zfd 'tree-pointer (tree->tree-pointer t))
+                          (slot-set! zfd 'the-zfieldID-of (zfield-zfieldID t))
                           ;; (slot-set! zfd 'zfd-zfield-Code (zfield-zfield-Code-code t))
                           ))
   ;; String, original unmodified text for comparison
   (zfd-orig-text #:init-value "")
+  ;;;
+  ;;
+  ;; To do: Do these need time stamps for change-dependency trigger/track?
+  ;;
+  ;;;
   )
 
 ;;}}}
-;;{{{ define-class for <ztHref*-data>
+;;{{{ define-class for <ztHrefFromCiteToBib-data>
 
-;; (define-class-with-accessors-keywords <ztHref*-data> ()
-;;   ;; TeXmacs tree-pointer
-;;   (zhd-tree-pointer #:init-value #f)
-;;   (zhd-tree #:allocation #:virtual
-;;             #:slot-ref (lambda (zhd)
-;;                          (let ((tp (slot-ref zhd 'zhd-tree-pointer)))
-;;                            (if tp
-;;                                (tree-pointer->tree tp)
-;;                                #f)))
-;;             #:slot-set (lambda (zhd t)
-;;                          (slot-set! zhd 'zhd-tree-pointer (tree->tree-pointer t))))
-;;   ;; what else?
-;;   )
+;;; We need the tree-pointer for maintaining lists of these in in-document
+;;; order using merge.
+;;;
+(define-class-with-accessors-keywords <ztHrefFromCiteToBib-data> ()
+  (the-zfieldID-of #:init-value "")
+  (the-sysID-of #:init-value "")
+  ;; TeXmacs tree-pointer
+  (tree-pointer #:init-value #f)
+  (zhd-tree #:allocation #:virtual
+            #:slot-ref (lambda (zhd)
+                         (let ((tp (slot-ref zhd 'tree-pointer)))
+                           (if tp
+                               (tree-pointer->tree tp)
+                               #f)))
+            #:slot-set! (lambda (zhd t)
+                          (slot-set! zhd 'tree-pointer (tree->tree-pointer t)))))
 
 
 ;;}}}
@@ -1961,7 +1999,7 @@
   ;;
   ;; in-document-order list of <zfield-data>
   ;;
-  (document-zfield-zfd-ls #:init-thunk list) 
+  (document-zfield-zfd-ls #:init-thunk list)
   ;;
   ;; hash-table of zfieldID => <zfield-data>
   ;;
@@ -1977,13 +2015,19 @@
   ;;
   (document-zbibliography-zfd-ls #:init-thunk list)
   ;;
-  ;; List of refs / pagerefs to referring citations for the end of each
-  ;; zbibliography entry. Compute them once, memoized, and so when the
-  ;; in-document tag is actually expanded, the operation is a fast hashtable
-  ;; lookup returning the pre-computed 'concat tree. The typesetter is run very
-  ;; often while using TeXmacs, and so if the full computation had to be run
-  ;; each time the tag is re-typeset (e.g. the user is typing on the page just
-  ;; above the zbibliography) it would be very slow.
+  ;; List of <ztHrefFromCiteToBib-data>, for referencing to the zcite location
+  ;; for each citation to a zbibliography entry.
+  ;;
+  ;; Compute them once, memoized, and so when the in-document tag is actually
+  ;; expanded, the operation is a fast hashtable lookup returning the
+  ;; pre-computed list. The typesetter is run very often while using TeXmacs,
+  ;; and so if the full computation had to be run each time the tag is
+  ;; re-typeset (e.g. the user is typing on the page just above the
+  ;; zbibliography) it would be very slow.
+  ;;
+  ;; hash-ref by:
+  ;;   "sysID" => (list <ztHrefFromCiteToBib-data> ...) in document order.
+  ;;   "zfieldID+sysId" => <ztHrefFromCiteToBib-data> (eq? with the above)
   ;;
   (document-ztbibItemRefs-ht #:init-thunk make-hash-table)
   ;;
@@ -2020,26 +2064,35 @@
         (set-<document-data>! documentID dd)
         dd)))
 
-;;;
+
 ;;{{{ To do: UTSL and find out if those tree-pointers automatically get cleaned
 ;;;          up or do I need to detach them like this? Maybe when I let go of
 ;;;          the reference to the tree-pointer, it gets cleaned up and
 ;;;          detached?
+;;;
+;;;   ; To do: Guardians and after-gc-hook
 ;;}}}
+
 (define (clear-<document-data>! documentID)
   (letrec ((clear-tp (lambda (zfd)
-                       (let ((tp (zfd-tree-pointer zfd)))
+                       (let ((tp (tree-pointer zfd)))
                          (when tp
                            (tree-pointer-detach tp)
-                           (set! (zfd-tree-pointer zfd) #f))))))
+                           (set! (tree-pointer zfd) #f))))))
     (let* ((dd (get-<document-data> documentID))
            (new-zfield-zfd (and dd (document-new-zfield-zfd dd)))
-           (zfd-ls (and dd (document-zfield-zfd-ls dd))))
+           (zfd-ls (and dd (document-zfield-zfd-ls dd)))
+           (zhd-ht (and dd (document-ztbibItemRefs-ht)))
+           (zhd-ls (and zhd-ht (map append (hash-for-each (lambda (key elt)
+                                                            elt)
+                                                          zhd-ht)))))
       (when new-zfield-zfd
         (clear-tp new-zfield-zfd)
         (set! (document-new-zfield-zfd dd) #f))
       (when zfd-ls
-        (map clear-tp zfd-ls))
+        (map clear-tp zfd-ls)) ; To do: Guardians and after-gc-hook
+      (when zhd-ls
+        (map clear-tp zhd-ls)) ; To do: Guardians and after-gc-hook
       (set-<document-data>! documentID
                             (make-instance <document-data>)))))
 
@@ -2078,7 +2131,7 @@
                        (zfield-zfieldID zfield-or-zfieldID)))
          (zfd (get-document-new-zfield-zfd documentID))
          (new-zfieldID (or (and zfd
-                                (zfd-zfieldID zfd))
+                                (the-zfieldID-of zfd))
                            "")))
     ;; (tm-zotero-format-debug "zfield-is-document-new-zfield?: new-zfieldID => ~s, zfieldID => ~s\n" new-zfieldID zfieldID)
     (if zfd
@@ -2091,7 +2144,7 @@
 (define (cleanup-document-new-zfieldID! documentID)
   (and-with zfd (get-document-new-zfield-zfd documentID)
     (hash-remove! (get-document-zfield-zfd-ht documentID)
-                  (zfd-zfieldID zfd))
+                  (the-zfieldID-of zfd))
     (document-remove!-<zfield-data> zfd)
     (when (is-zbibliography? (zfd-tree zfd))
       (document-remove!-zbibliography-zfd zfd))
@@ -2131,7 +2184,7 @@
   (let* ((documentID (get-documentID))
          (zbl (get-document-zbibliography-zfd-ls documentID)))
     (set! (document-zbibliography-zfd-ls (get-<document-data> documentID))
-          (merge! zbl (list zfd) <zfield-data>-less?))))
+          (merge! zbl (list zfd) <*-data>-less?))))
 
 (define (document-remove!-zbibliography-zfd zfd)
   (let* ((documentID (get-documentID))
@@ -2149,6 +2202,22 @@
 (define (reset-ztbibItemRefs-ht! documentID)
   (set! (document-ztbibItemRefs-ht documentID) (make-hash-table)))
 
+(define (document-merge!-ztbibItemRefs-ls zhd)
+  (let* ((documentID (get-documentID))
+         (zhd-ht (get-document-ztbibItemRefs-ht documentID))
+         (sysID (the-sysID-of zhd))
+         (zhd-ls (hash-ref zhd-ht sysID '())))
+    (hash-set! zhd-ht sysID (merge! zhd-ls (list zhd) <*-data>-less?))))
+
+(define (document-remove!-ztbibItemRefs-ls zhd)
+  (let* ((documentID (get-documentID))
+         (zhd-ht (get-document-ztbibItemRefs-ht documentID))
+         (sysID (the-sysID-of zhd))
+         (zhd-ls (hash-ref zhd-ht sysID '())))
+    (hash-set! zhd-ht sysID
+               (list-filter zhd-ls (lambda (elt)
+                                     (not (eq? zhd elt)))))))
+
 ;;}}}
 ;;{{{ get-document-*-by-zfieldID
 
@@ -2157,11 +2226,11 @@
 
 
 (define (get-document-zfield-tree-pointer-by-zfieldID documentID zfieldID)
-  (zfd-tree-pointer
+  (tree-pointer
    (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
 
 (define (set-document-zfield-tree-pointer-by-zfieldID! documentID zfieldID tp)
-  (set! (zfd-tree-pointer (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
+  (set! (tree-pointer (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
         tp))
 
 
@@ -2207,7 +2276,7 @@
   (let* ((documentID (get-documentID))
          (zfl (get-document-zfield-zfd-ls documentID)))
     (set! (document-zfield-zfd-ls (get-<document-data> documentID))
-          (merge! zfl (list zfd) <zfield-data>-less?))))
+          (merge! zfl (list zfd) <*-data>-less?))))
 
 ;;;
 ;;; This removes a <zfield-data> from the <zfield-data>-ls.
@@ -2232,61 +2301,20 @@
 ;;;                        "zciteBibLabel" "displayed text"
 ;;;  '(ztHrefFromCiteToBib "#zbibSysID696" "text")
 ;;;
-;;; Todo: maintain the list, search only on startup.
+;;{{{ Done: maintain the list, search only on
+;;;         startup. (tm-zotero-ext:ensure-zfield-interned!)
+;;}}}
 ;;;
-(define (zt-ztbibItemRefs-get-all-refs)
-  (let ((refs (tm-search-tag (buffer-tree) 'ztHrefFromCiteToBib)))
-    ;;(tm-zotero-format-debug "zt-ztbibItemRefs-get-all-refs:refs: ~S\n" (map tree->stree refs))
-    refs))
-
-
-
+;;{{{ To do: Have a look at citeproc-js / formats.js state.sys.embedBibliographyEntry and
+;;;          consider that it could easily replace this scheme code. Defining
+;;;          it in the bootstrap.js in propachi-texmacs activates it, and it
+;;;          can send it's result string back as the second argument of
+;;;          \ztbibItemText. I am going to just use the scheme program for now
+;;;          since I know scheme better than Javascript and I have things I
+;;;          need to write ASAP.
+;;}}}
 ;;;
-;;; In each of the following, t is an element of the list returned by
-;;; zt-ztbibItemRefs-get-all-refs and so it is a tree like
-;;; '(ztHrefFromCiteToBib "#zbibSysID696" "text").
-;;;
-(define (zt-ztbibItemRefs-get-zciteBibLabel t)
-  (object->string (tree-ref t 0)))
 
-
-;;;
-;;; Typically, this will be 1 to 4 characters of text without any special
-;;; formatting inside of it. (Formatting may surround this chunk, but inside of
-;;; it, there's not anything expected but an atomic string.
-;;;
-(define (zt-ztbibItemRefs-get-ztHrefFromCiteToBib-text t)
-  (object->string (tree-ref t 1)))
-
-
-
-(define zt-ztbibItemRefs-prefix-len (string-length "#zbibSysID"))
-;;;
-;;; This will be the hash key since the sysID is what's known to the macro
-;;; being expanded after the end of each bibliography entry.
-;;;
-;; done
-;; (define (zt-ztbibItemRefs-get-subcite-sysID t)
-;;   (substring (zt-ztbibItemRefs-get-zciteBibLabel t)
-;;              zt-ztbibItemRefs-prefix-len))
-
-;; done
-;; (define (zt-ztbibItemRefs-zfieldID t)
-;;   (let loop ((t t))
-;;     (cond
-;;       ((eqv? t #f) "")
-;;       ((tree-func? t 'zcite) (object->string (zfield-ID t)))
-;;       (else (loop (tree-outer t))))))
-
-
-;; done
-;; (define (zt-ztbibItemRefs-get-target-label t)
-;;   (string-concatenate/shared
-;;    (list "zciteID"
-;;          (zt-ztbibItemRefs-zfieldID t)
-;;          (zt-ztbibItemRefs-get-zciteBibLabel t))))
-
-;;;
 ;;; For some reason there can be more than one the same in a citation cluster,
 ;;; probably only for parallel citations. Just for that, make sure the lists
 ;;; are uniq-equal? (since uniq uses memq, and this uses member, and we need to
@@ -2301,75 +2329,7 @@
 ;;                   acc
 ;;                   (cons (car l) acc))
 ;;               (cdr l)))))
-
-;; (define (zt-ztbibItemRefs-cache-1-zbibItemRef t)
-;;   (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
-;;          (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
-;;          (new (and key `((hlink
-;;                           ,(list 'zbibItemRef (zt-ztbibItemRefs-get-target-label t))
-;;                           ,(string-concatenate/shared
-;;                             (list "#" (zt-ztbibItemRefs-get-target-label t))))))))
-;;     (hash-set! zt-ztbibItemRefs-ht key (append lst new))))
-
-
-
-;; (define-public (zt-ztbibItemRefs-to-tree key)
-;;   (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
-;;          (lst (and lst1 (uniq-equal? lst1)))
-;;          (first-item #t)
-;;          (comma-like-sep (and lst
-;;                               (apply append
-;;                                      (map (lambda (elt)
-;;                                             (if first-item
-;;                                                 (begin
-;;                                                   (set! first-item #f)
-;;                                                   (list elt))
-;;                                                 (begin
-;;                                                   (list (list 'zbibItemRefsList-sep) elt))))
-;;                                           lst))))
-;;          (t (stree->tree (or (and comma-like-sep
-;;                                   `(concat (zbibItemRefsList-left)
-;;                                            ,@comma-like-sep
-;;                                            (zbibItemRefsList-right)))
-;;                              '(concat "")))))
-;;     ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:lst: ~S\n" lst)
-;;     ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:comma-sep: ~S\n" lst)
-;;     ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:t: ~S\n" (tree->stree t))
-;;     t))
-
-
-
-(define (zt-ztbibItemRefs-parse-all)
-  ;; find all citations that reference sysID, list their pagerefs here.
-  (zt-ztbibItemRefs-ht-reset!)
-  (map zt-ztbibItemRefs-cache-1-zbibItemRef (zt-ztbibItemRefs-get-all-refs))
-  (let ((keys '()))
-    (hash-for-each (lambda (key val)
-                     (when (not (string-suffix? "-t" (object->string key)))
-                       (set! keys (append keys (list (object->string key))))))
-                   zt-ztbibItemRefs-ht)
-    ;;(tm-zotero-format-debug "zt-ztbibItemRefs-parse-all:keys: ~S\n" keys)
-    (let loop ((keys keys))
-      (cond
-        ((null? keys) #t)
-        (else
-          (hash-set! zt-ztbibItemRefs-ht
-                     (string-concatenate/shared (list (car keys) "-t"))
-                     (zt-ztbibItemRefs-to-tree (car keys)))
-          (loop (cdr keys)))))))
-
-
-
-(tm-define (zt-ext-ztbibItemRefsList sysID)
-  (:secure)
-  (let* ((sysID (object->string sysID))
-         (key-t (string-concatenate/shared (list sysID "-t"))))
-    (cond
-      ((hash-ref zt-ztbibItemRefs-ht key-t #f) => identity)
-    (else
-      (zt-ztbibItemRefs-parse-all)
-      (hash-ref zt-ztbibItemRefs-ht key-t (stree->tree '(concat "")))))))
-
+;;
 ;;}}}
 
 
@@ -2388,6 +2348,12 @@
 ;;;          clipboard-cut, etc... That way, the work it does can be amortized
 ;;;          across many calls, rather than doing that work all at once.
 ;;}}}
+;;;
+;;{{{ To do: Explore the idea of using a hook function to manage the changes to
+;;;          the zfield: tm-zotero-notify-zfield-Text-update-hook
+;;;          Just make sure that the hook functions for it are given everything
+;;;          they need so they don't have to compute too much.
+;;}}}
 ;;;;;;
 ;;;
 ;;; Lazy interning of <zfield-data>, triggered by the typesetter.
@@ -2397,6 +2363,33 @@
 ;;;
 ;;; The fast path will hopefully be a fast path, so this won't slow it down by
 ;;; being called often.
+;;;
+;;; When the zfield is first interned, and when the text is set by interaction
+;;; with Zotero, but not necessary when the tag is activated after having been
+;;; disactivated and the visible text potentially modified since the zfieldID
+;;; and the sysID for each citation won't change in that case...
+;;;
+;;;  * For each ztHrefFromCiteToBib inside of the citation cluster (since those
+;;;    are in the source document because they are emitted by the
+;;;    variableWrapper) (and in the case of a parallel legal citation where
+;;;    there can be more than one linking to the identical bibliography entry,
+;;;    just skip the subsequent identical ones; they should occur only in
+;;;    groups with no intervening other sysID's);
+;;;
+;;;    * Using the hashLabel argument, get the sysID of the bibliography entry
+;;;      it is linked to. Now we have both the zfieldID and the sysID.
+;;;
+;;{{{ To do: Why is this a hashLabel rather than simply the plain sysID? What
+;;;          will happen to existing documents if I change this? Will it
+;;;          require an update to propachi-texmacs?
+;;;
+;;; It's a hashlabel because that's what I thought about it like then... also
+;;; so that an external reference into the document can be resolved...? Not
+;;; sure it needs the # prepended.
+;;;
+;;}}}
+;;;
+;;;    * Hang the new item on the list for it's sysID with the merge function.
 ;;;
 (tm-define (tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:secure)
@@ -2438,9 +2431,22 @@
                       (document-merge!-<zfield-data> zfd)
                       (when (is-zbibliography? zfield)
                         (document-merge!-zbibliography-zfd zfd))
-                      ;;(tm-zotero-format-debug
-                      ;;"tm-zotero-ext:ensure-zfield-interned!
-                      ;;returning. Interned new zfield, zfd => ~s\n" zfd)
+                      (and-with hrefs (tm-search zfield
+                                                 (cut tm-func? <> 'ztHrefFromCiteToBib))
+                        (map (lambda (href)
+                               (let* ((sysID (ztHref*-sysID href))
+                                      (zhd (make-instance <ztHrefFromCiteToBib-data>
+                                                          #:zhd-tree href
+                                                          #:zfieldID zfieldID
+                                                          #:sysID    sysID)))
+                                 (hash-set! (get-document-ztbibItemRefs-ht documentID)
+                                            (string-append zfieldID "+" sysID)
+                                            zhd)
+                                 (document-merge!-ztbibItemRefs-ls zhd)))
+                             hrefs))
+                      ;; (tm-zotero-format-debug
+                      ;; "tm-zotero-ext:ensure-zfield-interned!
+                      ;; returning. Interned new zfield, zfd => ~s\n" zfd)
                       )
                     ;; (begin
                     ;;   (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Not inside show-part. Nothing interned.\n"))
@@ -2448,6 +2454,9 @@
                 ""))))))
 
 ;;;;;;
+;;;
+;;{{{ To do: Code cleanup, variable name fixing... Evolution is happening, Ok?
+;;}}}
 ;;;
 ;;; This does a similar thing for the ztHrefFromCiteToBib and ztbibItemText
 ;;; macros, since their data is needed to gather the ztbibItemRefsList
@@ -2466,71 +2475,215 @@
 ;;; definition this uses, and with the variableWrapper function that's defined
 ;;; by a monkey patch you will find inside the bootstrap.js for
 ;;; propachi-texmacs.
+;;;                                 hashLabel       url                                                                              display
+;;; \zttextsc{\ztHrefFromCiteToBib{#zbibSysID3410}{\path{http://ctan.mirror.ac.za/macros/latex2e/contrib/biblatex/doc/biblatex.pdf}}{Phil}ipp Lehman \& P. Kime}, \zttextsc{The Biblatex Package} (2006).
 ;;;
-;;;
+;;;                SysID refsList citekey  body
 ;;; \ztbibItemText{2332}{}{sysID2332}{\ztHrefFromBibToURL{#zbibSysID2332}{\path{http://heinonlinebackup.com/hol-cgi-bin/get\_pdf.cgi?handle=hein.journals/helr17\&section=14}}{Wilk}ins, T.A., 1993. Mootness doctrine and the post-compliance pursuit of civil penalties in environmental citizen suits. Harv. Envtl. L. Rev. 17, 389.}%
 ;;;
-
+;;; In the above example the refsList is empty. Later it will contain a string
+;;; as described elsewhere.
 ;;;
-(tm-define (tm-zotero-ext:ensure-ztHref*-interned! hashLabel-t)
-  (:secure)
-  ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-ztHref*-interned! called, hashLabel-t => ~s\n" hashLabel-t)
-  (let* ((documentID (get-documentID))
-         (hashLabel (tree->stree hashLabel-t)))
-    (and-with ztHref* (tree-search-upwards hashLabel-t ztHref*-tags)
-      (case (tree-label ztHref*)
-        ;;
-        ;; MLA citation as an example:
-        ;;
-        ;; (\ztHrefFromCiteToBib{#zbibSysID224}{}{Benn}et)
-        ;;
-        (("ztHrefFromCiteToBib")
-         (noop)
-         )
-        ;;
-        ;; MLA Bibliography entry as an example:
-        ;;
-        ;; \ztHrefFromBibToURL{#zbibSysID4329}{https://en.wikipedia.org/w/index.php?title=Trial_by_ordeal}{``Tri}al
-        ;;
-        (("ztHrefFromBibToURL")
-         (noop)
-         ))))
-  ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-ztHref*-interned! returning.\n")
-  "")
 
-
-
-;;;;;;
+;;; There is always going to be a ztHrefFromCiteToBib coming from inside of the
+;;; variableWrapper function set into place by propachi-texmacs boostrap.js.
 ;;;
-;;{{{ To do:  STUB   Do I need this for anything?
+;;; The link, reference, or pageref target label marking the document location
+;;; of the expansion of a ztHrefFromCiteToBib tag is produced by the expansion
+;;; of this tag is formed by something like:
+;;;
+;;;   <label|<merge|zciteID|<value|zt-citeID>|hashLabel>>
+;;;
+;;; ... where "zciteID" is a hard string-only-tree, and zt-citeID is bound just
+;;; befor the call in to the rendering macro for the zcite, causing it to be
+;;; dynamically bound inside of the environment of the ztHrefFromCiteToBib
+;;; macro, which uses it as you see here. So the labels look like:
+;;;
+;;;            zfieldID               sysID of citation within cluster.
+;;;   zciteID+OUb13F8TlKQgjB#zbibSysID3410
+;;;
+;;; So this label represents the location where the links in the list shown in
+;;; the bibliography will reference, or "point to".
+;;;
+;;; An invariant that this counts on is that the ztHrefFromCiteToBib is never
+;;; encountered prior to the interning of the zcite that it is inside of. That
+;;; means that a <zfield-data> has already been interned for this...
+;;;
+;;{{{ To do: It seems like this macro ought to get handed the zfieldID as an argument,
+;;;          but it does not, since it's sent by the variableWrapper, and I did
+;;;          not know how to get the zfieldID from inside of there. It's
+;;;          probably possible, but I don't know the way around in Javascript
+;;;          very well.
 ;;}}}
-(tm-define (tm-zotero-ext:ensure-ztHref-interned! url-for-tree-t)
-  (:secure)
-  ;; (tm-zotero-format-debug "STUB:tm-zotero-ext:ensure-ztHref-interned! called, url-for-tree-t => ~s\n"
-  ;;                         url-for-tree-t)
-  "")
+;;;
+;;; What I don't like about this is the having to look up the zfield, then the
+;;; zfieldID, then the <zfield-data>, which is necessary for keeping these in
+;;; in-document order with the merge. The main problem is, I think, is that
+;;; tree-search-upwards, and the lookups... must happen each time that this tag
+;;; is encountered... then in order to see if it's already interned, it has to
+;;; look through the list of references to this sysID with member...
+;;;
+;;; Maybe doing this from inside of the zfield interning function is better?
+;;; Yes, since that avoids several lookups.
+;;;
+;;; In order to keep these little lists in in-document order... 
+
+;; (tm-define (tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! hashLabel-t)
+;;   (:secure)
+;;   (let* ((sysID (string-tail (tree->stree hashLabel-t)
+;;                              ztbibItemRefs-target-label-prefix-len))
+;;          (zfield (tree-search-upwards hashLabel-t 'zcite))
+;;          (zfieldID (zfield-zfieldID zfield))
+;;          (zfd
+;;          )
+;;   ))
 
 
-;;;;;;
+;;; Each bibliography item is wrapped inside of a ztbibItemText macro. Inside
+;;; each of them is a label formed by <label|<merge|zbibSysID|<value|sysID>>>.
+;;; The labels look like:
+;;;
+;;;   zbibSysID3410
+;;;
+;;; This label represents the location where the links from the individual
+;;; citations (first 4 characters of the first word of the citation) to the
+;;; corresponding bibliography entry will reference, or "point to".
+;;;
+;;; But that's handled already... what we need to know about here is... We
+;;; don't need this. Far out.
+;;;
+;; (tm-define (tm-zotero-ext:ensure-ztbibItemText-interned! SysID-t)
+;;   (:secure)
+;;   (let* ((SysID (tree->stree SysID-t))
+;;          )
+;;   ))
+
+
+;;;
+;; (tm-define (tm-zotero-ext:ensure-ztHref*-interned! hashLabel-t)
+;;   (:secure)
+;;   ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-ztHref*-interned! called, hashLabel-t => ~s\n" hashLabel-t)
+;;   (let* ((documentID (get-documentID))
+;;          (hashLabel (tree->stree hashLabel-t)))
+;;     (and-with ztHref* (tree-search-upwards hashLabel-t ztHref*-tags)
+;;       (case (tree-label ztHref*)
+;;         ;;
+;;         ;; MLA citation as an example:
+;;         ;;
+;;         ;; (\ztHrefFromCiteToBib{#zbibSysID224}{}{Benn}et)
+;;         ;;
+;;         (("ztHrefFromCiteToBib")
+;;          (noop)
+;;          )
+;;         ;;
+;;         ;; MLA Bibliography entry as an example:
+;;         ;;
+;;         ;; \ztHrefFromBibToURL{#zbibSysID4329}{https://en.wikipedia.org/w/index.php?title=Trial_by_ordeal}{``Tri}al
+;;         ;;
+;;         (("ztHrefFromBibToURL")
+;;          (noop)
+;;          ))))
+;;   ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-ztHref*-interned! returning.\n")
+;;   "")
+
+
+;;{{{ To do: Fix-up internal variable reference
+;;}}}
 ;;;
 ;;; Return the ztbibItemRefsList for this zfieldID.
 ;;;
-;;; The first time it's called, the result <tree> will be cached and that value
-;;; returned, just as for the "lazy interning" triggers above.
-;;; 
+;; (tm-define (tm-zotero-ext:ztbibItemRefsList sysID-t)
+;;   (:secure)
+;;   (let* ((sysID-t (tree->stree sysID))
+;;          (key-t (string-concatenate/shared (list sysID "-t"))))
+;;     (cond
+;;       ((hash-ref HEREzt-ztbibItemRefs-ht key-t #f) => identity)
+;;     (else
+;;       (zt-ztbibItemRefs-parse-all)
+;;       (hash-ref zt-ztbibItemRefs-ht key-t (stree->tree '(concat "")))))))
+
+
+;;; comma sep, like latex arguments, \...{label1,label2,label3}
 ;;;
-(tm-define (tm-zotero-ext:ztbibItemRefsList zfieldID-t)
+;;; The string recieved by this looks just like a LaTeX argument list, so that
+;;; the same output format in citeproc-js will be suitable for both
+;;; purposes. All this function has to do is split it on the commas and return
+;;; that list wrapped inside of a zt-ref-sep tree, found in tm-zotero.ts. When
+;;; the typesetter returns to where you see in the style sheet, this tag will
+;;; be expanded next, as defined there.
+;;;
+(define blank-regexp (make-regexp "[:blank:]"))
+
+(tm-define (tm-zotero-ext:split-and-emit-refsList refs-t)
   (:secure)
-  ;; (tm-zotero-format-debug "STUB:tm-zotero-ext:ztbibItemRefsList called.\n")
-  " [STUB:tm-zotero-ext:ztbibItemRefsList]")
+  ;; strip blanks in case of \...{label1, label2, label3}
+  `(concat (zt-ref-sep ,@(string-tokenize-by-char
+                          (regexp-substitute/global
+                           #f
+                           blank-regexp
+                           (tree->stree refs-t))
+                          #\,))))
 
 
 
-
-;;;;;;
+;;{{{ To do: Move this to Javascript inside propachi-texmacs.
 ;;;
-;;; 
+;;; For now, I'm faster with Scheme and I understand my own program better, and
+;;; so to just get it working, it's going to do it this way. It looks clunky
+;;; and redundant to hop through scheme twice for this, but the reason is that
+;;; I want the Javascript way to be how it works later on in more-final form,
+;;; and so it's set up for that. It will ultimately recieve a string just like
+;;; the one the next function returns, only via the Juris-M / Zotero input,
+;;; rather than from gathering the information from inside this document. That
+;;; will have the advantage of making it so that the reference information is
+;;; stored in the document more locally where it's used, inside each
+;;; bibliography entry, rather than having to be gathered from the document as
+;;; it's typeset. Since Zotero already has the information, I think it will be
+;;; faster to have it send it, eliminating computing it here.
 ;;;
+;;; There's a "lazy intern" function that's populating a list of refs for each
+;;; SysID as the document is typeset. This pastes them together and returns the
+;;; same string that the Javascript version ultimately will.
+;;;
+;;}}}
+;;;
+(tm-define (tm-zotero-ext:get-bibItemRefsList-by-SysID-t sysID-t)
+  (:secure)
+  (let* ((sysID (tree->stree sysID-t))
+         (zhd-ls (hash-ref (get-document-ztbibItemRefs-ht (get-documentID))
+                           sysID
+                           '()))
+         (labels (string-join
+                  (map (lambda (zhd)
+                         (string-append "zciteID"
+                                        (the-zfieldID-of zhd)
+                                        "#zbibSysID"
+                                        (the-sysID-of zhd)))
+                       zhd-ls)
+                  ",")))
+    ;;
+    ;; For now just build and return it every time. Benchmark it and see if it
+    ;; needs to be cached... if so, does this need time-stamps in the
+    ;; <ztHrefFromCiteToBib-data> in order to invalidate the cached list?  This
+    ;; is getting complicated. It does need to be done by Zotero with
+    ;; embedBibliographyEntry().
+    ;;
+    ;; Please laugh. I realize how much duplication of effort there is by doing
+    ;; this in here rather than in embedBibliographyEntry().
+    ;;
+    `(concat (_ztbibItemRefsList ,labels))
+  ))
+
+;;{{{ To do:  STUB   Do I need this for anything?
+;;}}}
+
+;; (tm-define (tm-zotero-ext:ensure-ztHref-interned! url-for-tree-t)
+;;   (:secure)
+;;   ;; (tm-zotero-format-debug "STUB:tm-zotero-ext:ensure-ztHref-interned! called, url-for-tree-t => ~s\n"
+;;   ;;                         url-for-tree-t)
+;;   "")
+
+
 ;;;;;;
 ;;;
 ;;; This won't return the real true result until the zbibliography zfield is
@@ -3004,6 +3157,12 @@
                                 "Exception args: ~s\n\n"
                                 "scm: ~s\n")
               args scm))))
+
+
+
+;;{{{ To do: after-gc-hook, Guardians, for tree-pointer ?
+;;;          Will it leak without this? Does it belong here?
+;;}}}
 
 
 ;;{{{ Cleanup hooks for the undo mark handling
@@ -3529,7 +3688,7 @@
   ;; (tm-zotero-format-debug "tm-zotero-Document_insertField called.\n")
   (let* ((new-zfield-zfd (get-document-new-zfield-zfd documentID))
          (new-zfieldID (and new-zfield-zfd
-                            (zfd-zfieldID new-zfield-zfd)))
+                            (the-zfieldID-of new-zfield-zfd)))
          (new-zfield (and new-zfield-zfd
                           (zfd-tree new-zfield-zfd)))
          (new-noteIndex (and new-zfieldID
@@ -3587,9 +3746,9 @@
            ;; (tm-zotero-format-debug "tm-zotero-Document_getFields:zfield-zfd-ls => ~s\n" zfield-zfd-ls)
            ;; (tm-zotero-format-debug "tm-zotero-Document_getFields: ~s\n" (map (lambda (zfd)
            ;;                                                                     (if zfd
-           ;;                                                                         (if (zfd-tree-pointer zfd)
+           ;;                                                                         (if (tree-pointer zfd)
            ;;                                                                             (list
-           ;;                                                                              (zfd-zfieldID zfd)
+           ;;                                                                              (the-zfieldID-of zfd)
            ;;                                                                              (zfield-zfieldID (zfd-tree zfd)))
            ;;                                                                             "No tree pointer in zfd?")
            ;;                                                                         "No zfd?"))
@@ -4121,8 +4280,8 @@
       (document-remove!-<zfield-data> zfd)
       (when (is-zbibliography? zfield)
         (document-remove!-zbibliography-zfd zfd))
-      (tree-pointer-detach (zfd-tree-pointer zfd))
-      (set! (zfd-tree-pointer zfd) #f)
+      (tree-pointer-detach (tree-pointer zfd))
+      (set! (tree-pointer zfd) #f)
       (tree-set! zfield "")))
   (tm-zotero-write tid (safe-scm->json-string '())))
 

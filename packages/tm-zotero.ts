@@ -392,7 +392,7 @@
     </src-comment>
   </active*>
 
-  <assign|ztbibItemText|<\macro|sysID|embeddedBibliographyEntry|citekey|body>
+  <assign|ztbibItemText|<\macro|sysID|refsList|citekey|body>
     <\with|par-sep|<times|<value|par-sep>|<value|zotero-BibliographyStyle_lineSpacing>>|ztbibItem-vsep|<times|<value|ztbibItem-vsep>|<value|zotero-BibliographyStyle_entrySpacing>>>
       <\surround|<vspace*|<value|item-vsep>>|<right-flush>>
         <\with|par-no-first|false|par-first|<value|zotero-BibliographyStyle_firstLineIndent>|par-left|<value|zotero-BibliographyStyle_bodyIndent>>
@@ -408,32 +408,36 @@
 
   <assign|zt-render-bibItemRefsLists|true>
 
-  <assign|zbibItemRefsList-sep|, >
-
   <assign|XXXzbibItemRefsList-left| \ [<with|font-shape|italic|refs:> >
 
-  <assign|zbibItemRefsList-left| \ [>
+  <assign|ztbibItemRefsList-sep|, >
 
-  <assign|zbibItemRefsList-right|]>
+  <assign|ztbibItemRefsList-left| \ [>
 
-  \;
+  <assign|ztbibItemRefsList-right|]>
 
-  <assign|XXXzbibItemRef|<macro|label|<if|<equal||<reference|<arg|label>>>||<SectionSignGlyph><reference|<arg|label>>
-  on >p.<space|0.1spc><pageref|<arg|label>>>>
-
-  <assign|zbibItemRef|<macro|label|<pageref|<arg|label>>>>
+  <assign|ztbibItemRef|<macro|label|<pageref|<arg|label>>>>
 
   \;
 
-  <assign|zt-render-bibItemRefsList|<macro|sysID|<extern|(lambda (sysID)
-  (tm-zotero-ext:ztbibItemRefsList sysID))|<arg|sysID>>>>
+  <assign|zt-ref-sep-extra|<macro|x|<value|ztbibItemRefsList-sep><ztbibItemRef|<arg|x>>>>
 
-  <assign|ztbibItemRefsList|<macro|sysID|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<zt-render-bibItemRefsList|<arg|sysID>>>>>>
+  <assign|zt-ref-sep|<xmacro|args|<ztbibItemRefsList-left><ztbibItemRef|<arg|args|0>><map-args|zt-ref-sep-extra|concat|args|1><ztbibItemRefsList-right>>>
 
   \;
 
-  <assign|XXztbibitem|<macro|key|<extern|(lambda (key) (tm-zotero-ext:bibitem
-  key))|<arg|key>>>>
+  <assign|tm-zotero-ext-split-and-emit-refsList|<macro|refs|<extern|tm-zotero-ext:split-and-emit-refsList|<arg|refs>>>>
+
+  <assign|_ztbibItemRefsList|<macro|refs|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<compound|tm-zotero-ext-split-and-emit-refsList|<arg|refs>>>>>>
+
+  \;
+
+  <assign|ztbibItemRefsList|<macro|SysID|<extern|tm-zotero-ext:get-bibItemRefsList-by-SysID-t|<arg|SysID>>>>
+
+  \;
+
+  <assign|XXztbibitem|<macro|key|<extern|tm-zotero-ext:bibitem
+  key|<arg|key>>>>
 
   \;
 
@@ -496,9 +500,9 @@
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
-      <zbibliography-heading>
+      <tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zbibliography-heading>
 
-      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|<arg|fieldText><tm-zotero-ensure-zfield-interned!|<arg|fieldID>>>
+      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|<arg|fieldText>>
     </surround>
   </macro>>
 
