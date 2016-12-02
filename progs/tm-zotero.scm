@@ -1315,7 +1315,6 @@
 ;;{{{ zfield tags, trees, inserters, and tree-ref based accessors
 ;;;
 ;;{{{ Documentation Notes
-
 ;;;
 ;;; A zfield is a tree. Each part of it is a tree also.
 ;;;
@@ -1361,6 +1360,13 @@
 ;;;       3. The fourth child (tree-ref fieldCode 3) is the original formatted
 ;;;          string, inside of a raw-data, mainly to hide it and make it
 ;;;          uneditable.
+;;;
+;; NOT SURE YET ;;{{{ To do: ;;;    v.4 is the same as v.3, adding:
+;; ;;}}}
+;; ;;;       4. The fifth child (tree-ref fieldCode 4) is the flag that shows
+;; ;;;          whether or not the zfield has been interned or not. When the
+;; ;;;          document is first loaded, it's meaningless since it's saved with
+;; ;;;          the document.
 ;;;
 ;;;
 ;;; fieldText is a TeXmacs tree, the result of taking the LaTeX-syntax UTF-8
@@ -2455,6 +2461,11 @@
 ;;;
 ;;;  Branch cuts?
 ;;;
+;;; UPDATE: Weird. It's not my code that's the slowdown. When I ran it in an
+;;; Emacs shell buffer to capture the timings to show the slowdown, it failed
+;;; to be slow... It's quick the way it's supposed to be. I wonder what it was?
+;;;
+;;;
 ;;}}}
 ;;;
 ;;;    * Hang the new item on the list for it's sysID with the merge function.
@@ -2467,8 +2478,8 @@
          ;;         fail if this is the new-zfield not yet finalized by
          ;;         Document_insertField.
          (is-new? (zfield-is-document-new-zfield? documentID zfieldID)))
-    (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: zfieldID => ~s\n" zfieldID)
-    (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: is-new? => ~s\n" is-new?)
+    ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: zfieldID => ~s\n" zfieldID)
+    ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: is-new? => ~s\n" is-new?)
     (if is-new?
         (begin
           ;; Then we're done here, that quick, since the new zfield is already
@@ -2729,12 +2740,12 @@
 ;;;
 (tm-define (tm-zotero-ext:get-bibItemRefsList-by-SysID-t sysID-t)
   (:secure)
-  (tm-zotero-format-debug "tm-zotero-ext:get-bibItemRefsList-by-SysID-t: sysID-t => ~s\n" sysID-t)
+  ;; (tm-zotero-format-debug "tm-zotero-ext:get-bibItemRefsList-by-SysID-t: sysID-t => ~s\n" sysID-t)
   (let* ((sysID (tree->stree sysID-t))
          (zhd-ls (hash-ref (get-document-ztbibItemRefs-ht (get-documentID))
                            sysID
                            '()))
-         (dummy (tm-zotero-format-debug "zhd-ls => ~s\n" zhd-ls))
+         ;; (dummy (tm-zotero-format-debug "zhd-ls => ~s\n" zhd-ls))
          (labels (string-join
                   (map (lambda (zhd)
                          (string-append "zciteID"
@@ -2753,7 +2764,7 @@
     ;; Please laugh. I realize how much duplication of effort there is by doing
     ;; this in here rather than in embedBibliographyEntry().
     ;;
-    (tm-zotero-format-debug "tm-zotero-ext:get-bibItemRefsList-by-SysID-t: labels => ~s\n" labels)
+    ;; (tm-zotero-format-debug "tm-zotero-ext:get-bibItemRefsList-by-SysID-t: labels => ~s\n" labels)
     `(concat (_ztbibItemRefsList ,labels))
   ))
 

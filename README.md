@@ -28,7 +28,12 @@ and the lazy interning of the zfield data is working very well...
       * It is still not working quite right... But is fairly useable
         now. It is very quick!
 
-      * This seemed faster at first, but I think that it's getting called
+
+      * UPDATE: The following is not right. It was very slow and did
+        not accept typing fast enough, but now that I try to get
+        timings, it is fast. Something else caused the slowdown, not
+        this scheme program:
+        (This seemed faster at first, but I think that it's getting called
         way too often, like every time I type anything, and so it's
         actually slowing the editor down even more than the previous
         version did. How can I make it faster, or make it only happen when
@@ -37,17 +42,17 @@ and the lazy interning of the zfield data is working very well...
         the macro, shortcutting in a faster way there, perhaps with a flag
         like I did for the "is-modified" flag, so it does not call into
         Guile every time I type anything? Will Guile-2 speed it up any? I
-        think that it will, but not enough.
+        think that it will, but not enough.)
 
-      * Perhaps the "thunking" back and forth from C++ <--> Scheme is
-        too slow?  How does Swig do it? Is it any faster? Does that
-        matter? I think avoiding the jumping into scheme for this will
-        be the best speedup no matter what... Or... would general
-        purpose support for this, perhaps through a new kind of
-        Observer, is what it needs?
+        * SEE "UPDATE" ABOVE: (Perhaps the "thunking" back and forth
+          from C++ <--> Scheme is too slow?  How does Swig do it? Is
+          it any faster? Does that matter? I think avoiding the
+          jumping into scheme for this will be the best speedup no
+          matter what... Or... would general purpose support for this,
+          perhaps through a new kind of Observer, is what it needs?)
 
-    * The references list after the bibliography entries needs to
-      be re-done. That's probably next.
+          * The references list after the bibliography entries needs to
+            be re-done. That's probably next.
 
 ## Important Changes for this branch: ##
 
