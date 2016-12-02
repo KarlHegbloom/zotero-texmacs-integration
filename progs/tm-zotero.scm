@@ -13,6 +13,53 @@
 
 ;;{{{ General "To do" items:
 
+;;{{{ To do: Add the district court to Juris-M's jurisdictions list so that
+;;;          when I enter a reference item for a case there or document or
+;;;          hearing in a case there, I don't see the yellow box. Need to find
+;;;          out what the official designation should be, etc. for the modular
+;;;          styles and so on.
+;;}}}
+
+;;{{{ To do: Record retention rules per court?
+;;}}}
+
+;;{{{ To do: Set up and learn to use org-mode and move to-do items out of here
+;;;          that belong there (i.e., more general than just for tm-zotero, as
+;;;          this next one:
+;;}}}
+
+;;{{{ To do: Just like the script that takes a case history PDF and creates
+;;;          time-line file-system directory entries to mark filing dates,
+;;;          etc., create one that makes Juris-M entries for each hearing and
+;;;          filed document. Q: Legal-XML ?
+;;}}}
+
+;;{{{ To do: File feature request for Juris-M, the entries for a court document
+;;;          under a case need to have the "Document" field shown with the
+;;;          title, since otherwise there's several that all look alike when
+;;;          you try to search for the one you want when you make a citation.
+;;}}}
+
+;;{{{ To do: When it formats a Utah case number (other states?) it ought to put
+;;;          small spaces in the right places... I could put Unicode small
+;;;          spaces in there, but I'm not sure whether it would affect things
+;;;          like sorting, etc... Alternatively, semantic markup?
+;;;
+;;;   The reason for this is that the case number is encoded:
+;;;    2 digit year, 3 digit case-type code, 4 digit sequential case number
+;;;    under that case-type-code.
+;;}}}
+
+;;{{{ To do: Document management system that can integrate with Emacs, TeXmacs,
+;;;          Juris-M, and maybe GnuCash... Calendaring, the date the document
+;;;          was begun, the date it was finished, the date it was filed, etc.
+;;;
+;;}}}
+
+;;{{{ To do:
+;;;
+;;}}}
+
 ;;{{{ To do: Put this into the "tools" page on TeXmacs.org... when? As soon as
 ;;;          it is ready for at least Beta testing pre-release?
 ;;;
@@ -2389,30 +2436,51 @@
 ;;;
 ;;}}}
 ;;;
+;;{{{ To do: This seemed faster at first, but I think that it's getting called
+;;;          way too often, like every time I type anything, and so it's
+;;;          actually slowing the editor down even more than the previous
+;;;          version did. How can I make it faster, or make it only happen when
+;;;          it needs to; only the first time it's typeset and only thereafter
+;;;          when it's changed? Self-modifying document? A case or if inside
+;;;          the macro, shortcutting in a faster way there, perhaps with a flag
+;;;          like I did for the "is-modified" flag, so it does not call into
+;;;          Guile every time I type anything? Will Guile-2 speed it up any? I
+;;;          think that it will, but not enough.
+;;;
+;;;  Perhaps the "thunking" back and forth from C++ <--> Scheme is too slow?
+;;;  How does Swig do it? Is it any faster? Does that matter? I think avoiding
+;;;  the jumping into scheme for this will be the best speedup no matter
+;;;  what... Or... would general purpose support for this, perhaps through a
+;;;  new kind of Observer, is what it needs?
+;;;
+;;;  Branch cuts?
+;;;
+;;}}}
+;;;
 ;;;    * Hang the new item on the list for it's sysID with the merge function.
 ;;;
 (tm-define (tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:secure)
-  ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => ~s\n" zfieldID-t)
+  (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => ~s\n" zfieldID-t)
   (let* ((documentID (get-documentID))
          (zfieldID (tree->stree zfieldID-t))
          ;;         fail if this is the new-zfield not yet finalized by
          ;;         Document_insertField.
          (is-new? (zfield-is-document-new-zfield? documentID zfieldID)))
-    ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: zfieldID => ~s\n" zfieldID)
-    ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: is-new? => ~s\n" is-new?)
+    (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: zfieldID => ~s\n" zfieldID)
+    (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: is-new? => ~s\n" is-new?)
     (if is-new?
         (begin
           ;; Then we're done here, that quick, since the new zfield is already
           ;; partly interned, and isn't finalized until
           ;; tm-zotero-Document_insertField.
-          ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, is-new? => #t\n")
+          (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, is-new? => #t\n")
           "")
         (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
           (if zfd
               (begin
                 ;; then we're done, it's already interned.
-                ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, zfd was already interned, zfd => ~s\n" zfd)
+                (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, zfd was already interned, zfd => ~s\n" zfd)
                 "")
               ;;
               ;; else...
@@ -2431,25 +2499,25 @@
                       (document-merge!-<zfield-data> zfd)
                       (when (is-zbibliography? zfield)
                         (document-merge!-zbibliography-zfd zfd))
-                      (and-with hrefs (tm-search zfield
-                                                 (cut tm-func? <> 'ztHrefFromCiteToBib))
-                        (map (lambda (href)
-                               (let* ((sysID (ztHref*-sysID href))
-                                      (zhd (make-instance <ztHrefFromCiteToBib-data>
-                                                          #:zhd-tree href
-                                                          #:zfieldID zfieldID
-                                                          #:sysID    sysID)))
-                                 (hash-set! (get-document-ztbibItemRefs-ht documentID)
-                                            (string-append zfieldID "+" sysID)
-                                            zhd)
-                                 (document-merge!-ztbibItemRefs-ls zhd)))
-                             hrefs))
-                      ;; (tm-zotero-format-debug
-                      ;; "tm-zotero-ext:ensure-zfield-interned!
-                      ;; returning. Interned new zfield, zfd => ~s\n" zfd)
+                      ;; (and-with hrefs (tm-search zfield
+                      ;;                            (cut tm-func? <> 'ztHrefFromCiteToBib))
+                      ;;   (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: hrefs => ~s\n" hrefs)
+                      ;;   (map (lambda (href)
+                      ;;          (let* ((sysID (ztHref*-sysID href))
+                      ;;                 (zhd (make-instance <ztHrefFromCiteToBib-data>
+                      ;;                                     #:zhd-tree href
+                      ;;                                     #:zfieldID zfieldID
+                      ;;                                     #:sysID    sysID)))
+                      ;;            (hash-set! (get-document-ztbibItemRefs-ht documentID)
+                      ;;                       (string-append zfieldID "+" sysID)
+                      ;;                       zhd)
+                      ;;            (document-merge!-ztbibItemRefs-ls zhd)))
+                      ;;        hrefs))
+                      (tm-zotero-format-debug
+                      "tm-zotero-ext:ensure-zfield-interned! returning. Interned new zfield, zfd => ~s\n" zfd)
                       )
-                    ;; (begin
-                    ;;   (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Not inside show-part. Nothing interned.\n"))
+                    (begin
+                      (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Not inside show-part. Nothing interned.\n"))
                     )
                 ""))))))
 
@@ -2526,17 +2594,27 @@
 ;;; Maybe doing this from inside of the zfield interning function is better?
 ;;; Yes, since that avoids several lookups.
 ;;;
-;;; In order to keep these little lists in in-document order... 
+;;; In order to keep these little lists in in-document order.
 
-;; (tm-define (tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! hashLabel-t)
-;;   (:secure)
-;;   (let* ((sysID (string-tail (tree->stree hashLabel-t)
-;;                              ztbibItemRefs-target-label-prefix-len))
-;;          (zfield (tree-search-upwards hashLabel-t 'zcite))
-;;          (zfieldID (zfield-zfieldID zfield))
-;;          (zfd
-;;          )
-;;   ))
+(tm-define (tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! hashLabel-t)
+  (:secure)
+  (let* ((documentID (get-documentID))
+         (sysID (string-tail (tree->stree hashLabel-t)
+                             ztbibItemRefs-target-label-prefix-len))
+         (href (tree-search-upwards hashLabel-t 'ztHrefFromCiteToBib))
+         (zfield (tree-search-upwards hashLabel-t 'zcite))
+         (zfieldID (zfield-zfieldID zfield))
+         (zhd (make-instance <ztHrefFromCiteToBib-data>
+                             #:the-zfieldID-of zfieldID
+                             #:the-sysID-of sysID
+                             #:zhd-tree href)))
+    (hash-set! (get-document-ztbibItemRefs-ht documentID)
+               (string-append zfieldID "+" sysID)
+               zhd)
+    (document-merge!-ztbibItemRefs-ls zhd))
+  "")
+;;; The thing inside of the citeproc didn't work and always gives an error
+;;; dialog from Firefox. I think I may as well just put all of this into scheme...
 
 
 ;;; Each bibliography item is wrapped inside of a ztbibItemText macro. Inside
@@ -2612,16 +2690,18 @@
 ;;; the typesetter returns to where you see in the style sheet, this tag will
 ;;; be expanded next, as defined there.
 ;;;
-(define blank-regexp (make-regexp "[:blank:]"))
+(define blank-regexp (make-regexp "[[:blank:]]"))
 
 (tm-define (tm-zotero-ext:split-and-emit-refsList refs-t)
   (:secure)
+  (tm-zotero-format-debug "tm-zotero-ext:split-and-emit-refsList: refs-t => ~s\n" refs-t)
   ;; strip blanks in case of \...{label1, label2, label3}
   `(concat (zt-ref-sep ,@(string-tokenize-by-char
                           (regexp-substitute/global
                            #f
                            blank-regexp
-                           (tree->stree refs-t))
+                           (tree->stree refs-t)
+                           'pre 'post)
                           #\,))))
 
 
@@ -2649,10 +2729,12 @@
 ;;;
 (tm-define (tm-zotero-ext:get-bibItemRefsList-by-SysID-t sysID-t)
   (:secure)
+  (tm-zotero-format-debug "tm-zotero-ext:get-bibItemRefsList-by-SysID-t: sysID-t => ~s\n" sysID-t)
   (let* ((sysID (tree->stree sysID-t))
          (zhd-ls (hash-ref (get-document-ztbibItemRefs-ht (get-documentID))
                            sysID
                            '()))
+         (dummy (tm-zotero-format-debug "zhd-ls => ~s\n" zhd-ls))
          (labels (string-join
                   (map (lambda (zhd)
                          (string-append "zciteID"
@@ -2671,6 +2753,7 @@
     ;; Please laugh. I realize how much duplication of effort there is by doing
     ;; this in here rather than in embedBibliographyEntry().
     ;;
+    (tm-zotero-format-debug "tm-zotero-ext:get-bibItemRefsList-by-SysID-t: labels => ~s\n" labels)
     `(concat (_ztbibItemRefsList ,labels))
   ))
 
@@ -4780,8 +4863,8 @@ styles."
          ;; but for some reason the one in the bibliography has a ., between the two different reporters, rather than only a , so
          ;; this hack cleans that up.
          ;;
-         (("(\\.,)")
-          pre "," post)
+         ;; (("(\\.,)")    ;; No... e.g., 
+         ;;  pre "," post)
          ;;
          ;; Using the ibus mathwriter input method, I can type -> and get →. I can put that at the end of the suffix text, when I
          ;; want the following semicolon or period to be deleted. For example:
@@ -4802,7 +4885,7 @@ styles."
           pre "\\abbr{U.S.C.}" post)
          (("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)")
           pre "\\abbr{" 1 "}" post)
-         (("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.|Cir\\.|Sup\\.|Ct\\.|App\\.|U\\.|Mass\\.|Const\\.|art\\.|Art\\.|sec\\.|Sec\\.|ch\\.|Ch\\.|para\\.|Para\\.|Loy\\.|Rev\\.)")
+         (("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Envtl\\.|Cir\\.|Sup\\.|Ct\\.|App\\.|U\\.|Mass\\.|Const\\.|art\\.|Art\\.|sec\\.|Sec\\.|ch\\.|Ch\\.|para\\.|Para\\.|[Nn]o\\.|Loy\\.|Rev\\.)")
           pre "\\abbr{" 1 "}" post)
          (("(Cal\\.|Kan\\.)")
           pre "\\abbr{" 1 "}" post)

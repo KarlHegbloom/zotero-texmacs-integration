@@ -257,13 +257,7 @@
     </src-comment>
   </active*>
 
-  <assign|XXXtm-zotero-ext-ensure-ztHref*-interned!|<macro|hashLabel|<extern|(lambda
-  (fieldID-t) (tm-zotero-ext:ensure-ztHref*-interned!
-  fieldID-t))|<arg|hashLabel>>>>
-
   <assign|zt-link-BibToURL|true>
-
-  <assign|XXXztHrefFromBibToURL|<macro|hashLabel|url|display|<tm-zotero-ext-ensure-ztHref*-interned!|<arg|hashLabel>><with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
@@ -273,9 +267,9 @@
 
   <assign|ztDefaultCiteURL|>
 
-  <assign|XXXztHrefFromCiteToBib|<macro|hashLabel|url|display|<tm-zotero-ext-ensure-ztHref*-interned!|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<macro|hashLabel-t|<extern|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|hashLabel-t>>>>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
@@ -426,18 +420,13 @@
 
   \;
 
-  <assign|tm-zotero-ext-split-and-emit-refsList|<macro|refs|<extern|tm-zotero-ext:split-and-emit-refsList|<arg|refs>>>>
+  <assign|tm-zotero-ext-split-and-emit-refsList|<macro|refs-t|<extern|tm-zotero-ext:split-and-emit-refsList|<arg|refs-t>>>>
 
-  <assign|_ztbibItemRefsList|<macro|refs|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<compound|tm-zotero-ext-split-and-emit-refsList|<arg|refs>>>>>>
+  <assign|_ztbibItemRefsList|<macro|refs-t|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<compound|tm-zotero-ext-split-and-emit-refsList|<arg|refs-t>>>>>>
 
   \;
 
   <assign|ztbibItemRefsList|<macro|SysID|<extern|tm-zotero-ext:get-bibItemRefsList-by-SysID-t|<arg|SysID>>>>
-
-  \;
-
-  <assign|XXztbibitem|<macro|key|<extern|tm-zotero-ext:bibitem
-  key|<arg|key>>>>
 
   \;
 
@@ -496,7 +485,7 @@
 
   <assign|zt-extra-surround-before|>
 
-  <assign|zbibliography-heading|<principal-section*|<bibliography-text>>>
+  <assign|zbibliography-heading|<macro|<principal-section*|<bibliography-text>>>>
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>

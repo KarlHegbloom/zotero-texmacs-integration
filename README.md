@@ -18,15 +18,33 @@ and the lazy interning of the zfield data is working very well...
 
     * clipboard-cut and clipboard-paste do the right thing when
       zfields are cut and pasted.
-        
+
     * buffer-set-part-mode is overloaded and clears the interned
       <zfield-data> so that the tm-zotero-ext:ensure reinterns only
       the visible tags... sort of; it actually typesets the invisible
       ones too for some reason, so I have to actually look at the
       part-mode and tree-search-upwards for the show-part tag.
-      
+
       * It is still not working quite right... But is fairly useable
         now. It is very quick!
+
+      * This seemed faster at first, but I think that it's getting called
+        way too often, like every time I type anything, and so it's
+        actually slowing the editor down even more than the previous
+        version did. How can I make it faster, or make it only happen when
+        it needs to; only the first time it's typeset and only thereafter
+        when it's changed? Self-modifying document? A case or if inside
+        the macro, shortcutting in a faster way there, perhaps with a flag
+        like I did for the "is-modified" flag, so it does not call into
+        Guile every time I type anything? Will Guile-2 speed it up any? I
+        think that it will, but not enough.
+
+      * Perhaps the "thunking" back and forth from C++ <--> Scheme is
+        too slow?  How does Swig do it? Is it any faster? Does that
+        matter? I think avoiding the jumping into scheme for this will
+        be the best speedup no matter what... Or... would general
+        purpose support for this, perhaps through a new kind of
+        Observer, is what it needs?
 
     * The references list after the bibliography entries needs to
       be re-done. That's probably next.

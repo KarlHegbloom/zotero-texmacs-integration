@@ -33,7 +33,7 @@
 
   <use-package|english|std|env|title-generic|header-generic|header-article|header-letter|section-article|tm-zotero>
 
-  <use-module|(insert-legal-templates)>
+  <use-module|(legal-brief)>
 
   <\active*>
     <\src-comment>
@@ -402,7 +402,7 @@
 
   \;
 
-  <assign|nbspace-extra|<macro|x|<space|0.2spc><arg|x>>>
+  <assign|nbspace-extra|<macro|x|<space|0.3333spc><arg|x>>>
 
   <assign|nbspace-separated|<xmacro|args|<arg|args|0><map-args|nbspace-extra|concat|args|1>>>
 
