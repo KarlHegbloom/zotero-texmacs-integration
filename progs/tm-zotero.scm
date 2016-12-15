@@ -900,9 +900,7 @@
                  (has-zfields? (selection-tree))))
   (let* ((documentID (get-documentID))
          (selection-t (selection-tree))
-         (zfields (or (and selection-t
-                           (tm-search selection-t is-zfield?))
-                      '()))
+         (zfields (tm-search selection-t is-zfield?))
          (zfield-zfd-ht (get-document-zfield-zfd-ht documentID))
          (ztbibItemRefs-ht (get-document-ztbibItemRefs-ht documentID))
          ;; outside the lambda; do it once only.
@@ -913,25 +911,30 @@
              (if (not (zfield-is-document-new-zfield? documentID zfieldID))
                  (begin
                    (hash-remove! zfield-zfd-ht zfieldID)
-                   (when zfd
-                     (document-remove!-<zfield-data> zfd)
-                     (when (is-zbibliography? zfield)
-                       (document-remove!-zbibliography-zfd zfd))
-                     (let ((tp (tree-pointer zfd)))
-                       (when tp
-                         (tree-pointer-detach tp)
-                         (set! (tree-pointer zfd) #f))))
-                   (and-with hrefs (tm-search
-                                    zfield
-                                    (cut tm-func? <> 'ztHrefFromCiteToBib))
+                   (document-remove!-<zfield-data> zfd)
+                   (when (is-zbibliography? zfield)
+                     (document-remove!-zbibliography-zfd zfd))
+                   ;; To do: Experiment + UTSL to find out if I need to do this
+                   ;; with tree-pointer. I am not sure if it sticks to the tree
+                   ;; while the tree is detached, or if it gets left at the
+                   ;; place where the selection tree has been cut from.
+                   (let ((tp (tree-pointer zfd)))
+                     (tree-pointer-detach tp) ; Guardian and gc-hook?
+                     (set! (tree-pointer zfd) #f))
+                   (let ((hrefs (tm-search
+                                 zfield
+                                 (cut tm-func? <> 'ztHrefFromCiteToBib))))
                      (map (lambda (href)
-                            (and-with zhd (hash-ref zfield-zfd-ht
-                                                    (string-append zfieldID
-                                                                   "+"
-                                                                   (ztHref*-sysID href)))
-                              (document-remove!-<ztHrefFromCiteToBib-data> zhd)))
+                            (document-remove!-<ztHrefFromCiteToBib-data>
+                             (hash-ref zfield-zfd-ht
+                                       (string-append zfieldID
+                                                      "+"
+                                                      (ztHref*-sysID href)))))
                           hrefs)))
                  (let ((tp (tree-pointer new-zfield-zfd))) ; is the new one??? How?
+                   (tm-zotero-format-error "clipboard-cut: Cutting new zfield! Fixme: Probably protocol breakdown; Restart Firefox and TeXmacs.")
+                   ;; To do: Ok, I think this can only happen when there's a
+                   ;;        protocol breakdown between tm-zotero and zotero.
                    (when tp
                      (tree-pointer-detach tp)
                      (set-document-new-zfield-zfd! #f))))))
@@ -2325,6 +2328,13 @@
 ;;;
 ;;; This adds a <zfield-data> to the <zfield-data>-ls.
 ;;;
+;;; To do: Should these take a documentID argument instead of looking it up
+;;;        here?  I need to think about it sometime, and when doing so, think
+;;;        about things like a future version of TeXmacs with multiple threads
+;;;        maybe the way the Chrome browser does it or whatever? This is a
+;;;        longer term study project for me... right now I need to get this to
+;;;        work so I can use it.
+;;;
 (define (document-merge!-<zfield-data> zfd)
   (let* ((documentID (get-documentID))
          (zfl (get-document-zfield-zfd-ls documentID)))
@@ -2609,20 +2619,27 @@
 
 (tm-define (tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! hashLabel-t)
   (:secure)
-  (let* ((documentID (get-documentID))
+  (let* ((zfield (tree-search-upwards hashLabel-t 'zcite))
+         ;; (zfieldID (and zfield (zfield-zfieldID zfield)))
+         ;; To do: zfield => #f happens but I don't know how.
+         (zfieldID (and zfield (zfield-zfieldID zfield)))
+         (documentID (get-documentID))
          (sysID (string-tail (tree->stree hashLabel-t)
                              ztbibItemRefs-target-label-prefix-len))
          (href (tree-search-upwards hashLabel-t 'ztHrefFromCiteToBib))
-         (zfield (tree-search-upwards hashLabel-t 'zcite))
-         (zfieldID (zfield-zfieldID zfield))
-         (zhd (make-instance <ztHrefFromCiteToBib-data>
-                             #:the-zfieldID-of zfieldID
-                             #:the-sysID-of sysID
-                             #:zhd-tree href)))
-    (hash-set! (get-document-ztbibItemRefs-ht documentID)
-               (string-append zfieldID "+" sysID)
-               zhd)
-    (document-merge!-ztbibItemRefs-ls zhd))
+         (is-new? (or zfieldID
+                      (zfield-is-document-new-zfield? documentID zfieldID)))
+         (zhd (and zfieldID
+                   (not is-new?)
+                   (make-instance <ztHrefFromCiteToBib-data>
+                                  #:the-zfieldID-of zfieldID
+                                  #:the-sysID-of sysID
+                                  #:zhd-tree href))))
+    (when zhd
+      (hash-set! (get-document-ztbibItemRefs-ht documentID)
+                 (string-append zfieldID "+" sysID)
+                 zhd)
+      (document-merge!-ztbibItemRefs-ls zhd)))
   "")
 ;;; The thing inside of the citeproc didn't work and always gives an error
 ;;; dialog from Firefox. I think I may as well just put all of this into scheme...
