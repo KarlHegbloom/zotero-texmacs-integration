@@ -1,6 +1,9 @@
 Zotero - TeXmacs integration plugin and citation styles.
 ========================================================
 
+** The performance-improvments-wip branch is the active development
+   branch right now. **
+
 Please be patient when you are using this. I realize that the
 turn-around time between issuing an Integration command and having it
 finish making the edits is longer than we'd like it to be.
