@@ -1,6 +1,13 @@
 Zotero - TeXmacs integration plugin and citation styles.
 ========================================================
 
+**I am busy writing appellate court documents in the case for custody
+of my son. I can not fix any problems with this program until I am
+done. This branch is the active development branch of it. I can not do
+more than one thing at a time. If anyone out there wants anything
+fixed, please simply clone the repository, fix it, and send me a pull
+request.**
+
 This is the "Work in progress" branch for performance
 improvements... It is temporary and will be merged into master when
 it's working.
