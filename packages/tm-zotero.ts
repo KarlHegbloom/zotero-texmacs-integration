@@ -254,8 +254,13 @@
     <\src-comment>
       hashLabel is not yet used by ztHrefFromBibToURL but available to it or
       to code acting on it.
+
+      zt-zciteID is defined here, but locally with-bound inside of the zcite
+      macro.
     </src-comment>
   </active*>
+
+  <assign|XXXzt-zciteID|0>
 
   <assign|zt-link-BibToURL|true>
 
@@ -282,13 +287,11 @@
     </src-comment>
   </active*>
 
-  <assign|zt-zciteID|0>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><arg|citebody>>>
 
-  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>
+  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><arg|citebody>>>>
 
-  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
-
-  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
+  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><arg|citebody>>>>
 
   \;
 
@@ -460,14 +463,12 @@
     </src-comment>
   </active*>
 
-  <assign|tm-zotero-ensure-zfield-interned!|<macro|fieldID|<extern|(lambda
-  (fieldID-t) (tm-zotero-ext:ensure-zfield-interned!
-  fieldID-t))|<arg|fieldID>>>>
+  <assign|tm-zotero-ensure-zfield-interned!|<macro|fieldID-t|<extern|tm-zotero-ext:ensure-zfield-interned!|<arg|fieldID-t>>>>
 
   <assign|zcite-flag-if-modified|<macro|fieldCode|<case|<look-up|<arg|fieldCode>|2>|<flag|Modified|red>|<flag|Not
   Modified|green>>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>><tm-zotero-ensure-zfield-interned!|<arg|fieldID>>>>>
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|zt-zciteID|<arg|fieldID>|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>>
 
   <drd-props|render-zcite|accessible|1>
 
