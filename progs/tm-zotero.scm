@@ -2098,15 +2098,17 @@
 ;;; empty hash table. That's fine. It will also get cleared when the
 ;;; document-part-mode changes.
 ;;;
-;;; Todo: I see a possible "memory leak" of tree-pointer's... they are attached
-;;;       to trees in the buffer. So to clear the document-data, there must be
-;;;       a single point of control in a function that calls
-;;;       tree-pointer-detach for each of them before releasing everything via
-;;;       assignment of a fresh hash-table to <document-data>-ht... actually,
-;;;       rather than assign a fresh one, use hash-clear since it clears it
-;;;       without triggering a resize... and it's already ballooned out to it's
-;;;       needed size once it's been used once.
-;;;
+;;{{{ To do: I see a possible "memory leak" of tree-pointer's... they are attached
+;;;          to trees in the buffer. So to clear the document-data, there must
+;;;          be a single point of control in a function that calls
+;;;          tree-pointer-detach for each of them before releasing everything
+;;;          via assignment of a fresh hash-table to
+;;;          <document-data>-ht... actually, rather than assign a fresh one,
+;;;          use hash-clear since it clears it without triggering a
+;;;          resize... and it's already ballooned out to it's needed size once
+;;;          it's been used once.
+;;}}}
+
 (define <document-data>-ht (make-hash-table)) ;; documentID => <document-data>
 
 
@@ -2121,12 +2123,11 @@
         dd)))
 
 
-;;{{{ To do: UTSL and find out if those tree-pointers automatically get cleaned
-;;;          up or do I need to detach them like this? Maybe when I let go of
-;;;          the reference to the tree-pointer, it gets cleaned up and
-;;;          detached?
+;;{{{ To do: Guardians and after-gc-hook? UTSL and find out if those
+;;;          tree-pointers automatically get cleaned up or do I need to detach
+;;;          them like this? Maybe when I let go of the reference to the
+;;;          tree-pointer, it gets cleaned up and detached?
 ;;;
-;;;   ; To do: Guardians and after-gc-hook
 ;;}}}
 
 (define (clear-<document-data>! documentID)
@@ -2138,10 +2139,11 @@
     (let* ((dd (get-<document-data> documentID))
            (new-zfield-zfd (and dd (document-new-zfield-zfd dd)))
            (zfd-ls (and dd (document-zfield-zfd-ls dd)))
-           (zhd-ht (and dd (document-ztbibItemRefs-ht)))
-           (zhd-ls (and zhd-ht (map append (hash-for-each (lambda (key elt)
-                                                            elt)
-                                                          zhd-ht)))))
+           (zhd-ht (and dd (get-document-ztbibItemRefs-ht documentID)))
+           (elts-ls (and zhd-ht (hash-for-each (lambda (key elt)
+                                                 elt)
+                                               zhd-ht)))
+           (zhd-ls (and elts-ls (map append elts-ls))))
       (when new-zfield-zfd
         (clear-tp new-zfield-zfd)
         (set! (document-new-zfield-zfd dd) #f))
@@ -4382,7 +4384,7 @@
   ;; (tm-zotero-set-message
   ;;  (string-append "Processing command: Field_delete " zfieldID "..."))
   ;;(tm-zotero-format-debug "tm-zotero-Field_delete called.\n")
-  (let* ((zfd (get-document-zfield-by-zfieldID zfieldID))
+  (let* ((zfd (hash-ref (get-document-zfield-zfd-ht documentID) zfieldID))
          (zfield (and zfd (zfd-tree zfd)))
          (code (and zfield (zfield-Code-code zfield)))
          (text (and zfield (zfield-Text zfield))))
