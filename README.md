@@ -178,7 +178,7 @@ This is a work in progress, but it is working. I am now using it to
 write a document with. You can watch this screencast to learn a little
 bit about what this is and how to use it:
 
-[Juris-M / Zotero and TeXmacs Integration Screencast 01](https://www.youtube.com/watch?v=4Ssik5qyt5w)
+[Juris-M / Zotero and TeXmacs Integration Screencast 01](https://www.youtube.com/watch?v=ZhOton-p3T8)
 
 RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/master/doc/tm-zotero-tutorial.en.pdf)
 
