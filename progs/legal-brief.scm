@@ -23,6 +23,8 @@
    (insert-legal-heading))
   ("Cert-of-Service" "Insert Legal Certificate of Service"
    (insert-legal-cert-of-service))
+  ("Appellate-Issue" "Insert Appellate Issue Template"
+   (insert-appellate-issue-template))
   )
 
 
@@ -261,7 +263,15 @@
          (concat "Document Preparer"))))))
 
 
-
+(tm-define (insert-appellate-issue-template)
+  (insert
+   `(document
+      (subsection "[Name the issue]")
+      "[Succinctly state the issue.]"
+      (subsubsection "Determinative Law")
+      "[Cite any statutes, rules, or cases determinative of the issue.]"
+      (subsubsection "Standard of Review")
+      "[State applicable standard of appellate review for the issue, with supporting authority.]")))
 
 ;;; Local Variables:
 ;;; mode: scheme
