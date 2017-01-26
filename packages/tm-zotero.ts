@@ -29,7 +29,7 @@
       must uninstall or disable the Firefox propachi-texmacs addon.
     </src-purpose>
 
-    <src-copyright|2016|Karl Martin Hegbloom>
+    <src-copyright|2016, 2017,|Karl Martin Hegbloom>
 
     <\src-license>
       This software falls under the <hlink|GNU general public license,
@@ -56,7 +56,16 @@
 
   <use-package|std-counter|std-utils|env-float|std-list|std-markup>
 
-  \;
+  <\active*>
+    <\src-comment>
+      These are enclosed by macros so that there is a UTF-8 encoded font
+      being used for the paragraphsign and sectionsign so that when the PDF
+      is generated, the outline will have the right symbol showing. When a
+      cork encoded font is the document font, they don't show up right
+      otherwise. I actually recommend using one of the new True Type TeX Gyre
+      fonts, such as Bonum, Pagella, Schola, or Termes.
+    </src-comment>
+  </active*>
 
   <assign|ParagraphSignGlyph|<macro|\<paragraph\>>>
 
@@ -238,11 +247,13 @@
     </src-comment>
   </active*>
 
-  <assign|XXXtm-zotero-ext-ensure-ztHref-interned!|<macro|url-for-tree|<extern|(lambda
+  <inactive|<assign|XXXtm-zotero-ext-ensure-ztHref-interned!|<macro|url-for-tree|<extern|(lambda
   (url-for-tree-t) (tm-zotero-ext:ensure-ztHref-interned!
-  url-for-tree-t))|<arg|url-for-tree>>>>
+  url-for-tree-t))|<arg|url-for-tree>>>>>
 
-  <assign|XXXztHref|<macro|url|display|<tm-zotero-ext-ensure-ztHref-interned!|<arg|url>><if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
+  <inactive|<assign|XXXztHref|<macro|url|display|<tm-zotero-ext-ensure-ztHref-interned!|<arg|url>><if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>>
+
+  \;
 
   <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
 
@@ -252,15 +263,17 @@
 
   <\active*>
     <\src-comment>
-      hashLabel is not yet used by ztHrefFromBibToURL but available to it or
-      to code acting on it.
+      hashLabel is not used by ztHrefFromBibToURL but available to it or to
+      code acting on it. I think I put it in there mainly so that
+      ztHrefFromCiteToBib and ztHrefFromBibToURL will have the same arity and
+      layout. It may go away before this hits beta.
 
       zt-zciteID is defined here, but locally with-bound inside of the zcite
       macro.
     </src-comment>
   </active*>
 
-  <assign|XXXzt-zciteID|0>
+  <inactive|<assign|XXXzt-zciteID|0>>
 
   <assign|zt-link-BibToURL|true>
 
@@ -405,7 +418,8 @@
 
   <assign|zt-render-bibItemRefsLists|true>
 
-  <assign|XXXzbibItemRefsList-left| \ [<with|font-shape|italic|refs:> >
+  <inactive|<assign|XXXzbibItemRefsList-left|
+  \ [<with|font-shape|italic|refs:> >>
 
   <assign|ztbibItemRefsList-sep|, >
 

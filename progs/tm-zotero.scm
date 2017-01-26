@@ -5,104 +5,15 @@
 ;;; DESCRIPTION : Zotero Connector Plugin
 ;;; COPYRIGHT   : (C) 2016, 2017  Karl M. Hegbloom <karl.hegbloom@gmail.com>
 ;;;
-;;{{{ This software stands with the GNU general public license version 3 or
+;;;;;;
+;;;
+;;; This software stands with the GNU general public license version 3 or
 ;;; later. It comes WITHOUT ANY WARRANTY WHATSOEVER. For details, see the file
 ;;; LICENSE in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>
-;;}}}
+;;;
 ;;;;;;
 
-;;{{{ General "To do" items:
-
-;;{{{ To do: Add the district court to Juris-M's jurisdictions list so that
-;;;          when I enter a reference item for a case there or document or
-;;;          hearing in a case there, I don't see the yellow box. Need to find
-;;;          out what the official designation should be, etc. for the modular
-;;;          styles and so on.
-;;}}}
-
-;;{{{ To do: Record retention rules per court?
-;;}}}
-
-;;{{{ To do: Set up and learn to use org-mode and move to-do items out of here
-;;;          that belong there (i.e., more general than just for tm-zotero, as
-;;;          this next one:
-;;}}}
-
-;;{{{ To do: Just like the script that takes a case history PDF and creates
-;;;          time-line file-system directory entries to mark filing dates,
-;;;          etc., create one that makes Juris-M entries for each hearing and
-;;;          filed document. Q: Legal-XML ?
-;;}}}
-
-;;{{{ To do: File feature request for Juris-M, the entries for a court document
-;;;          under a case need to have the "Document" field shown with the
-;;;          title, since otherwise there's several that all look alike when
-;;;          you try to search for the one you want when you make a citation.
-;;}}}
-
-;;{{{ To do: When it formats a Utah case number (other states?) it ought to put
-;;;          small spaces in the right places... I could put Unicode small
-;;;          spaces in there, but I'm not sure whether it would affect things
-;;;          like sorting, etc... Alternatively, semantic markup?
-;;;
-;;;   The reason for this is that the case number is encoded:
-;;;    2 digit year, 3 digit case-type code, 4 digit sequential case number
-;;;    under that case-type-code.
-;;}}}
-
-;;{{{ To do: Document management system that can integrate with Emacs, TeXmacs,
-;;;          Juris-M, and maybe GnuCash... Calendaring, the date the document
-;;;          was begun, the date it was finished, the date it was filed, etc.
-;;;
-;;}}}
-
-;;{{{ To do:
-;;;
-;;}}}
-
-;;{{{ To do: Put this into the "tools" page on TeXmacs.org... when? As soon as
-;;;          it is ready for at least Beta testing pre-release?
-;;;
-;;;            http://texmacs.org/tmweb/plugins/tools.en.html
-;;}}}
-
-;;{{{ To do: micro-formats meta-data support in citeproc-js output format or
-;;;          variableWrapper. For: the citation cluster (zcite) splitter
-;;;          feature mentioned in another to-do entry inside this program. The
-;;;          semantic information might be useful for finding the matching
-;;;          CSL-JSON stuff to move to the split-off zcite.
-;;}}}
-
-;;{{{ To do: Look into the idea of validated mathematical documents, Plat\Omega,
-;;;          and at using something similar to create validated legal documents
-;;;          so to speak..
-;;;
-;;{{{ To do: Subitem: Think about the list of accepted and contested factual
-;;;                   claims in a lawsuit. Mark them up with semantic tags, so
-;;;                   that they can be extracted from the document to create at
-;;;                   least a checklist for court use...
-;;}}}
-;;}}}
-
-;;{{{ To do: Base protocol improvements:
-
-;;{{{ To do: See if instead of sending the entire bibliography back, it can be
-;;;          made to send only the modified ones. Look at:
-;;;          Zotero.Integration.CitationEditInterface in integration.js
-;;}}}
-
-;;{{{ To do: Make the citeproc-js or Zotero sort functions strip out html tags
-;;;          or pseudo-html tags that are part of either a Zotero field or
-;;;          returned as the result of the Abbrevs mechanism. e.g., <abbr> or
-;;;          <hidden>, and also even ones like <em> or <uc>... though since
-;;;          they affect the text's font style, they should not be used there.
-;;;
-;;}}}
-
-;;}}}
-;;}}}
-
-;;{{{ Module definition and uses
+;;{{{ Module definition and uses, routines from other parts of TeXmacs
 ;;;
 ;;; Save a few things to be sure not to lose them if they are needed.
 ;;;
@@ -111,6 +22,14 @@
 (define guile-user:color color)
 (define cformat format)
 
+;;;;;;
+;;;
+;;; Just to be sure that (a) these libraries are actually installed where this
+;;; program is being used, and (b) that known working versions of them are
+;;; installed, I have bundled them with tm-zotero. Within TeXmacs, these ones
+;;; will shadow any that are also installed in Guile's own %load-path
+;;; directories.
+;;;
 (texmacs-module (tm-zotero)
   (:use (oop goops)
         (oop goops accessors)
@@ -138,13 +57,17 @@
         (term ansi-color)
         ))
 
+;;;;;;
 ;;;
-;;{{{ To do: Perhaps this ought to be already defined just as e.g., <observer>,
-;;;          <tmtable>, and <tmcolor> are.
-;;}}}
+;;; This is not defined by TeXmacs since GOOPS is not used by it.
+;;;
+;;; Because <tree> is really just a <blackbox> there isn't any way to define
+;;; other things that are really <blackbox> to have a distinct GOOPS type.
+;;;
+;;; <observer> is already magically defined. It is the type of a tree-pointer.
+;;;
 (define <tree> (class-of (tm->tree ""))) ; really a <blackbox> right now.
 
-;;; <observer> is already magically defined. It is the type of a tree-pointer.
 
 (define-method (make (tag <symbol>))
   (tm-make tag))
@@ -153,53 +76,54 @@
   (tm-make tag arity))
 
 
-;;; Just to be sure that (a) these libraries are actually installed where this
-;;; program is being used, and (b) that known working versions of them are
-;;; installed, I have bundled them with tm-zotero. Within TeXmacs, these ones
-;;; will shadow any that are also installed in Guile's own %load-path
-;;; directories.
+;;;;;;
 ;;;
-;;; This copy of json was ported from Guile 2.0 to Guile 1.8
-;;; by Karl M. Hegbloom.
+;;; From (generic document-part):
 ;;;
-;;; Todo: When TeXmacs is ported to Guile 2.n, I will need to do something to
-;;; ensure that the correct version of this json library is loaded.
+;;; Perhaps these should be exported from there?
 ;;;
-;;; (use-modules (tm-zotero json))
+(define buffer-body-paragraphs (@@ (generic document-part) buffer-body-paragraphs))
 
-;;; This will print a warning about replacing current-time in module zotero.
-;;; Overriding current-time is intentional. It only affects this module's
-;;; namespace.
+;;;;;;
 ;;;
-;;; (define guile-user:current-time current-time)
-;;; (use-modules (srfi srfi-19))            ; Time
-
-;;; (define cformat format)
-;;; (use-modules (ice-9 format))
-
-;; (use-modules (md5))
-;; (define (string->md5 str)
-;;   (with-input-from-string str
-;;     (md5)))
-
-;;{{{ Todo: I really want pcre2 in Guile for the regex transformations.
+;;; (buffer-get-part-mode)
+;;;   modes are:  :preamble :all :several :one
+;;; (buffer-test-part-mode? mode)
 ;;;
-;;; R&D: (blinking cursor here)
+(define buffer-get-part-mode (@@ (generic document-part) buffer-get-part-mode))
+(define buffer-test-part-mode? (@@ (generic document-part) buffer-test-part-mode?))
+
+;;;;;;
 ;;;
+;;; When mode is :several or :one, then
+;;;   (tree-in? (car (buffer-body-paragraphs)) '(show-part hide-part))
+;;;    => #t
+;;; When mode is :all, that will => #f
+;;;
+;;; (buffer-go-to-part id) id is a natural number beginning at 1, counting each
+;;;   document part from the start of the document to the end.
+;;;
+;;; (buffer-show-part id)
+;;; (buffer-toggle-part id)
+;;;
+(define buffer-show-preamble (@@ (generic document-part) buffer-show-preamble))
+(define buffer-hide-preamble (@@ (generic document-part) buffer-hide-preamble))
+
+;;;;;;
+;;;
+;;; From: generic/format-edit.scm, not exported or tm-define'd there either.
+;;;
+(define (with-like-search t)
+  (if (with-like? t) t
+      (and (or (tree-atomic? t) (tree-in? t '(concat document)))
+	   (and-with p (tree-ref t :up)
+	     (with-like-search p)))))
+
+
 ;;}}}
-;;; (use-modules (ice-9 regex))
+;;{{{ Error and debugging printouts
 
-;;; (use-modules (ice-9 common-list))
-
-;;; for coloring the debugging output, below.
-;;;
-;;; (use-modules (compat guile-2))
-;;; (define guile-user:color color)
-;;; (use-modules (term ansi-color))
-
-;;}}}
-
-;;{{{ Misc. global setting overrides for Guile
+;;;;;;
 ;;;
 ;;; With a very large bibliography, I had it stop with a Guile stack
 ;;; overflow. The manual for Guile-2.2 says that they've fixed the problem by
@@ -221,14 +145,6 @@
 ;;;
 (debug-set! stack 0)
 
-;;}}}
-
-;;{{{ Error and debugging printouts to console with time differences for benchmarking
-;;;
-;;{{{ To do: interface or integrate this with the normal means of doing this in
-;;;          TeXmacs so that it becomes possible to select a category and view
-;;;          it in texmacs own viewer.
-;;}}}
 
 (define timestamp-format-string-colored
   (string-concatenate
@@ -278,11 +194,11 @@
 
 ;;;;;;
 ;;;
-;;{{{ To do: Improve. Channels, plus I want to print a newline at the beginning
-;;;          of a debug message, ahead of the timestamp, but only sometimes,
-;;;          like for the first one inside of a function. There needs to be a
-;;;          flag for it I guess.
-;;}}}
+;;; TODO Improve. Channels, plus I want to print a newline at the beginning of
+;;;      a debug message, ahead of the timestamp, but only sometimes, like for
+;;;      the first one inside of a function. There needs to be a flag for it I
+;;;      guess.
+;;;
 (define (tm-zotero-format-debug . args)
   (when zt-debug-trace?
     (tm-output
@@ -297,48 +213,6 @@
 ;;}}}
 
 
-;;{{{ Access and define not-yet-exported functions from other parts of TeXmacs
-
-;;;
-;;; From (generic document-part):
-;;;
-;;; Perhaps these should be exported from there?
-;;;
-(define buffer-body-paragraphs (@@ (generic document-part) buffer-body-paragraphs))
-;;;
-;;; (buffer-get-part-mode)
-;;;   modes are:  :preamble :all :several :one
-;;; (buffer-test-part-mode? mode)
-;;;
-(define buffer-get-part-mode (@@ (generic document-part) buffer-get-part-mode))
-(define buffer-test-part-mode? (@@ (generic document-part) buffer-test-part-mode?))
-;;;
-;;; When mode is :several or :one, then
-;;;   (tree-in? (car (buffer-body-paragraphs)) '(show-part hide-part))
-;;;    => #t
-;;; When mode is :all, that will => #f
-;;;
-;;; (buffer-go-to-part id) id is a natural number beginning at 1, counting each
-;;;   document part from the start of the document to the end. A document part
-;;;   is a XXXX 
-;;;
-;;; (buffer-show-part id)
-;;; (buffer-toggle-part id)
-;;;
-(define buffer-show-preamble (@@ (generic document-part) buffer-show-preamble))
-(define buffer-hide-preamble (@@ (generic document-part) buffer-hide-preamble))
-
-;;;
-;;; From: generic/format-edit.scm, not exported or tm-define'd there either.
-;;;
-(define (with-like-search t)
-  (if (with-like? t) t
-      (and (or (tree-atomic? t) (tree-in? t '(concat document)))
-	   (and-with p (tree-ref t :up)
-	     (with-like-search p)))))
-
-;;}}}
-
 ;;;;;;
 ;;;
 ;;; Throughout this program:
@@ -351,67 +225,6 @@
 ;;;;;;
 
 ;;{{{ Misc. functions used within this program
-;;;
-;;{{{   [Commented off, from old implementation, shown-body-paragraphs]
-;;;
-;;; When parts of the document are hidden, which is what we do when the
-;;; document is too large to easily edit, since TeXmacs slows way down to the
-;;; point of becoming unusable when the document is larger and especially as
-;;; it's structure becomes more complex... It defeats the purpose of hiding
-;;; sections if the zcite or zbibiliography fields that are in those hidden
-;;; sections are updated along with the rest of the citations in the visible
-;;; parts of the document. It will be faster and easier to use when there are
-;;; fewer for it to keep track of at a time... and so narrowing the view to
-;;; only a single or a few sections should speed up the zcite turnaround time
-;;; by reducing the amount of work that it has to do each time.
-;;;
-;;; Of course, for final document production, you must display all of the
-;;; sections and then let Zotero refresh it.
-;;;
-;;; NOTE: the method by which we determine the set of zfields to send to
-;;; Juris-M / Zotero is changing and this won't be used any longer...
-;;;
-;; (define (shown-buffer-body-paragraphs)
-;;   (let ((l (buffer-body-paragraphs))) ;; list of tree
-;;     (if (buffer-test-part-mode? :all)
-;;         l
-;;         (list-filter l (cut tree-is? <> 'show-part)))))
-
-
-;;;
-;;; This or a form of it is about to be needed for the clipboard-cut and
-;;; clipboard-paste functionality, below, since the region being cut or pasted
-;;; is not necessarily only a zfield... it might be a long swath of text with
-;;; more than one zfield inside of it.
-;;;
-;;; There are two ways to do this. One way involves using tm-search or match?
-;;; on the chunk. The other way involves filtering the <document-data>'s
-;;; zfield-ls to return only the set of zfields within the region marked for
-;;; cut, or within the peice of text about to be or just pasted in. I think
-;;; that using tm-search or match? is easier to get right... and that the
-;;; majority of cut and paste operations involve relatively short runs of text,
-;;; rather than huge blocks including lots of zfields. Even then, the cost of
-;;; searching a large document like this, as I know from the earlier
-;;; implementation where just about everything was found by searching... is
-;;; about 2 or 3 seconds for an entire 150+ page document with many citations
-;;; that created a 3 page bibliography. So the cost of searching even a large
-;;; region about to be cut from the document should be negligible and thus
-;;; should not affect interactive performance horribly.
-;;; 
-;; (define (tm-zotero-zfield-search-in-subtree subtree)
-;;   (let ((zt-new-fieldID (document-new-fieldID (get-documentID))))
-;;     (tm-search
-;;      subtree
-;;      (lambda (t)
-;;        (and (tree-in? t zfield-tags)
-;;             (not
-;;              (and zt-new-fieldID
-;;                   (string=? zt-new-fieldID
-;;                             (zfield-zfieldID t)))))))))
-
-;;}}}
-;;;
-
 
 (define (get-documentID)
   (url->string (current-buffer)))
@@ -419,19 +232,23 @@
 (define (document-buffer documentID)
   (string->url documentID))
 
-
-
-;;; The set-binding call happens inside of the macro that renders the
-;;; citation. I spent half a day figuring out how to write a glue-exported
-;;; accessor function... then discovered this trick:
+;;;;;;
+;;;
+;;; The set-binding call for the zfield noteIndex happens inside of the macro
+;;; that renders the citation. After the citation zfield has been typeset once,
+;;; the binding is set. Prior to then, it's not.
+;;;
+;;; This get-refbinding function can be used to retrieve the tree associated
+;;; with any reference binding key. The key is a string.
 ;;;
 (define (get-refbinding key)
   (texmacs-exec `(get-binding ,key)))
 
-
-;;; Reference binding keys must have deterministic format so the program can
-;;; build them from data provided by Juris-M / Zotero. If this is ever changed,
-;;; older documents might not work right.
+;;;;;;
+;;;
+;;; The noteIndex reference binding keys must have deterministic format so the
+;;; program can build them from data provided by Juris-M / Zotero. If this is
+;;; ever changed, older documents might not work right.
 ;;;
 (define (zfield-noteIndex-refbinding-key zfieldID)
   (string-append "zotero" zfieldID "-noteIndex"))
@@ -446,26 +263,25 @@
 ;;; letting the typesetter run in order for this reference binding to have a
 ;;; get-binding value (vs undefined).
 ;;;
-;;{{{ Done: When the document being editted is a book (or any one of a number of
-;;;         styles that do this), the footnotes are numbered per-chapter, like
-;;;         1.1 for the first footnote of the first chapter. The problem is
-;;;         that AFAIK zotero / citeproc expects the noteIndex to be an
-;;;         integer! So 1.1 should be sent as 1001, 1.123 as 1123, 2.123 as
-;;;         2123, 42.1 as 42001, 42.123 as 42123; 1.1.1 as 001001001, 12.1.123
-;;;         as 012001123 (but trim leading zeros). Does anyone ever really put
-;;;         more than 999 footnotes in a chapter?
+;;; DONE When the document being editted is a book (or any one of a number of
+;;;      styles that do this), the footnotes are numbered per-chapter, like 1.1
+;;;      for the first footnote of the first chapter. The problem is that AFAIK
+;;;      zotero / citeproc expects the noteIndex to be an integer! So 1.1
+;;;      should be sent as 1001, 1.123 as 1123, 2.123 as 2123, 42.1 as 42001,
+;;;      42.123 as 42123; 1.1.1 as 001001001, 12.1.123 as 012001123 (but trim
+;;;      leading zeros). Does anyone ever really put more than 999 footnotes in
+;;;      a chapter?
 ;;;
-;;;       A result of this method that I find acceptible is that because a
-;;;       near-note is output by citeproc for note styles only for anything
-;;;       within 5 footnotes, near-notes will never reference back past a
-;;;       chapter beginning in the book style.
-;;}}}
+;;;      A result of this method that I find acceptible is that because a
+;;;      near-note is output by citeproc for note styles only for anything
+;;;      within 5 footnotes, near-notes will never reference back past a
+;;;      chapter beginning in the book style.
 ;;;
-;;{{{ To do: If any style file defines the footnote numbering any differently,
-;;;          this might not work right any longer... Actually, that happens in
-;;;          book style when you have an Appendix that is labelled not by a
-;;;          number, but by a letter.
-;;}}}
+;;; TODO If any style file defines the footnote numbering any differently, this
+;;;      might not work right any longer... Actually, that happens in book
+;;;      style when you have an Appendix that is labelled not by a number, but
+;;;      by a letter.
+;;;
 (define (zfield-NoteIndex-t zfieldID-or-zfield)
   (let ((zfieldID (or (and (string? zfieldID-or-zfield)
                            zfieldID-or-zfield)
@@ -478,12 +294,12 @@
 
 ;;;;;;
 ;;;
-;;{{{ To do: ... cont: This works fine for numbered chapters separated by a
-;;;          period. Maybe there needs to be support inside the style sheets
-;;;          for the NoteIndex or something?  Or just a better way to turn a
-;;;          footnote label into a NoteIndex... maybe overloading or overriding
-;;;          the thing that increments the footnote number?
-;;}}}
+;;; TODO This works fine for numbered chapters separated by a period. Maybe
+;;;      there needs to be support inside the style sheets for the NoteIndex or
+;;;      something?  Or just a better way to turn a footnote label into a
+;;;      NoteIndex... maybe overloading or overriding the thing that increments
+;;;      the footnote number?
+;;;
 (define (zfield-NoteIndex zfieldID-or-zfield)
   (let* ((NoteIndex-str (tree->stree (zfield-NoteIndex-t zfieldID-or-zfield)))
          (NoteIndex-parts (string-tokenize-by-char NoteIndex-str #\.)))
@@ -492,13 +308,17 @@
         ((null? ls) (number->string n)))))
 
 
-
 ;;;;;;
 ;;;
-;;; For some reason there can be more than one the same in a citation cluster,
-;;; probably only for parallel legal citations. Just for that, make sure the
-;;; lists are uniq-equal? (since uniq uses memq, and this uses member, and we
-;;; need to compare using equal? to make it recurse through list structure.
+;;; There can be more than one sysID the same in a citation cluster, e.g., for
+;;; parallel legal citations, or more than one reference to the same source,
+;;; but to different pages or chapters, perhaps. When forming the
+;;; ztbibItemRefsList trees for the bibliography entries, there's no point in
+;;; linking back to the same citation cluster zfield more than once.
+;;;
+;;; Just for that, make sure the lists are uniq-equal? (since uniq uses memq,
+;;; and this uses member, and we need to compare using equal? to make it
+;;; recurse through list structure.
 ;;;
 (define (uniq-equal? l)
   (let loop ((acc '())
@@ -510,13 +330,11 @@
                   (cons (car l) acc))
               (cdr l)))))
 
-
-;; (define (position-less? pos1 pos2)
-;;   (path-less? (position-get pos1) (position-get pos2)))
-
-;; (define (tree-less? t1 t2)
-;;   (path-less? (tree->path t1) (tree->path t2)))
-
+;;;;;;
+;;;
+;;; tree-pointers are used when maintaining the list of zfields in
+;;; document-order. This comparator is used to accomplish that.
+;;;
 (define (tree-pointer-less? tp1 tp2)
   (if (or (not tp1)
           (not tp2))
@@ -540,6 +358,7 @@
                           (tree-pointer z*d2))))
 
 
+
 (define (inside-footnote? t)
   (not (not (tree-search-upwards t '(footnote zt-footnote)))))
 
@@ -551,6 +370,7 @@
       (in-endnote? t)))
 
 
+
 (define (inside-zcite? t)
   (not (not (tree-search-upwards t '(zcite)))))
 
@@ -559,6 +379,7 @@
 
 (define (inside-zfield? t)
   (not (not (tree-search-upwards t zfield-tags))))
+
 
 
 ;;;;;;
@@ -587,9 +408,12 @@
 ;;;
 ;;; Status line messages and system-wait messages.
 ;;;
+;;;;;;
 
 (define right-message "Juris-M / Zotero <---> TeXmacs Integration")
 
+;;;;;;
+;;;
 ;;; These strings might ultimately (inside the C++) end up going through a
 ;;; language translation table lookup, so I'm using the same strings that are
 ;;; found throughout the TeXmacs scheme sources. ☺
@@ -599,6 +423,7 @@
 
 (define (prefix-message message)
   (string-append "tm-zotero: " message))
+
 
 (define (tm-zotero-set-message message . timeout)
   (if (nnull? timeout)
@@ -614,53 +439,53 @@
       (tm-zotero-set-message message))
   (tm-zotero-system-wait message arg))
 
-
 ;;}}}
 
-;;{{{ General category overloaded; update-document, buffer-set-part-mode
+;;{{{ General category tm-define overloaded
 
+;;;;;;
 ;;;
-;;{{{ To do: See update-document at generic/document-edit.scm:341
-;;}}}
-;;; Maybe this should only happen from the Zotero menu?
+;;; update-document is defined at tmsrc://generic/document-edit.scm:341
 ;;;
 (tm-define (update-document what)
   (:require (in-tm-zotero-style?))
-  (delayed
+  (delayed ;; allow typesetting/magic to happen before next update
     (:idle 1)
     (cursor-after
      (when (or (== what "all")
                (== what "bibliography"))
-       (tm-zotero-refresh))
-     (unless (== what "bibliography")
-       (former what)))))
+       (tm-zotero-refresh)
+       (update-ztbibItemRefs))
+     (former what))))
 
 
+;;;;;;
+;;;
+;;; Whenever the document part mode is changed, clear the <document-data>. It
+;;; will be regenerated automatically by the lazy interning during
+;;; typesetting. Only the data for fields that are visible will be generated,
+;;; so that it will be faster. That also means that no data in the hidden
+;;; fields will be updated for things like the tm-zotero-refresh, which implies
+;;; that once the entire document is shown again, that ought to be run
+;;; (manually) by the user. That will happen during update-document, above.
+;;;
 (tm-define (buffer-set-part-mode mode)
   (:require (in-tm-zotero-style?))
   ;;(tm-zotero-format-debug "buffer-get-part-mode called, mode => ~s\n" mode)
   (clear-<document-data>! (get-documentID))
   (former mode))
 
-;;}}}
 
-;;{{{ Keyboard event handling (overloads to maintain <document-data>)
-;;;;;
-;;;
-;;; Todo: I wonder if Backspace could run a function that uses:
-;;;
-;;;           (texmacs-exec '(drd-props "zcite" ...))
-;;;
-;;;       ... to make the zfield-Text accessible and editable, with Enter bound
-;;;       inside of it to a function that changes the drd-props back to the
-;;;       default, making the zcite not editable again. This will be nicer than
-;;;       having it disactivate the tag.
-;;;
-;;; For now, simply use notify-activated and edit only when the tag is
-;;; disactivated.
-;;;
-;;{{{ notifiy-activated
 
+;;;;;;
+;;;
+;;; Update the is-modified flag after the zfield is reactivated.
+;;;
+;;; The user can put the cursor at the end of a zcite and press Backspace to
+;;; disactivate the tag, and then hand-edit the citation inside of it. When the
+;;; tag is reactivated, the flag will turn red if the text was modified
+;;; relative to what Zotero set it to.
+;;;
 (tm-define (notify-activated zfield)
   (:require (and (in-tm-zotero-style?)
                  (is-zfield? zfield)))
@@ -677,223 +502,18 @@
                     is-modified? ". Done.")))
   #t)
 
-;;}}}
 
-;;{{{ Mostly Done: To do: (underway) I think it is spending too much time
-;;;                searching the document for zcite tags. It does a lot of
-;;;                redundant traversal of the document tree that can
-;;;                potentially be eliminated by maintaining a data structure
-;;;                containing positions (really observers). Positions move
-;;;                automatically when the document is edited, so that they
-;;;                remain attached to the same tree they were created at, even
-;;;                as it moves.
+;;;;;;
 ;;;
-;;; The data structure must be able to maintain the list of zfields in document
-;;; order. It should be cheap to insert a new item or remove an item. I will
-;;; use a red-black tree. It will contain only the positions, in document
-;;; order. I will look through those positions to find the zfield-Code and
-;;; zfield-Text; the zfield-ID can be the key to a concurrently maintained
-;;; hashtable that associates the ids with their positions.
+;;; NOTE Some examples of how clipboard-cut and clipboard-paste can be
+;;;      overloaded are in fold-edit.scm.
 ;;;
-;;; Update: There is no ready-made rb-tree for Guile 1.8. The only rb-tree I
-;;;         could find that was already for Guile was for >= 2.0, and it calls
-;;;         for r6rs functionality that is not present in Guile 1.8. It would
-;;;         take a lot of time and effort to port that, and I think it's better
-;;;         to spend the time to port all of TeXmacs to Guile 2.n
-;;;         instead. Since the `merge!' and `list-filter' functions don't have
-;;;         to do very much work compared to an rb-tree's insert or delete with
-;;;         all of it's associated tree balancing, up to a certain length, it
-;;;         will be faster than the rb-tree anyway... so I'll just use a flat
-;;;         list and `merge!' to insert, and `list-filter' to remove. After the
-;;;         Guile 2.n port, perhaps an rb-tree can be used instead.
-;;}}}
+;;;;;;
 ;;;
-;;{{{ Todo: I want to be able to easily split a citation cluster.
+;;; clipboard-cut must maintain the list of zfields that is built by
+;;; tm-zotero-ext:ensure-zfield-interned!, which is called by the typesetter
+;;; each time a zfield is encountered.
 ;;;
-;;; Use case: A citation cluster with two or three citations in it, but then I
-;;;           decide that I want to split them into two clusters, one for the
-;;;           first citation, and another for the remaining two, so that I can
-;;;           write a sentence or two in between them.
-;;;
-;;; So disactivate the tag, then inside of there, a keybinding can automate it,
-;;; perhaps when the cursor is on the semicolon between two of them or
-;;; something like that. Inside of the zfield-Code's JSON is the information
-;;; that Zotero's integration.js is going to look at when it retrieves it prior
-;;; to presenting the dialog for editCitation. So, instead of copy + paste of
-;;; the original citation in order to duplicate it, followed by editCitation of
-;;; each, to delete the last two of them from the first cluster, and the first
-;;; citation from the second one... I would put my cursor on the semicolon
-;;; between the first two citations, and then push the keybinding or call the
-;;; menu item that automatically splits it.
-;;}}}
-;;;
-;;{{{ Done: I want to observe the cut or paste of trees that contain zcite or
-;;;       zbibliography sub-trees...
-;;;
-;;; This is a prerequisite for being able to maintain an rb-tree of document
-;;; positions of zfields...
-
-;;; Mise en Place: Functions I'll need and what they do.
-;;;  (starting by looking around in the src/Scheme/Glue, following the
-;;;  functions called from inside of the glue functions to their origin, and
-;;;  learning how the objects they are methods of interact with
-;;;  TeXmacs... Using cscope or etags...)
-;;;
-;;; A "position" is essentially a C++ "observer".
-;;;
-;;;  position-new-path path          => position
-;;;  position-delete   position      => unspecified
-;;;  position-set      position path => unspecified
-;;;  position-get      position      => path
-;;;
-;;; path-less?    path path => bool
-;;; path-less-eq? path path => bool
-;;; path->tree path => tree
-;;;
-
-;;; `buffer-notify' from (part part-shared) is what I was looking for.  It also
-;;; defines `buffer-initialize', and both are called from
-;;; `tm_buffer_rep::attach_notifier()' in new_buffer.cpp, which is called by
-;;; `buffer-attach-notifier'. Thus, both must be defined here for this to work
-;;; right since this is not a shared buffer.
-;;;
-;;;
-;;; buffer-attach-notifier ultimately calls a c++ function that invokes first
-;;; buffer-initialize, and then attaches the buffer-notify via a
-;;; scheme_observer. So buffer-initialize is *not* where to call
-;;; buffer-attach-notifier... I want to do that once, from some point of entry
-;;; that is called once when the buffer is first loaded, for the case of a
-;;; pre-existing document, or once when the style is first added to the
-;;; document.
-;;;
-;;; So the first thing that happens after a document is loaded into a buffer is
-;;; that the typesetter takes off, to render the display. It must initialize
-;;; the styles for the document... and then
-
-;; (tm-define (set-main-style style)
-;;   (former style)
-;;   (when (style-includes? style "tm-zotero")
-;;     (tm-zotero-document-buffer-attach-notifier (get-documentID))))
-
-
-;; (tm-define (add-style-package pack)
-;;   (former pack)
-;;   (when (== pack "tm-zotero")
-;;     (tm-zotero-document-buffer-attach-notifier (get-documentID))))
-
-
-;;; FixMe: Notice that these do not call (former id t buf) since the bottom of
-;;; that stack is the (part shared-part) version... which does not presently
-;;; specialize upon whether the document actually has any shared parts! That
-;;; also implies that this won't play well with a buffer that does have shared
-;;; parts...
-;;;
-;; (tm-define (buffer-initialize id t buf)
-;;   (:require in-tm-zotero-style?)
-;;   (noop))
-
-;;;
-;;; event can be: 'announce, 'touched, or 'done.
-;;;
-;;; modification-type can be:
-;;;  'assign, 'insert, 'remove, 'split, 'var-split, 'join, 'var-join,
-;;;  'assign-node, 'insert-node, 'remove-node, 'detach
-;;;
-;; (tm-define (buffer-notify event t mod)
-;;   (:require in-tm-zotero-style?)
-;;   (let* ((modtype (modification-type mod))
-;;          (modpath (modification-path mod))
-;;          (modtree (modification-tree mod))
-;;          (modstree (tm->stree modtree)))
-;;     (tm-zotero-format-debug "~sbuffer-notify:~s ~sevent:~s~s\n~st:~s~s\n~smod:~s~s\n\n"
-;;                      ansi-red ansi-norm 
-;;                      ansi-cyan event ansi-norm
-;;                      ansi-cyan t ansi-norm
-;;                      ansi-cyan ansi-norm (modification->scheme mod))
-;;   (cond
-;;     ((and (== event 'done)
-;;           (== modtype 'assign)
-;;           (== (car modstree) 'concat)
-;;           (member (cadr modstree) zfield-tags))
-;;      ;; Inserting (pasting) a zcite or zbibliography that had been cut.
-;;      )
-;;     ((and (== event 'done)
-;;           (noop
-;;            )
-;;           )))))
-
-;; (tm-define (buffer-notify event t mod)
-;;;; I don't like this slot-ref here... is it going to be too slow? Will it run often?
-;;   (:require (let ((zt-zfield-list (slot-ref (get-<document-data> (get-documentID))
-;;                                             'zfield-ls)))
-;;               (and (in-tm-zotero-style?)
-;;                    (pair? zt-zfield-list)
-;;                    (null? zt-zfield-list))))
-;;   (zt-init-zfield-list)
-;;   (former event t mod))
-;;}}}
-;;;
-;;{{{   Result of above Todo R&D:
-;;;
-;;; Let's try using key-events instead, to avoid what I think will be a lot of
-;;; overhead with lots of calls to the buffer-notify, like for every
-;;; keypush. Instead, a key-bound function happens only on the event of that
-;;; key being pushed... Lazy lazy lazy.
-;;;
-;;; generic/generic-kbd.scm has kbd-map definitions in it. After some
-;;; exploration, I see that the functions that I'll need to overload for sure
-;;; are: clipboard-cut and clipboard-paste.
-
-
-;;; This is called by both kbd-backspace and kbd-delete...
-;;;
-;;; I don't know what t is going to be. What about when it is (tree-is-buffer?
-;;; t)?  Should I check for the section? And I don't want the backspace key to
-;;; now disactivate the tag... So I need to only do anything when the area
-;;; being removed is the selection.
-;;;
-;; (tm-define (kbd-remove t forwards?)
-;;   (:require (and (in-tm-zotero-style?)
-;;                  ;; (tree-is-buffer? t) ?
-;;                  (tree-in? t zfield-tags)
-;;                  (with-any-selection?)))
-;;   ;;; for each zfield in t, remove it from the <document-data>.
-;;   (prior t forwards)
-;;   ;; (clipboard-cut "nowhere")
-;;   ;; (clipboard-clear "nowhere")
-;;   )
-
-;;; ? kbd-insert
-;;; ? kbd-select
-;;; ? kbd-select-environment
-;;; ? kbd-tab, kbd-variant
-
-;;; clipboard-clear
-;;; clipboard-copy
-;;; clipboard-cut
-;;; clipboard-cut-at
-;;; clipboard-cut-between
-;;; clipboard-get
-;;; clipboard-paste
-;;; clipboard-set
-;;; tree-cut
-
-;;; kill-paragraph
-;;; yank-paragraph
-
-;;; See: fold-edit.scm, etc. for examples.
-
-;;; Also: db-edit.scm, at structured-remove-horizontal
-;;; selections.scm
-;;}}}
-
-;;{{{ clipboard-cut, clipboard-paste
-;;;
-;;; Examples of how clipboard-cut and clipboard-paste can be overloaded are in
-;;; fold-edit.scm.
-;;;
-
-
 (tm-define (clipboard-cut which)
   (:require (and (in-tm-zotero-style?)
                  (in-text?)
@@ -931,10 +551,17 @@
                                                       "+"
                                                       (ztHref*-sysID href)))))
                           hrefs)))
-                 (let ((tp (tree-pointer new-zfield-zfd))) ; is the new one??? How?
-                   (tm-zotero-format-error "clipboard-cut: Cutting new zfield! Fixme: Probably protocol breakdown; Restart Firefox and TeXmacs.")
-                   ;; To do: Ok, I think this can only happen when there's a
-                   ;;        protocol breakdown between tm-zotero and zotero.
+                 (let ((tp (tree-pointer new-zfield-zfd))) ; is the new one???
+                   ;; How? This can happen only when the protocol between
+                   ;; Zotero and TeXmacs has failed for some reason, usually
+                   ;; due to a bug in this program causing it to be
+                   ;; interrupted, leaving the new-zfield in the document.
+                   ;;
+                   (tm-zotero-format-error
+                    "clipboard-cut: Cutting new zfield! Fixme: Probably protocol breakdown; Restart Firefox and TeXmacs.")
+                   (tree-set! zfield
+                              (stree->tree
+                               '(strong "{?? New Citation ??}")))
                    (when tp
                      (tree-pointer-detach tp)
                      (set-document-new-zfield-zfd! #f))))))
@@ -944,8 +571,14 @@
 
 ;;;;;;
 ;;;
-;;; This will allow tm-zotero-ext:ensure-zfield-interned! to pick it up after
-;;; it's changed here.
+;;; When pasting in a tree that contains any zfields, it is important to give
+;;; each zfield a new zfieldID. Otherwise, Zotero will change every one of them
+;;; that has the same id to have the same text!
+;;;
+;;; This does not need to do anything to maintain the in-document-order list of
+;;; zfields, since tm-zotero-ext:ensure-zfield-interned! will automatically
+;;; pick it up after this returns, and the typesetter finds the newly pasted
+;;; zfield(s).
 ;;;
 (tm-define (clipboard-paste which)
   (:require (and (in-tm-zotero-style?)
@@ -961,7 +594,6 @@
 
 ;;}}}
 
-;;}}}
 
 ;;{{{ Preferences and Settings (with-like, global, document-wide)
 
@@ -1137,7 +769,6 @@
 
 ;;}}}
 
-
 ;;{{{ DocumentData (from Zotero, saved, parsed -> document initial environment
 ;;;
 ;;; AFAIK the only pref that this program needs access to is noteType, and that
@@ -1298,26 +929,8 @@
 ;;; These are for accessing parts of the static source tree that are saved as
 ;;; part of the document. They deal with actual document trees.
 ;;;
-;;;;;;
-
-;;{{{ To do: Extend the zfield-Code-code tuple, adding a slot with a tuple inside
-;;;          of it that will contain "with-like" key value pairs that can be
-;;;          embedded as the arguments to an actual with wrapper emitted during
-;;;          zcite or zbibliography typesetter macro expansion.
-;;;
-;;;          Declare some of them as standard or internal... thinking of the
-;;;          formatting problem involving label widths of Harvard-style
-;;;          [authorDate] bibliography entry labels.
-;;}}}
-
-;;{{{ To do: Consider moving the zfieldID inside the attribute tuple. Do so
-;;;          before the beta release, to avoid breaking older documents later!
-;;}}}
-
-
 ;;{{{ zfield tags, trees, inserters, and tree-ref based accessors
-;;;
-;;{{{ Documentation Notes
+;;{{{ Documentation Notes for zfield layout
 ;;;
 ;;; A zfield is a tree. Each part of it is a tree also.
 ;;;
@@ -1364,8 +977,8 @@
 ;;;          string, inside of a raw-data, mainly to hide it and make it
 ;;;          uneditable.
 ;;;
-;; NOT SURE YET ;;{{{ To do: ;;;    v.4 is the same as v.3, adding:
-;; ;;}}}
+;;; NOT SURE YET  v.4 (will be?) is the same as v.3, adding:
+;;;
 ;; ;;;       4. The fifth child (tree-ref fieldCode 4) is the flag that shows
 ;; ;;;          whether or not the zfield has been interned or not. When the
 ;; ;;;          document is first loaded, it's meaningless since it's saved with
@@ -1381,11 +994,11 @@
 ;;; fieldNoteIndex is gotten via a reference binding.
 ;;;
 ;;}}}
-;;;
+
 ;;{{{ zfield tag definitions, insert-new-zfield
 
 (define-public zfield-tags '(zcite zbibliography))
-(define-public ztHref*-tags '(ztHrefFromBibToURL ztHrefFromCiteToBib))
+(define-public ztHref*-tags '(ztHrefFromCiteToBib ztHrefFromBibToURL))
 (define-public ztHref-tags '(ztHref))
 
 (define-public ztRefsList-ensure-interned-tags '(zcite ztbibItemText))
@@ -1398,14 +1011,81 @@
     ;; ztHref ztDefaultCiteURL ; wrong category
     ))
 
-;;{{{ Inside of a zcite's "with" environment is defined:
+;;; Inside of a zcite's "with" environment is defined:
 ;;;   zt-zciteID which is bound to the fieldID.
-;;}}}
+
 
 ;;;;;;
 ;;;
-;;; XXX HERE XXX
+;;; At the end of a bibliography entry can appear a ztbibItemRefs-t, emitted
+;;; during the expansion of the ztbibItemText macro. (The feature can be
+;;; switched off by putting the cursor just inside of the zbibliography and
+;;; using the wrench menu to uncheck it.)
 ;;;
+;;; When enabled, it is a list of pagerefs (or refs; the format is user
+;;; defineable via the preamble or user style sheet, with the default being
+;;; defined in tm-zotero.ts) where the keys are the reference binding labels
+;;; that look like:
+;;;
+;;;   zciteID+bPIlREAP9snjum#zbibSysID4112
+;;;
+;;; … which indicates that in zciteID +bPIlREAP9snjum there is a citation to
+;;; Juris-M or Zotero SysID4112, which is also found inside the
+;;; ztHrefFromCiteToBib that is inside of that zcite, as it's first argument,
+;;; #zbibSysID4112, which is actually the label of the bibliography entry...
+;;;
+;;; In the particular document that I'm taking this example from, I find inside
+;;; the references collection the entry:
+;;;
+;;;   <associate|zciteID+bPIlREAP9snjum#zbibSysID4112|<tuple|1.2.<with|font|<quote|palatino>|\<#00B6\>><space|0.2spc>1|17>>
+;;;
+;;; … which indicates that a ref will show the text "1.2.¶1", and a pageref
+;;; will show the text "17". Those reference bindings are updated when the menu
+;;; for “Document… > Update… > Buffer” is activated. Above it, inside the
+;;; document itself, I find (abridged here with […]):
+;;;
+;;;   <zcite|+bPIlREAP9snjum|
+;;;          <tuple|3|<#[…]>|false|<#>>|
+;;;          <zttextit|<ztHrefFromCiteToBib|#zbibSysID4112|https[…]|Caus>e of action>,…
+;;;
+;;; … and in the bibliography is found:
+;;;
+;;;   <ztbibItemText|4112||sysID4112|
+;;;                  <zttextit|<ztHrefFromBibToURL|#zbibSysID4112|<slink|https://www.law.cornell.edu/uscode/text/42/14141>|Caus>e
+;;;                            of action>, 42 US Code <SectionSignGlyph|><space|0.5spc>14141.>
+;;;
+;;; The destination URL is enclosed in an slink. To prevent the LaTeX to
+;;; TeXmacs conversion from mangling the URL, it is transmitted by the
+;;; variableWrapper inside of a \path{} macro. During macro expansion inside of
+;;; tm-zotero.ts it's destination will be pulled out and used as the
+;;; destination for an href macro.
+;;;
+;;; So the purpose of the ztHrefFromBibToURL is to provide, when defined in the
+;;; Juris-M or Zotero reference entry, the external URL or DOI for that item,
+;;; so that the bibliography entry can link to there when that setting is
+;;; enabled. Otherwise, there would be no need for it, since the sysID is
+;;; already part of the ztbibItemText macro.
+;;;
+;;;   The hashLabel argument to ztHrefFromBibToURL is not used. I think I put
+;;;   it in there so that it would have the same arity and layout as
+;;;   ztHrefFromCiteToBib. That might change before this program hits beta
+;;;   readiness.
+;;;
+;;; The macro expansion of ztbibItemText creates a label like "zbibSysID4112",
+;;; with no hash mark (#) prepended. Following the body is a ztbibItemRefsList
+;;; which receives sysID (the first argument, 4112) as it's sole argument.
+;;;
+;;; The ztbibItemText macro has as it's second argument "refsList". I can't
+;;; remember why as I write this. I may have intended it for a later iteration
+;;; where the ztbibItemRefsList can be generated more directly using that??? I
+;;; have been confused more than once. As I figure out the best way to make
+;;; this work, before I nail it down for beta release, arguments like that may
+;;; very well end up getting trimmed out.
+;;;
+
+;;; TODO Need to define update-ztbibItemRefs for update-document
+
+
 (define ztbibItemRefs-prefix "#zbibSysID")
 
 (define ztbibItemRefs-prefix-len
@@ -1434,9 +1114,8 @@
 
 ;;;;;;
 ;;;
-;;{{{ To do: Pasted from earlier incarnation, not editted yet; organizing.
-;;}}}
-
+;;; TODO Pasted from earlier incarnation, not editted yet; organizing.
+;;;
 (define (ztbibItemRefs-cache-1-zbibItemRef t)
   (let* ((key (zt-ztbibItemRefs-get-subcite-sysID t))
          (lst (and key (hash-ref zt-ztbibItemRefs-ht key '())))
@@ -1449,9 +1128,8 @@
 
 ;;;;;;
 ;;;
-;;{{{ To do: Pasted from earlier incarnation, not editted yet; organizing.
-;;}}}
-
+;;; TODO Pasted from earlier incarnation, not editted yet; organizing.
+;;;
 (define (ztbibItemRefs-to-tree key)
   (let* ((lst1 (hash-ref zt-ztbibItemRefs-ht key #f))
          (lst (and lst1 (uniq-equal? lst1)))
@@ -1476,8 +1154,11 @@
     ;; (tm-zotero-format-debug "zt-ztbibItemRefs-to-tree:t: ~S\n" (tree->stree t))
     t))
 
-;;; If any one of these is-*? => #t, then t is a zfield tree.
 
+;;;;;;
+;;;
+;;; If any one of these is-*? => #t, then t is a zfield tree.
+;;;
 (define-public (is-zcite? t)
   (tm-is? t 'zcite))
 
@@ -1487,25 +1168,34 @@
 (define-public (is-zfield? t)
   (tm-in? t zfield-tags))
 
+
+;;;;;;
 ;;;
-;;; Needed for clipboard-cut and clipboard-paste.
+;;; These are needed for e.g., clipboard-cut and clipboard-paste.
 ;;;
 (define-public (has-zfields? t)
   (tm-find t is-zfield?))
 
 (define-public (is-ztHref*? t)
+  (tm-in? t ztHref*-tags))
+
+(define-public (is-ztHref? t)
   (tm-in? t ztHref-tags))
 
 (define-public (is-tm-zotero-tag t)
   (or (tm-in? t tm-zotero-bbl-formats-tags)
+      (tm-in? t ztHref*-tags)
       (tm-in? t ztHref-tags)
       (tm-in? t zfield-tags)))
 
 
-;;; Top-half of new zfield insertion. This always happens at the cursor
-;;; position. After the insert, the cursor is at the right edge of the newly
-;;; inserted zfield, just inside the light-blue box around it. focus-tree with
-;;; the cursor there returns the zfield tree.
+;;;;;;
+;;;
+;;; This is the top-half of new zfield insertion.
+;;;
+;;; This always happens at the cursor position. After the insert, the cursor is
+;;; at the right edge of the newly inserted zfield, just inside the light-blue
+;;; box around it. focus-tree with the cursor there returns the zfield tree.
 ;;;
 ;;; The bottom-half is in tm-zotero-Document_insertField.
 ;;;
@@ -1522,7 +1212,10 @@
              (new-zfd (make-instance <zfield-data>))
              (new-zfield
               (stree->tree
-               `(,tag ,new-zfieldID (tuple "3" (raw-data "") "false" (raw-data "")) ,placeholder))))
+               `(,tag
+                 ,new-zfieldID
+                 (tuple "3" (raw-data "") "false" (raw-data ""))
+                 ,placeholder))))
         ;;
         ;; Inserting the tree is magical. It connects the tree with a buffer
         ;; and thus with an editor. That makes the tree->tree-pointer work
@@ -1534,42 +1227,29 @@
       ;;
       (begin ;; focus-is-zfield? => #t
         ;;
-        ;;{{{ To do: This ought to be a dialog if it actually happens much...
-        ;;        Alternatively, perhaps it could move the cursor out of the
-        ;;        zfield, arbitrarily to the right or left of it, then proceed
-        ;;        with inserting the new zfield... Or perhaps it ought to
-        ;;        convert it into an editCitation rather than an
-        ;;        insertCitation?
-        ;;}}}
+        ;; TODO This ought to be a dialog if it actually happens much...
+        ;;      Alternatively, perhaps it could move the cursor out of the
+        ;;      zfield, arbitrarily to the right or left of it, then proceed
+        ;;      with inserting the new zfield... Or perhaps it ought to convert
+        ;;      it into an editCitation rather than an insertCitation?
+        ;;
         (tm-zotero-format-error "ERR: insert-new-zfield ~s : focus-tree is a ~s\n"
                                 tag (tree-label (focus-tree)))
         #f)))
 
 ;;}}}
 
-;;;;;;
-;;;
-;;{{{ To do: The bibliography formatting for bibliographies that use a Harvard
-;;;          style author-date in square brackets at the left followed by a
-;;;          block of bib are not laid out quite right when the labels are too
-;;;          wide. Make it increase the zotero-BibliographyStyle_bodyIndent
-;;;          locally inside of the bibliography to make them all line up.
-;;;
-;;;        The way to do that is to add another thing inside of the tuple
-;;;        that's inside the zfield-Data... add a tuple of "with" like
-;;;        bindings, which will be used as exactly that inside of the expansion
-;;;        of the zbibliography (and zcite) macro, with-wrapping everything
-;;;        inside of there using the key | value pairs in that tuple as the key
-;;;        | value pairs in that typesetter-created inner with.
-;;}}}
-;;;;;;
-;;;
-;;{{{ To do: 
-;;}}}
-;;;;;;
-
 ;;{{{ zfield trees and tree-ref based accessors
 
+;;;;;;
+;;;
+;;; The zfieldID is the string identifier for the field that is used as it's
+;;; handle inside of Zotero and thus inside of citeproc.js there. When the tag
+;;; is disactivated, the user could change it by hand, but there's not really
+;;; any reason to do so. When a field is cut or copied and then pasted, it gets
+;;; updated because if there is more than one field with the same zfieldID,
+;;; Zotero will update both of them to be the same value!
+;;;
 (define zfield-zfieldID-t
   (make-procedure-with-setter
    ;; ref
@@ -1598,8 +1278,13 @@
                   (stree->tree str))))))
 
 
-
-;; No setter. Read only.
+;;;;;;
+;;;
+;;; This contains the version number for the zfield, as explained above. There
+;;; is no setter, since it's hard-coded where the zfield is inserted into the
+;;; document, and where it automatically upgrades the zfield from older
+;;; documents to the newer format.
+;;;
 (define (zfield-Code-v zfield)
   (let ((code-t (tree-ref zfield 1)))
     (cond
@@ -1609,6 +1294,14 @@
       (else 1))))
 
 
+;;;;;;
+;;;
+;;; This holds the code that Zotero's integration sends. It has a short string
+;;; that identifies whether this is a citation or a bibliography, and also may
+;;; contain the CSL-JSON data for the field's citations, when the
+;;; document-prefs checkbox is checked for storing that information inside of
+;;; the document.
+;;;
 (define zfield-Code-code-t
   (letrec ((ref-impl
             (lambda (zfield)
@@ -1659,18 +1352,25 @@
      (tree->stree (zfield-Code-code-t zfield)))
    ;; set!
    ;;
-   ;;{{{ To do: maybe it can do more again like it tried to before wrt parsing
-   ;;           the JSON and using the information within it... It will need to
-   ;;           use that information in order to implement the zcite citation
-   ;;           cluster splitting feature in the other todo item in this
-   ;;           program.
-   ;;}}}
+   ;; TODO maybe it can do more again like it tried to before wrt parsing the
+   ;;      JSON and using the information within it... It will need to use that
+   ;;      information in order to implement the zcite citation cluster
+   ;;      splitting feature in the other todo item in this program.
+   ;;
    (lambda (zfield str)
      (let ((code-t (zfield-Code-code-t zfield)))
        (tree-set! code-t
                   (stree->tree str))))))
 
-
+;;;;;;
+;;;
+;;; This is set by notify-activated when the user has modified the
+;;; zfield-Text-t. It is used inside of the tm-zotero.ts in order to decide
+;;; what color flag to display, green for not modified, red for
+;;; user-modified. Zotero will also notice if the user modified it, but through
+;;; a different mechanism, and will notify and ask if you really want to have
+;;; it update the field despite having modified it.
+;;;
 (define zfield-Code-is-modified?-flag-t
   (make-procedure-with-setter
    ;; ref
@@ -1693,7 +1393,13 @@
        (tree-set! is-modified?-flag-t
                   (stree->tree str-bool))))))
 
-
+;;;;;;
+;;;
+;;; This holds a copy of the zfield-Text, and is set only right after getting a
+;;; result from Zotero, and is kept for comparison when finding out if the user
+;;; has modified the contents of zfield-Text-t, which can only be done while
+;;; the zfield is disactivated.
+;;;
 (define zfield-Code-origText-t
   (make-procedure-with-setter
    ;; ref
@@ -1715,25 +1421,11 @@
        (tree-set! origText-t
                   (format #f "~s" (tree->stree t)))))))
 
-
-;;; This next field is set automatically, below, with the result of converting
-;;; the rich-text that Zotero sends back into a TeXmacs tree.
-;;; 
+;;;;;;
 ;;;
-;;; Todo: But what if I use drd-props to make it accessible so I can edit it,
-;;;       and then do edit it? OpenOffice lets you edit them, but prompts you
-;;;       that it's been editted before replacing it.
+;;; This field is set automatically with the result of converting the rich-text
+;;; that Zotero sends back into a TeXmacs tree.
 ;;;
-;;; Idea: When it's editted, perhaps a diff could be kept? Or some kind of
-;;;       mechanism that finds out what is changed and sends it to Zotero?
-;;;
-;;;    A: I think that's not easy to do and more trouble than it's worth.
-;;;       It's easier to just curate your reference collection to make it
-;;;       produce what you want, right?
-;;;
-;;; This returns a TeXmacs tree.
-;;;
-
 (define zfield-Text-t
   (make-procedure-with-setter
    ;; ref
@@ -1744,6 +1436,7 @@
      (let ((text-t (tree-ref zfield 2)))
        (tree-set! text-t t)))))
 
+;;;;;;
 ;;;
 ;;; This is used to convert the zfield-Text texmacs tree into a string so that
 ;;; Zotero's mechanism for determining if the user has editted the zfield-Text
@@ -1751,16 +1444,25 @@
 ;;; original text in the <zfield-data> for the zfield, and to create the
 ;;; comparison string from the current value of the zfield-Text.
 ;;;
-
 (define (zfield-Text zfield)
   (format #f "~s" (tree->stree (zfield-Text-t zfield))))
-
-
+;;;
 ;;; There is no setter for zfield-Text.
 
+
 ;;}}}
+
 ;;{{{ ztHref* trees and tree-ref based accessors
 ;;;;;;
+;;;
+;;; ztHrefFromCiteToBib and ztHrefFromBibToURL are both emitted by the
+;;; variableWrapper that is installed by propachi-texmacs in boostrap.js. The
+;;; reason for setting them there is that it's the thing that knows which is
+;;; the first field of a citation item or bibliographic entry, no matter which
+;;; CSL style is in use. I want only the first four characters of each item to
+;;; become a hyperlink because of the limitation of TeXmacs that a hyperlink
+;;; locus is not line-broken, and so if it's too long, it will stick out into
+;;; the right margin.
 ;;;
 ;;; ztHrefFromCiteToBib hashLabel url display
 ;;;
@@ -1870,6 +1572,7 @@
 
 
 ;;}}}
+
 ;;{{{ ztBibItemText trees and tree-ref based accessors
 ;;;;;;
 ;;;
@@ -1882,6 +1585,7 @@
 ;;;
 
 ;;}}}
+
 ;;}}}
 
 
@@ -2357,8 +2061,7 @@
 ;;}}}
 
 
-;;{{{ To do: Bibliography won't render right until this part is fixed.
-;;}}}
+;;; TODO Bibliography won't render right until this part is fixed.
 
 ;;{{{ ztbibItemRefs lists that follow bibliography items
 ;;;
@@ -2366,18 +2069,16 @@
 ;;;                        "zciteBibLabel" "displayed text"
 ;;;  '(ztHrefFromCiteToBib "#zbibSysID696" "text")
 ;;;
-;;{{{ Done: maintain the list, search only on
-;;;         startup. (tm-zotero-ext:ensure-zfield-interned!)
-;;}}}
+;;; DONE maintain the list, search only on
+;;;      startup. (tm-zotero-ext:ensure-zfield-interned!)
 ;;;
-;;{{{ To do: Have a look at citeproc-js / formats.js state.sys.embedBibliographyEntry and
-;;;          consider that it could easily replace this scheme code. Defining
-;;;          it in the bootstrap.js in propachi-texmacs activates it, and it
-;;;          can send it's result string back as the second argument of
-;;;          \ztbibItemText. I am going to just use the scheme program for now
-;;;          since I know scheme better than Javascript and I have things I
-;;;          need to write ASAP.
-;;}}}
+;;; TODO Have a look at citeproc-js / formats.js
+;;;      state.sys.embedBibliographyEntry and consider that it could easily
+;;;      replace this scheme code. Defining it in the bootstrap.js in
+;;;      propachi-texmacs activates it, and it can send it's result string back
+;;;      as the second argument of \ztbibItemText. I am going to just use the
+;;;      scheme program for now since I know scheme better than Javascript and
+;;;      I have things I need to write ASAP.
 ;;;
 
 ;;; For some reason there can be more than one the same in a citation cluster,
@@ -2956,20 +2657,16 @@
 ;;}}}
 
 
-;;{{{ To do:    Mac OS-X and Windows  HELP WANTED
-;;;
-;;;   Clone this on github, send me a pull request... I do not own a computer
-;;;   with Windows nor do I own a Mac. I can not easily develop this part. It
-;;;   should be fairly simple... and there is actually a possibility that it
-;;;   will already just work without any modifications. Somebody needs to test
-;;;   it... and please, if it works, open a github "issue" with the positive
-;;;   report so I will know. Thanks.
-;;}}}
+;;; TODO Mac OS-X and Windows HELP WANTED: Clone this on github, send me a pull
+;;;      request... I do not own a computer with Windows nor do I own a Mac. I
+;;;      can not easily develop this part. It should be fairly simple... and
+;;;      there is actually a possibility that it will already just work without
+;;;      any modifications. Somebody needs to test it... and please, if it
+;;;      works, open a github "issue" with the positive report so I will
+;;;      know. Thanks.
 
-;;{{{ To do: There may be problems with the way the error thing is handled; see
-;;;          the comment in tm-zotero-listen.
-;;}}}
-
+;;; TODO There may be problems with the way the error thing is handled; see the
+;;;      comment in tm-zotero-listen.
 
 ;;{{{ Wire protocol between TeXmacs and Zotero
 
@@ -3458,10 +3155,8 @@
 ;;}}}
 
 
-;;{{{ To do: The "atomic undo" thing might not be working right. I need to test
-;;;        and develop it further.
-;;}}}
-
+;;; TODO The "atomic undo" thing might not be working right. I need to test and
+;;;      develop it further.
 
 ;;{{{ Integration-initiating commands: TeXmacs -> Zotero
 ;;;;;;
@@ -3558,9 +3253,7 @@
 ;;}}}
 
 
-;;{{{ To do: find the rest of the to-do items below this point!
-;;}}}
-
+;;; TODO find the rest of the to-do items below this point!
 
 ;;{{{ Word Processor commands: Zotero -> TeXmacs -> Zotero
 
