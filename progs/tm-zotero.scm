@@ -534,10 +534,11 @@
                    (document-remove!-<zfield-data> zfd)
                    (when (is-zbibliography? zfield)
                      (document-remove!-zbibliography-zfd zfd))
-                   ;; To do: Experiment + UTSL to find out if I need to do this
-                   ;; with tree-pointer. I am not sure if it sticks to the tree
-                   ;; while the tree is detached, or if it gets left at the
-                   ;; place where the selection tree has been cut from.
+                   ;; TODO Experiment + UTSL to find out if I need to do this
+                   ;;      with tree-pointer. I am not sure if it sticks to the
+                   ;;      tree while the tree is detached, or if it gets left
+                   ;;      at the place where the selection tree has been cut
+                   ;;      from.
                    (let ((tp (tree-pointer zfd)))
                      (tree-pointer-detach tp) ; Guardian and gc-hook?
                      (set! (tree-pointer zfd) #f))
@@ -605,22 +606,20 @@
   (focus-is-ztHref% (tree-is? (focus-tree) 'ztHref) in-tm-zotero-style%))
 
 ;;;
-;;{{{ Todo: Invent a good naming convention for the below preferences and
-;;;         settings... There must be a differentiation between editor-wide
-;;;         preferences, document-wide ones, and ones that have either an
-;;;         explicit or implicit document-wide default that can be overrided
-;;;         locally by using a with-wrapper. Further, there are some that are
-;;;         not to be exposed to the end user, and others that are.
+;;; TODO Invent a good naming convention for the below preferences and
+;;;      settings... There must be a differentiation between editor-wide
+;;;      preferences, document-wide ones, and ones that have either an explicit
+;;;      or implicit document-wide default that can be overrided locally by
+;;;      using a with-wrapper. Further, there are some that are not to be
+;;;      exposed to the end user, and others that are.
 ;;;
 ;;;  Idea: Make ones that are to be hidden have a special naming convention to
 ;;;        make it easier to implement the below functions which are used to
 ;;;        determine what to show in the toolbar menus.
-;;}}}
-;;{{{ Todo: See (utils base environment), extend that logic-table with the ones
-;;;         for this? Can those be contextually overloaded? I guess it doesn't
-;;;         matter. It's just a variable identifier to description string
-;;;         mapping.
-;;}}}
+;;;
+;;; TODO See (utils base environment), extend that logic-table with the ones
+;;;      for this? Can those be contextually overloaded? I guess it doesn't
+;;;      matter. It's just a variable identifier to description string mapping.
 ;;;
 ;;; Some CSL styles define in-text citations, and others define note style ones
 ;;; that create either a footnote or an endnote, depending on which of those
@@ -770,6 +769,8 @@
 ;;}}}
 
 ;;{{{ DocumentData (from Zotero, saved, parsed -> document initial environment
+
+;;;;;;
 ;;;
 ;;; AFAIK the only pref that this program needs access to is noteType, and that
 ;;; access is read-only. The noteType is a document-wide setting, since it goes
@@ -805,24 +806,21 @@
 ;;; here, we never need to write the prefs by any means other than having
 ;;; Zotero set it.
 ;;;
-;;{{{ To do: Perhaps a future iteration could provide initial hints based on the
-;;;          language of the document being editted? But that's sort of a
-;;;          global thing anyway, and setting the language takes only a few
-;;;          clicks.
-;;}}}
-;;{{{ To do: I think that the LibreOffice plugin (java) actually parses and
-;;;          re-emits the xml that this program is parsing below... If the xml
-;;;          sent back is acceptable to Zotero, then this can be used to set
-;;;          some of those settings via the editor (client side)
-;;;          interface. Maybe there are some kinds of things that it makes more
-;;;          sense to have the interface to changing the setting or whatever be
-;;;          on the client side?  Or maybe I could use it to sneak information
-;;;          into a monkey-patch in propachi-texmacs... But since I've got
-;;;          control of both sides via the ability to monkey-patch... I may as
-;;;          well work out a few extensions to the protocol (with it in mind
-;;;          that other editor client programs may want to utilize the same
-;;;          wire protocol or output formats).
-;;}}}
+;;; TODO Perhaps a future iteration could provide initial hints based on the
+;;;      language of the document being editted? But that's sort of a global
+;;;      thing anyway, and setting the language takes only a few clicks.
+;;;
+;;; TODO I think that the LibreOffice plugin (java) actually parses and
+;;;      re-emits the xml that this program is parsing below... If the xml sent
+;;;      back is acceptable to Zotero, then this can be used to set some of
+;;;      those settings via the editor (client side) interface. Maybe there are
+;;;      some kinds of things that it makes more sense to have the interface to
+;;;      changing the setting or whatever be on the client side?  Or maybe I
+;;;      could use it to sneak information into a monkey-patch in
+;;;      propachi-texmacs... But since I've got control of both sides via the
+;;;      ability to monkey-patch... I may as well work out a few extensions to
+;;;      the protocol (with it in mind that other editor client programs may
+;;;      want to utilize the same wire protocol or output formats).
 ;;;
 ;;;   Guile: (get-env "zotero-pref-noteType")
 ;;;            returns a <string>
@@ -1453,22 +1451,26 @@
 ;;}}}
 
 ;;{{{ ztHref* trees and tree-ref based accessors
+
 ;;;;;;
 ;;;
 ;;; ztHrefFromCiteToBib and ztHrefFromBibToURL are both emitted by the
 ;;; variableWrapper that is installed by propachi-texmacs in boostrap.js. The
 ;;; reason for setting them there is that it's the thing that knows which is
 ;;; the first field of a citation item or bibliographic entry, no matter which
-;;; CSL style is in use. I want only the first four characters of each item to
+;;; CSL style is in use. I want only the first four glyphs of each item to
 ;;; become a hyperlink because of the limitation of TeXmacs that a hyperlink
 ;;; locus is not line-broken, and so if it's too long, it will stick out into
-;;; the right margin.
+;;; the right margin. (I say "glyphs" because when the group ends with a letter
+;;; combination that the typesetter will turn into a ligature (ff fi fl ffi
+;;; ffl), those must be inside of the link's "display" so they don't get
+;;; separated, or it won't look right. That is handled by the variableWrapper.)
 ;;;
-;;; ztHrefFromCiteToBib hashLabel url display
+;;;   ztHrefFromCiteToBib hashLabel url display
 ;;;
-;;; ztHrefFromBibToURL hashLabel url display
+;;;   ztHrefFromBibToURL  hashLabel url display
 ;;;
-;;; ztHref url display
+;;;   ztHref url display
 ;;;
 
 (define ztHref*-hashLabel-t
@@ -1574,6 +1576,7 @@
 ;;}}}
 
 ;;{{{ ztBibItemText trees and tree-ref based accessors
+
 ;;;;;;
 ;;;
 ;;; Each item in the zbibliography is represented by a ztBibItemText.
@@ -1588,14 +1591,12 @@
 
 ;;}}}
 
-
 ;;;;;;
 ;;;
 ;;; These things are for tm-zotero program state that is *not* saved with the
 ;;; document. These are scheme data structures, not in-document trees.
 ;;;
 ;;{{{ State data for document and zfields, <zfield-data>, <document-data>
-;;;
 ;;{{{ R&D Notes pertaining to maintaining this per-document state data
 ;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1698,7 +1699,7 @@
   (zfd-orig-text #:init-value "")
   ;;;
   ;;
-  ;; To do: Do these need time stamps for change-dependency trigger/track?
+  ;; TODO Do these need time stamps for change-dependency trigger/track?
   ;;
   ;;;
   )
@@ -1729,10 +1730,10 @@
 
 (define-class-with-accessors-keywords <document-data> ()
   ;;
-  ;;{{{ To do: This undo marking thing needs to be looked over because in
-  ;;           zotero/chrome/content/zotero/xpcom/integration.js inside of
-  ;;           Zotero.Integration.Fields.prototype.addEditCitation at the end,
-  ;;           if it fails, it deletes the citation field.
+  ;; TODO This undo marking thing needs to be looked over because in
+  ;;      zotero/chrome/content/zotero/xpcom/integration.js inside of
+  ;;      Zotero.Integration.Fields.prototype.addEditCitation at the end, if it
+  ;;      fails, it deletes the citation field.
   ;;
   ;;           Q: But what about all the other changes that might get made to
   ;;              the document during the addCitation or editCitation? If those
@@ -1744,8 +1745,6 @@
   ;;              that concurrent calls can be made, as for the getFields that
   ;;              the comment says can happen during the same time that the
   ;;              setDocPrefs dialog is open.
-  ;;
-  ;;}}}
   ;;
   ;; is a zotero command active? If so, then a modification undo mark (I think
   ;; it's a number from the code in (utils library tree) try-modification) is
@@ -1802,16 +1801,15 @@
 ;;; empty hash table. That's fine. It will also get cleared when the
 ;;; document-part-mode changes.
 ;;;
-;;{{{ To do: I see a possible "memory leak" of tree-pointer's... they are attached
-;;;          to trees in the buffer. So to clear the document-data, there must
-;;;          be a single point of control in a function that calls
-;;;          tree-pointer-detach for each of them before releasing everything
-;;;          via assignment of a fresh hash-table to
-;;;          <document-data>-ht... actually, rather than assign a fresh one,
-;;;          use hash-clear since it clears it without triggering a
-;;;          resize... and it's already ballooned out to it's needed size once
-;;;          it's been used once.
-;;}}}
+;;; TODO I see a possible "memory leak" of tree-pointer's... they are attached
+;;;      to trees in the buffer. So to clear the document-data, there must be a
+;;;      single point of control in a function that calls tree-pointer-detach
+;;;      for each of them before releasing everything via assignment of a fresh
+;;;      hash-table to <document-data>-ht... actually, rather than assign a
+;;;      fresh one, use hash-clear since it clears it without triggering a
+;;;      resize... and it's already ballooned out to it's needed size once it's
+;;;      been used once.
+;;;
 
 (define <document-data>-ht (make-hash-table)) ;; documentID => <document-data>
 
@@ -1827,12 +1825,11 @@
         dd)))
 
 
-;;{{{ To do: Guardians and after-gc-hook? UTSL and find out if those
-;;;          tree-pointers automatically get cleaned up or do I need to detach
-;;;          them like this? Maybe when I let go of the reference to the
-;;;          tree-pointer, it gets cleaned up and detached?
+;;; TODO Guardians and after-gc-hook? UTSL and find out if those tree-pointers
+;;;      automatically get cleaned up or do I need to detach them like this?
+;;;      Maybe when I let go of the reference to the tree-pointer, it gets
+;;;      cleaned up and detached?
 ;;;
-;;}}}
 
 (define (clear-<document-data>! documentID)
   (letrec ((clear-tp (lambda (zfd)
@@ -1852,9 +1849,9 @@
         (clear-tp new-zfield-zfd)
         (set! (document-new-zfield-zfd dd) #f))
       (when zfd-ls
-        (map clear-tp zfd-ls)) ; To do: Guardians and after-gc-hook
+        (map clear-tp zfd-ls)) ; TODO Guardians and after-gc-hook
       (when zhd-ls
-        (map clear-tp zhd-ls)) ; To do: Guardians and after-gc-hook
+        (map clear-tp zhd-ls)) ; TODO Guardians and after-gc-hook
       (set-<document-data>! documentID
                             (make-instance <document-data>)))))
 
@@ -1871,6 +1868,7 @@
 
 
 ;;}}}
+
 ;;{{{ get-new-zfieldID, get-document-new-zfield-zfd, etc.
 
 (define get-new-zfieldID create-unique-id)
@@ -1913,6 +1911,7 @@
     (set-document-new-zfield-zfd! documentID #f)))
 
 ;;}}}
+
 ;;{{{ document-zfield-zfd-ls
 
 (define-method (get-document-zfield-zfd-ls (documentID <string>))
@@ -1981,6 +1980,7 @@
                                      (not (eq? zhd elt)))))))
 
 ;;}}}
+
 ;;{{{ get-document-*-by-zfieldID
 
 (define (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
@@ -2030,16 +2030,17 @@
      (string=? text orig-text))))         ; => #t if text was modified by user.
 
 ;;}}}
+
 ;;{{{ document-merge!-<zfield-data>, document-remove!-<zfield-data>
 ;;;
 ;;; This adds a <zfield-data> to the <zfield-data>-ls.
 ;;;
-;;; To do: Should these take a documentID argument instead of looking it up
-;;;        here?  I need to think about it sometime, and when doing so, think
-;;;        about things like a future version of TeXmacs with multiple threads
-;;;        maybe the way the Chrome browser does it or whatever? This is a
-;;;        longer term study project for me... right now I need to get this to
-;;;        work so I can use it.
+;;; TODO Should these take a documentID argument instead of looking it up here?
+;;;      I need to think about it sometime, and when doing so, think about
+;;;      things like a future version of TeXmacs with multiple threads maybe
+;;;      the way the Chrome browser does it or whatever? This is a longer term
+;;;      study project for me... right now I need to get this to work so I can
+;;;      use it.
 ;;;
 (define (document-merge!-<zfield-data> zfd)
   (let* ((documentID (get-documentID))
@@ -2058,6 +2059,7 @@
                                                     (not (eq? zfd elt)))))))
 
 ;;}}}
+
 ;;}}}
 
 
@@ -2098,8 +2100,8 @@
 ;;
 ;;}}}
 
-
 ;;{{{ :secure tm-zotero-ext:* functions called from tm-zotero.ts style
+
 ;;;;;;
 ;;;
 ;;; These must be tm-define'd and carry the (:secure) attribute so that they
@@ -2107,19 +2109,18 @@
 ;;;
 ;;;;;;
 ;;;
-;;{{{ To do: instead of walking the document-zfield-zfd-ls to build the output
-;;;          form in tm-zotero-Document_insertField, the data structure that it
-;;;          sends to Zotero there can be built by
-;;;          tm-zotero-ext:ensure-zfield-interned!, and maintained in
-;;;          clipboard-cut, etc... That way, the work it does can be amortized
-;;;          across many calls, rather than doing that work all at once.
-;;}}}
+;;; TODO instead of walking the document-zfield-zfd-ls to build the output form
+;;;      in tm-zotero-Document_insertField, the data structure that it sends to
+;;;      Zotero there can be built by tm-zotero-ext:ensure-zfield-interned!,
+;;;      and maintained in clipboard-cut, etc... That way, the work it does can
+;;;      be amortized across many calls, rather than doing that work all at
+;;;      once.
 ;;;
-;;{{{ To do: Explore the idea of using a hook function to manage the changes to
-;;;          the zfield: tm-zotero-notify-zfield-Text-update-hook
-;;;          Just make sure that the hook functions for it are given everything
-;;;          they need so they don't have to compute too much.
-;;}}}
+;;; TODO Explore the idea of using a hook function to manage the changes to the
+;;;      zfield: tm-zotero-notify-zfield-Text-update-hook Just make sure that
+;;;      the hook functions for it are given everything they need so they don't
+;;;      have to compute too much.
+;;;
 ;;;;;;
 ;;;
 ;;; Lazy interning of <zfield-data>, triggered by the typesetter.
@@ -2145,43 +2146,41 @@
 ;;;    * Using the hashLabel argument, get the sysID of the bibliography entry
 ;;;      it is linked to. Now we have both the zfieldID and the sysID.
 ;;;
-;;{{{ To do: Why is this a hashLabel rather than simply the plain sysID? What
-;;;          will happen to existing documents if I change this? Will it
-;;;          require an update to propachi-texmacs?
+;;; TODO Why is this a hashLabel rather than simply the plain sysID? What will
+;;;      happen to existing documents if I change this? Will it require an
+;;;      update to propachi-texmacs?
 ;;;
-;;; It's a hashlabel because that's what I thought about it like then... also
-;;; so that an external reference into the document can be resolved...? Not
-;;; sure it needs the # prepended.
-;;;
-;;}}}
-;;;
-;;{{{ To do: This seemed faster at first, but I think that it's getting called
-;;;          way too often, like every time I type anything, and so it's
-;;;          actually slowing the editor down even more than the previous
-;;;          version did. How can I make it faster, or make it only happen when
-;;;          it needs to; only the first time it's typeset and only thereafter
-;;;          when it's changed? Self-modifying document? A case or if inside
-;;;          the macro, shortcutting in a faster way there, perhaps with a flag
-;;;          like I did for the "is-modified" flag, so it does not call into
-;;;          Guile every time I type anything? Will Guile-2 speed it up any? I
-;;;          think that it will, but not enough.
-;;;
-;;;  Perhaps the "thunking" back and forth from C++ <--> Scheme is too slow?
-;;;  How does Swig do it? Is it any faster? Does that matter? I think avoiding
-;;;  the jumping into scheme for this will be the best speedup no matter
-;;;  what... Or... would general purpose support for this, perhaps through a
-;;;  new kind of Observer, is what it needs?
-;;;
-;;;  Branch cuts?
-;;;
-;;; UPDATE: Weird. It's not my code that's the slowdown. When I ran it in an
-;;; Emacs shell buffer to capture the timings to show the slowdown, it failed
-;;; to be slow... It's quick the way it's supposed to be. I wonder what it was?
+;;;      It's a hashlabel because that's what I thought about it like
+;;;      then... also so that an external reference into the document can be
+;;;      resolved...? Not sure it needs the # prepended.
 ;;;
 ;;;
-;;}}}
+;;; TODO This seemed faster at first, but I think that it's getting called way
+;;;      too often, like every time I type anything, and so it's actually
+;;;      slowing the editor down even more than the previous version did. How
+;;;      can I make it faster, or make it only happen when it needs to; only
+;;;      the first time it's typeset and only thereafter when it's changed?
+;;;      Self-modifying document? A case or if inside the macro, shortcutting
+;;;      in a faster way there, perhaps with a flag like I did for the
+;;;      "is-modified" flag, so it does not call into Guile every time I type
+;;;      anything? Will Guile-2 speed it up any? I think that it will, but not
+;;;      enough.
 ;;;
-;;;    * Hang the new item on the list for it's sysID with the merge function.
+;;;      Perhaps the "thunking" back and forth from C++ <--> Scheme is too
+;;;      slow?  How does Swig do it? Is it any faster? Does that matter? I
+;;;      think avoiding the jumping into scheme for this will be the best
+;;;      speedup no matter what... Or... would general purpose support for
+;;;      this, perhaps through a new kind of Observer, is what it needs?
+;;;
+;;;      Branch cuts?
+;;;
+;;;      UPDATE Weird. It's not my code that's the slowdown. When I ran it in
+;;;      an Emacs shell buffer to capture the timings to show the slowdown, it
+;;;      failed to be slow... It's quick the way it's supposed to be. I wonder
+;;;      what it was?
+;;;
+;;;
+;;;      * Hang the new item on the list for it's sysID with the merge function.
 ;;;
 (tm-define (tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:secure)
@@ -2247,8 +2246,7 @@
 
 ;;;;;;
 ;;;
-;;{{{ To do: Code cleanup, variable name fixing... Evolution is happening, Ok?
-;;}}}
+;;; TODO Code cleanup, variable name fixing... Evolution is happening, Ok?
 ;;;
 ;;; This does a similar thing for the ztHrefFromCiteToBib and ztbibItemText
 ;;; macros, since their data is needed to gather the ztbibItemRefsList
@@ -2301,12 +2299,11 @@
 ;;; encountered prior to the interning of the zcite that it is inside of. That
 ;;; means that a <zfield-data> has already been interned for this...
 ;;;
-;;{{{ To do: It seems like this macro ought to get handed the zfieldID as an argument,
-;;;          but it does not, since it's sent by the variableWrapper, and I did
-;;;          not know how to get the zfieldID from inside of there. It's
-;;;          probably possible, but I don't know the way around in Javascript
-;;;          very well.
-;;}}}
+;;; TODO It seems like this macro ought to get handed the zfieldID as an
+;;;      argument, but it does not, since it's sent by the variableWrapper, and
+;;;      I did not know how to get the zfieldID from inside of there. It's
+;;;      probably possible, but I don't know the way around in Javascript very
+;;;      well.
 ;;;
 ;;; What I don't like about this is the having to look up the zfield, then the
 ;;; zfieldID, then the <zfield-data>, which is necessary for keeping these in
@@ -2324,7 +2321,9 @@
   (:secure)
   (let* ((zfield (tree-search-upwards hashLabel-t 'zcite))
          ;; (zfieldID (and zfield (zfield-zfieldID zfield)))
-         ;; To do: zfield => #f happens but I don't know how.
+         ;;
+         ;; TODO zfield => #f happens but I don't know how.
+         ;;
          (zfieldID (and zfield (zfield-zfieldID zfield)))
          (documentID (get-documentID))
          (sysID (string-tail (tree->stree hashLabel-t)
@@ -2396,8 +2395,7 @@
 ;;   "")
 
 
-;;{{{ To do: Fix-up internal variable reference
-;;}}}
+;;; TODO Fix-up internal variable reference
 ;;;
 ;;; Return the ztbibItemRefsList for this zfieldID.
 ;;;
@@ -2437,7 +2435,7 @@
 
 
 
-;;{{{ To do: Move this to Javascript inside propachi-texmacs.
+;;; TODO Move this to Javascript inside propachi-texmacs.
 ;;;
 ;;; For now, I'm faster with Scheme and I understand my own program better, and
 ;;; so to just get it working, it's going to do it this way. It looks clunky
@@ -2456,7 +2454,6 @@
 ;;; SysID as the document is typeset. This pastes them together and returns the
 ;;; same string that the Javascript version ultimately will.
 ;;;
-;;}}}
 ;;;
 (tm-define (tm-zotero-ext:get-bibItemRefsList-by-SysID-t sysID-t)
   (:secure)
@@ -2488,9 +2485,8 @@
     `(concat (_ztbibItemRefsList ,labels))
   ))
 
-;;{{{ To do:  STUB   Do I need this for anything?
-;;}}}
-
+;;; TODO STUB   Do I need this for anything?
+;;
 ;; (tm-define (tm-zotero-ext:ensure-ztHref-interned! url-for-tree-t)
 ;;   (:secure)
 ;;   ;; (tm-zotero-format-debug "STUB:tm-zotero-ext:ensure-ztHref-interned! called, url-for-tree-t => ~s\n"
@@ -2657,16 +2653,6 @@
 ;;}}}
 
 
-;;; TODO Mac OS-X and Windows HELP WANTED: Clone this on github, send me a pull
-;;;      request... I do not own a computer with Windows nor do I own a Mac. I
-;;;      can not easily develop this part. It should be fairly simple... and
-;;;      there is actually a possibility that it will already just work without
-;;;      any modifications. Somebody needs to test it... and please, if it
-;;;      works, open a github "issue" with the positive report so I will
-;;;      know. Thanks.
-
-;;; TODO There may be problems with the way the error thing is handled; see the
-;;;      comment in tm-zotero-listen.
 
 ;;{{{ Wire protocol between TeXmacs and Zotero
 
@@ -2742,9 +2728,16 @@
 (define TCP_NODELAY 1)
 
 
-;;;;;;
+;;; TODO Mac OS-X and Windows HELP WANTED: Clone this on github, send me a pull
+;;;      request... I do not own a computer with Windows nor do I own a Mac. I
+;;;      can not easily develop this part. It should be fairly simple... and
+;;;      there is actually a possibility that it will already just work without
+;;;      any modifications. Somebody needs to test it... and please, if it
+;;;      works, open a github "issue" with the positive report so I will
+;;;      know. Thanks.
 ;;;
-;;; !! Try this first !!   HELP WANTED
+;;;
+;;; !! Try this first !!
 ;;;
 ;;; Looking at the LibreOffice Integration plugin, I see that it's what opens
 ;;; up the TCP port that this talks to on Linux. That code does not check what
@@ -2753,8 +2746,6 @@
 ;;; already just work with no further programming required.
 ;;;
 ;;;;;;
-;;;
-;;{{{ To do: Support Mac OS-X.
 ;;;
 ;;; Notes: for Mac OS-X, they use a Unix domain pipe. Look first in:
 ;;;
@@ -2770,10 +2761,8 @@
 ;;;
 ;;; It speaks exactly the same protocol over that pipe as Linux does over the
 ;;; TCP socket.
-;;}}}
-;;;;;;
 ;;;
-;;{{{ To do: Support Windows
+;;;;;;
 ;;;
 ;;; On Windows, the Word plugin calls on Juris-M / Zotero by invoking firefox
 ;;; "via WM_COPYDATA rather than the command line".
@@ -2785,7 +2774,6 @@
 ;;; -ZoteroIntegrationCommand
 ;;;
 ;;; -ZoteroIntegrationDocument
-;;}}}
 ;;;
 
 (define OS-X-integration-pipe-locations
@@ -2970,9 +2958,12 @@
 
 
 
-;;{{{ To do: after-gc-hook, Guardians, for tree-pointer ?
-;;;          Will it leak without this? Does it belong here?
-;;}}}
+;;;;;;
+;;;
+;;; TODO after-gc-hook, Guardians, for tree-pointer ?
+;;;      Will it leak without this? Does it belong here?
+;;;
+;;;;;;
 
 
 ;;{{{ Cleanup hooks for the undo mark handling
@@ -3028,12 +3019,14 @@
 ;;; The document-active-mark-nr must only be set by
 ;;; call-zotero-integration-command, and only canceled (undo) or ended (keep) here.
 ;;;
-;;{{{ To do: See if this can be improved to allow possible concurrency.
+;;;;;;
+;;;
+;;; TODO See if this can be improved to allow possible concurrency.
 ;;;
 ;;; In zotero/chrome/content/zotero/xpcom/integration.js, there is a comment
 ;;; inside of Zotero.Integration.Document.prototype.setDocPrefs that says
 ;;; "// Can get fields while dialog is open".
-;;}}}
+;;;
 ;;;;;;
 
 (define (tm-zotero-listen cmd)
@@ -3062,7 +3055,7 @@
                      ;; editCommand is really an error string this time.
                      ;; (tm-zotero-format-debug "tm-zotero-listen:~s\n" editCommand)
                      ;;
-                     ;;{{{ To do: verify that this is correct protocol:
+                     ;; TODO Verify that this is correct protocol:
                      ;;
                      ;; Send the error (back) to Zotero !!! Huh? It just sent
                      ;; the error to us. Why send it back? Is this code
@@ -3073,7 +3066,7 @@
                      ;; Document_displayAlert first?
                      ;;
                      ;; Leaving it for now.
-                     ;;}}}
+                     ;;
                      (tm-zotero-write tid editCommand)
                      ;; causes undo to happen
                      (document-mark-cancel-and-error-cleanup documentID)
@@ -3154,11 +3147,8 @@
 
 ;;}}}
 
-
-;;; TODO The "atomic undo" thing might not be working right. I need to test and
-;;;      develop it further.
-
 ;;{{{ Integration-initiating commands: TeXmacs -> Zotero
+
 ;;;;;;
 ;;;
 ;;; These expect no immediate reply packet from Zotero. Zotero will connect
@@ -3251,9 +3241,6 @@
   (call-zotero-integration-command "setDocPrefs"))
 
 ;;}}}
-
-
-;;; TODO find the rest of the to-do items below this point!
 
 ;;{{{ Word Processor commands: Zotero -> TeXmacs -> Zotero
 
@@ -4488,9 +4475,9 @@ styles."
 
 ;;;;;;
 ;;;
-;;{{{ To do: Perhaps this ought to be configurable, by making it possible for the
-;;;          user to put their own ones into a separate configuration file?
-;;}}}
+;;; TODO Perhaps this ought to be configurable, by making it possible for the
+;;;      user to put their own ones into a separate configuration file?
+;;;
 (define tm-zotero-regex-replace-clauses
   (map (lambda (elt)
          (cons (apply make-regexp `,(car elt))
@@ -4654,25 +4641,24 @@ styles."
 ;;;
 ;;;;;;
 ;;;
-;;{{{ To do: Instead of having zotero's xpcom/integration.js paste together all
-;;;          of the bibliography entries into one long string that I then go
-;;;          and split again here, for bbl output format, it can instead send
-;;;          back a JSON representation of the list of bibliography
-;;;          entries. Why paste them there then split them here when it can
-;;;          just pass the list?
-;;}}}
+;;; TODO Instead of having zotero's xpcom/integration.js paste together all of
+;;;      the bibliography entries into one long string that I then go and split
+;;;      again here, for bbl output format, it can instead send back a JSON
+;;;      representation of the list of bibliography entries. Why paste them
+;;;      there then split them here when it can just pass the list?
+;;;
 ;;;;;;
 ;;;
-;;{{{ To do: When it is receiving a list of bibliography items, when that list is
-;;;          for the entire bibliography but only some parts of it have
-;;;          actually changed, then it doesn't really need to re-run the regexp
-;;;          transform and LaTeX parsing on the items that have not changed.
+;;; TODO When it is receiving a list of bibliography items, when that list is
+;;;      for the entire bibliography but only some parts of it have actually
+;;;      changed, then it doesn't really need to re-run the regexp transform
+;;;      and LaTeX parsing on the items that have not changed.
 ;;;
 ;;;        It knows which items have changed...  insert-new-zfield,
 ;;;        tm-zotero-Document_insertField, notify-activate,
 ;;;        clipboard-cut... (any others?) can keep that information up to
 ;;;        date.
-;;}}}
+;;;
 ;;;;;;
 ;;;
 (define (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)
