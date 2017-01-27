@@ -1,0 +1,90 @@
+#+TITLE TeXmacs Crashes Todo Journal
+
+This is so I can keep working on a document that I need to write with
+higher priority than fixing scheme crashes that don't cause TeXmacs to
+stop functioning because I have a deadline.
+
+There is an org-capture template defined that helps me to enter these
+here. The procedure is to use a M-x shell buffer to run the texmacs
+command from, so that the scheme stack dumps going to stdout will be
+available from inside of Emacs. When there's a crash, I can then
+highlight it's text as the active region, and then use C-c c to
+initiate org-capture, then press S, which will log a TODO item here,
+also allowing entry of a brief description.
+
+* TODO TeXmacs stacktrace: Enter a citation, then attempt to cut it using C-w.
+
+  Entered [2017-01-22 Sun 19:43]
+
+  Backtrace:
+  In unknown file:
+     ?:  0* [#<procedure #f (key time)> "C-w" 116251.0]
+     ?:  1* (if (in-active-graphics?) (cond (# #) (# #)) (former key time))
+     ?:  2  [#<procedure #f (key time)> "C-w" 116251.0]
+  In /usr/share/TeXmacs/progs/kernel/gui/kbd-handlers.scm:
+      ...
+    27:  3  [key-press "C-w"]
+  In unknown file:
+     ?:  4* [#<procedure #f ()>]
+  In /usr/share/TeXmacs/progs/generic/generic-kbd.scm:
+   248:  5* [#<procedure #f (which)> "primary"]
+  In unknown file:
+     ?:  6  (if (and # # #) (begin # #) (former which))
+     ?:  7  (begin (let* (# # # # ...) (map # zfields)) (former which))
+  In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+   901:  8* (let* (# # # # ...) (map # zfields))
+   908:  9  [map #<procedure #f (zfield)> (#)]
+  In unknown file:
+     ?: 10* [#<procedure #f #> #]
+  In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+   909: 11* (let* ((zfieldID #) (zfd #)) (if (not #) (begin # # # ...) (let # # #)))
+   911: 12  (if (not #) (begin # # # ...) (let # # #))
+      ...
+   927: 13  [map #<procedure #f (href)> (#)]
+  In unknown file:
+     ?: 14* [#<procedure #f #> #]
+  In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+   928: 15* (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #))
+  
+  /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: In expression (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #)):
+  /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: Unbound variable: document-remove!-<ztHrefFromCiteToBib-data>
+
+* TODO TeXmacs stacktrace: Another crash trying to use C-w on selected zcite
+
+  Entered [2017-01-22 Sun 21:58]
+
+#+BEGIN_EXAMPLE
+Backtrace:
+In unknown file:
+   ?:  0* [#<procedure #f (key time)> "C-w" 19829.0]
+   ?:  1* (if (in-active-graphics?) (cond (# #) (# #)) (former key time))
+   ?:  2  [#<procedure #f (key time)> "C-w" 19829.0]
+In /usr/share/TeXmacs/progs/kernel/gui/kbd-handlers.scm:
+    ...
+  27:  3  [key-press "C-w"]
+In unknown file:
+   ?:  4* [#<procedure #f ()>]
+In /usr/share/TeXmacs/progs/generic/generic-kbd.scm:
+ 248:  5* [#<procedure #f (which)> "primary"]
+In unknown file:
+   ?:  6  (if (and # # #) (begin # #) (former which))
+   ?:  7  (begin (let* (# # # # ...) (map # zfields)) (former which))
+In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+ 901:  8* (let* (# # # # ...) (map # zfields))
+ 908:  9  [map #<procedure #f (zfield)> (#)]
+In unknown file:
+   ?: 10* [#<procedure #f #> #]
+In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+ 909: 11* (let* ((zfieldID #) (zfd #)) (if (not #) (begin # # # ...) (let # # #)))
+ 911: 12  (if (not #) (begin # # # ...) (let # # #))
+    ...
+ 927: 13  [map #<procedure #f (href)> (#)]
+In unknown file:
+   ?: 14* [#<procedure #f #> #]
+In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+ 928: 15* (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #))
+
+/home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: In expression (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #)):
+/home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: Unbound variable: document-remove!-<ztHrefFromCiteToBib-data>
+#+END_EXAMPLE
+
