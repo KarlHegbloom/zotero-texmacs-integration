@@ -277,17 +277,21 @@
 
   <assign|zt-link-BibToURL|true>
 
+  \;
+
   <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromBibToURL*|<value|ztHrefFromBibToURL>>
+
+  \;
 
   <assign|zt-link-FromCiteToBib|true>
 
   <assign|ztDefaultCiteURL|>
 
-  <assign|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<macro|hashLabel-t|<extern|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|hashLabel-t>>>>
+  <assign|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<macro|zfieldID-t|hashLabel-t|<extern|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|zfieldID-t>|<arg|hashLabel-t>>>>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<label|<merge|zciteID|<value|zt-zfieldID>|<arg|hashLabel>>><tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<value|zt-zfieldID>|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
@@ -402,6 +406,52 @@
     </src-comment>
   </active*>
 
+  <\active*>
+    <\src-comment>
+      One ztbibItemText is emitted by the Juris-M / Zotero citeproc-js bbl
+      output format for each bibliography item. The arguments are:
+
+      \ sysID \ is a string: \ \ sys_id =
+      state.registry.registry[this.system_id].ref.id; \ It looks like an
+      integer.
+
+      refsList is not used yet, and for now it is blank. \ If I decide to
+      move this functionality into the propachi-texmacs citeproc-js bbl
+      output format, I think it will be an in-document-order list of zfieldID
+      strings, one for each zfield or citation cluster (inside of citeproc
+      they are known as citation clusters, not zfields) wherein this
+      bibliography item was referenced. When the same sysID is referenced
+      more than once inside of the same zfield, that zfieldID will appear
+      once for each time. After the first one, subequent ones will have a
+      number appended to the label, incrementing, to create separate labels
+      for each citation. It will not simply link to the start of the citation
+      cluster zfield because those can split across pages when they contain
+      many citations and are long, as for IndigoBook inline legal citations.
+      This implies that it will be necessary to ensure that the zfieldID's
+      never contain spaces or commas or whatever character is used to
+      separate them in this list. How about semi-colons, with no extra
+      spaces? Q: Can that string tree be split by a TeXmacs macro, or will it
+      need to be processed by a scheme function? Also, for use with LaTeX, it
+      may be necessary to have citeproc-js emit the refsList in order to make
+      backlinks work? Not sure; no time for that right now.
+
+      citekey \ is a string, and is formed by pasting the string "sysID" to
+      the sysID for this bibliography entry, unless
+      state.sys.getBibTeXCiteKey(sysID, state) is defined, which I think is
+      supposed to return a BibTeX style citation key. I've never tested this
+      case because better BibTeX for Zotero was incompatible in some way with
+      propachi-texmacs and I think it's where that function gets defined.
+      Because I never use it, this argument could be removed for the purposes
+      of this extension to TeXmacs, but if the same bbl output format was to
+      be used for LaTeX, perhaps auto-completion or whatever would work
+      better for some people if it uses a standard BibTeX citekey format? So
+      for now it stays.
+
+      body \ is the body of the bibliography entry. It contains text wrapped
+      in the macros just above this comment.
+    </src-comment>
+  </active*>
+
   <assign|ztbibItemText|<\macro|sysID|refsList|citekey|body>
     <\with|par-sep|<times|<value|par-sep>|<value|zotero-BibliographyStyle_lineSpacing>>|ztbibItem-vsep|<times|<value|ztbibItem-vsep>|<value|zotero-BibliographyStyle_entrySpacing>>>
       <\surround|<vspace*|<value|item-vsep>>|<right-flush>>
@@ -418,12 +468,14 @@
 
   <assign|zt-render-bibItemRefsLists|true>
 
+  \;
+
   <inactive|<assign|XXXzbibItemRefsList-left|
   \ [<with|font-shape|italic|refs:> >>
 
-  <assign|ztbibItemRefsList-sep|, >
-
   <assign|ztbibItemRefsList-left| \ [>
+
+  <assign|ztbibItemRefsList-sep|, >
 
   <assign|ztbibItemRefsList-right|]>
 
@@ -433,17 +485,15 @@
 
   <assign|zt-ref-sep-extra|<macro|x|<value|ztbibItemRefsList-sep><ztbibItemRef|<arg|x>>>>
 
-  <assign|zt-ref-sep|<xmacro|args|<ztbibItemRefsList-left><ztbibItemRef|<arg|args|0>><map-args|zt-ref-sep-extra|concat|args|1><ztbibItemRefsList-right>>>
+  <assign|zt-ref-sep|<xmacro|args|<ztbibItemRef|<arg|args|0>><map-args|zt-ref-sep-extra|concat|args|1>>>
 
   \;
 
-  <assign|tm-zotero-ext-split-and-emit-refsList|<macro|refs-t|<extern|tm-zotero-ext:split-and-emit-refsList|<arg|refs-t>>>>
+  <assign|get-ztbibItemRefsList|<macro|sysID|<extern|tm-zotero-ext:get-ztbibItemRefsList|<arg|sysID>>>>
 
-  <assign|_ztbibItemRefsList|<macro|refs-t|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<compound|tm-zotero-ext-split-and-emit-refsList|<arg|refs-t>>>>>>
+  <assign|ztbibItemRefsList|<macro|sysID|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<ztbibItemRefsList-left><get-ztbibItemRefsList|<arg|sysID>><ztbibItemRefsList-right>>>>>
 
   \;
-
-  <assign|ztbibItemRefsList|<macro|SysID|<extern|tm-zotero-ext:get-bibItemRefsList-by-SysID-t|<arg|SysID>>>>
 
   \;
 
@@ -482,7 +532,9 @@
   <assign|zcite-flag-if-modified|<macro|fieldCode|<case|<look-up|<arg|fieldCode>|2>|<flag|Modified|red>|<flag|Not
   Modified|green>>>>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|zt-zciteID|<arg|fieldID>|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>>
+  <assign|zt-zfieldID|DISACTIVATED>
+
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|zt-zfieldID|<arg|fieldID>|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>>
 
   <drd-props|render-zcite|accessible|1>
 
