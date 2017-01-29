@@ -579,7 +579,7 @@
                               (stree->tree
                                '(strong "{?? New Citation ??}")))
                    (when tp
-                     (tree-pointer-detach tp)
+                     ;;(tree-pointer-detach tp)
                      (set-document-new-zfield-zfd! #f))))))
          zfields))
   (former which))
@@ -1594,7 +1594,8 @@
                                #f)))
             #:slot-set! (lambda (zfd t)
                           (and-with tp (slot-ref zfd 'tree-pointer)
-                            (tree-pointer-detach tp))
+                            ;;(tree-pointer-detach tp)
+                            )
                           (slot-set! zfd 'tree-pointer (tree->tree-pointer t))
                           (slot-set! zfd 'the-zfieldID-of (zfield-zfieldID t))
                           ;; (slot-set! zfd 'zfd-zfield-Code (zfield-zfield-Code-code t))
@@ -1611,7 +1612,7 @@
 (define-method (clear-tree-pointer (zfd <zfield-data>))
   (let ((tp (tree-pointer zfd)))
     (when tp
-      (tree-pointer-detach tp)
+      ;;(tree-pointer-detach tp)
       (set! (tree-pointer zfd) #f))))
 
 ;;}}}
@@ -1642,7 +1643,7 @@
 (define-method (clear-tree-pointer (zhd <ztHrefFromCiteToBib-data>))
   (let ((tp (tree-pointer zhd)))
     (when tp
-      (tree-pointer-detach tp)
+      ;;(tree-pointer-detach tp)
       (set! (tree-pointer zhd) #f))))
 
 ;;}}}
@@ -3898,8 +3899,7 @@
       (document-remove!-<zfield-data> zfd)
       (when (is-zbibliography? zfield)
         (document-remove!-zbibliography-zfd zfd))
-      (tree-pointer-detach (tree-pointer zfd))
-      (set! (tree-pointer zfd) #f)
+      (clear-tree-pointer zfd)
       (tree-set! zfield "")))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
