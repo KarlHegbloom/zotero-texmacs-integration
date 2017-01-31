@@ -240,7 +240,7 @@
 ;;; This get-refbinding function can be used to retrieve the tree associated
 ;;; with any reference binding key. The key is a string.
 ;;;
-(define (get-refbinding key)
+(tm-define (get-refbinding key)
   (texmacs-exec `(get-binding ,key)))
 
 ;;;;;;
@@ -512,17 +512,57 @@
 ;;; tm-zotero-ext:ensure-zfield-interned!, which is called by the typesetter
 ;;; each time a zfield is encountered.
 ;;;
+
+;;;;;;
+;;;
+;;; This is flag that will be set while the clipboard-cut operation is taking
+;;; place, in an attempt to try and prevent the ztHrefFromCiteToBib fields
+;;; inside of a selection about to be cut from being interned again right after
+;;; uninterning them just prior to actually cutting the text out of the
+;;; document.
+;;;
+(define inside-tm-zotero-clipboard-cut #f)
+
+(define (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
+  (let ((zhd-ht (get-document-ztbibItemRefs-ht documentID))
+        (zfieldID (zfield-zfieldID zfield))
+        (ztHref*-ls (tm-search
+                     zfield
+                     (cut tm-func? <> 'ztHrefFromCiteToBib))))
+    (map (lambda (ztHref*)
+           (tm-zotero-format-debug "unintern-ztHrefFromCiteToBib-for-cut: ztHref* => ~s\n" ztHref*)
+           (let* ((sysID (ztHref*-sysID ztHref*))
+                  (ref-label (ztHrefFromCiteToBib-reflabel zfieldID sysID))
+                  (zhd (hash-ref zhd-ht ref-label)))
+             (tm-zotero-format-debug "unintern-ztHrefFromCiteToBib-for-cut: removing zhd with ref-label: ~s\n" ref-label)
+             (tm-zotero-format-debug "unintern-ztHrefFromCiteToBib-for-cut: ls before: ~s\n"
+                                     (map (lambda (z)
+                                            (ztHrefFromCiteToBib-reflabel (the-zfieldID-of z) (the-sysID-of z)))
+                                          (hash-ref zhd-ht sysID)))
+             (hash-set! zhd-ht sysID
+                        (list-filter
+                         (hash-ref zhd-ht sysID)
+                         (lambda (z)
+                           (not (eq? zhd z)))))
+             (tm-zotero-format-debug "unintern-ztHrefFromCiteToBib-for-cut: ls after: ~s\n"
+                                     (map (lambda (z)
+                                            (ztHrefFromCiteToBib-reflabel (the-zfieldID-of z) (the-sysID-of z)))
+                                          (hash-ref zhd-ht sysID)))
+             (and zhd (clear-tree-pointer zhd))
+             (hash-remove! zhd-ht ref-label)))
+         ztHref*-ls)))
+
 (tm-define (clipboard-cut which)
   (:require (and (in-tm-zotero-style?)
                  (in-text?)
                  (has-zfields? (selection-tree))))
+  (set! inside-tm-zotero-clipboard-cut #t)
   (let* ((documentID (get-documentID))
          (selection-t (selection-tree))
          (zfields (tm-search selection-t is-zfield?))
          (zfd-ht (get-document-zfield-zfd-ht documentID))
          (zfd-ls (get-document-zfield-zfd-ls documentID))
          (zb-zfd-ls (get-document-zbibliography-zfd-ls documentID))
-         (zhd-ht (get-document-ztbibItemRefs-ht documentID))
          (new-zfield-zfd (get-document-new-zfield-zfd documentID)))
     (map (lambda (zfield)
            (let* ((zfieldID (zfield-zfieldID zfield))
@@ -545,27 +585,7 @@
                    ;;      at the place where the selection tree has been cut
                    ;;      from. Also is it GC'd, or would it leak?
                    (clear-tree-pointer zfd)
-                   (let ((ztHref*-ls (tm-search
-                                      zfield
-                                      (cut tm-func? <> 'ztHrefFromCiteToBib))))
-                     (map (lambda (ztHref*)
-                            (let* ((sysID (ztHref*-sysID ztHref*))
-                                   (ref-label (ztHrefFromCiteToBib-reflabel zfieldID sysID))
-                                   (zhd (hash-ref zhd-ht ref-label))
-                                   ;; TODO standardize interface vis-a-vis :refactor:
-                                   ;; document-get*; also reduce code-path by
-                                   ;; not making it recompute values required
-                                   ;; inside of routines being called.
-                                   (zhd-ls (hash-ref zhd-ht sysID)))
-                              ;; TODO do this in-line for now until above TODO :refactor:
-                              ;; and the one near
-                              ;; document-remove!-ztbibItemRefs-ls are
-                              ;; completed.
-                              (hash-set! zhd-ht sysID
-                                         (list-filter zhd-ls (cut eq? zhd <>)))
-                              (clear-tree-pointer zhd)
-                              (hash-remove! zhd-ht ref-label)))
-                          ztHref*-ls)))
+                   (unintern-ztHrefFromCiteToBib-for-cut documentID zfield))
                  (let ((tp (tree-pointer new-zfield-zfd))) ; is the new one???
                    ;;
                    ;; How? This can happen only when the protocol between
@@ -579,10 +599,13 @@
                               (stree->tree
                                '(strong "{?? New Citation ??}")))
                    (when tp
-                     ;;(tree-pointer-detach tp)
+                     (when (observer? tp)
+                       (tree-pointer-detach tp))
                      (set-document-new-zfield-zfd! #f))))))
-         zfields))
-  (former which))
+         zfields)
+      (clipboard-set which selection-t)
+      (tree-set! selection-t ""))
+  (set! inside-tm-zotero-clipboard-cut #f))
 
 
 ;;;;;;
@@ -1589,13 +1612,15 @@
   (zfd-tree #:allocation #:virtual
             #:slot-ref (lambda (zfd)
                          (let ((tp (slot-ref zfd 'tree-pointer)))
-                           (if tp
+                           (if (and tp
+                                    (observer? tp))
                                (tree-pointer->tree tp)
                                #f)))
             #:slot-set! (lambda (zfd t)
                           (and-with tp (slot-ref zfd 'tree-pointer)
-                            ;;(tree-pointer-detach tp)
-                            )
+                            (when (and tp
+                                       (observer? tp))
+                              (tree-pointer-detach tp)))
                           (slot-set! zfd 'tree-pointer (tree->tree-pointer t))
                           (slot-set! zfd 'the-zfieldID-of (zfield-zfieldID t))
                           ;; (slot-set! zfd 'zfd-zfield-Code (zfield-zfield-Code-code t))
@@ -1612,7 +1637,8 @@
 (define-method (clear-tree-pointer (zfd <zfield-data>))
   (let ((tp (tree-pointer zfd)))
     (when tp
-      ;;(tree-pointer-detach tp)
+      (when (observer? tp)
+        (tree-pointer-detach tp))
       (set! (tree-pointer zfd) #f))))
 
 ;;}}}
@@ -1643,7 +1669,8 @@
 (define-method (clear-tree-pointer (zhd <ztHrefFromCiteToBib-data>))
   (let ((tp (tree-pointer zhd)))
     (when tp
-      ;;(tree-pointer-detach tp)
+      (when (observer? tp)
+        (tree-pointer-detach tp))
       (set! (tree-pointer zhd) #f))))
 
 ;;}}}
@@ -2082,52 +2109,54 @@
 ;;;
 (tm-define (tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:secure)
-  (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => ~s\n" zfieldID-t)
-  (let* ((documentID (get-documentID))
-         (zfieldID (tree->stree zfieldID-t))
-         ;;         fail if this is the new-zfield not yet finalized by
-         ;;         Document_insertField.
-         (is-new? (zfield-is-document-new-zfield? documentID zfieldID)))
-    ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: zfieldID => ~s\n" zfieldID)
-    ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: is-new? => ~s\n" is-new?)
-    (if is-new?
-        (begin
-          ;; Then we're done here, that quick, since the new zfield is already
-          ;; partly interned, and isn't finalized until
-          ;; tm-zotero-Document_insertField.
-          ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, is-new? => #t\n")
-          "")
-        (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
-          (if zfd
-              (begin
-                ;; then we're done, it's already interned.
-                ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, zfd was already interned, zfd => ~s\n" zfd)
-                "")
-              ;;
-              ;; else...
-              ;;
-              ;; This is designed to be called only from inside of the zcite or
-              ;; zbibliography expansion, during typesetting of the enclosing
-              ;; zfield tag. This tree-search-upwards will terminate very
-              ;; quickly because it will never be very deeply nested inside of
-              ;; the zfield. Remember, this happens during typesetting.
-              ;;
-              (and-with zfield (tree-search-upwards zfieldID-t zfield-tags)
-                (if (inside-shown-part? zfield)
-                    (begin
-                      (set! zfd (make-instance <zfield-data> #:zfd-tree zfield))
-                      (hash-set! (get-document-zfield-zfd-ht documentID) zfieldID zfd)
-                      (document-merge!-<zfield-data> zfd)
-                      (when (is-zbibliography? zfield)
-                        (document-merge!-zbibliography-zfd zfd))
-                      ;; (tm-zotero-format-debug
-                      ;; "tm-zotero-ext:ensure-zfield-interned! returning. Interned new zfield, zfd => ~s\n" zfd)
+  (unless inside-tm-zotero-clipboard-cut
+    (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => ~s\n" zfieldID-t)
+    (let* ((documentID (get-documentID))
+           (zfieldID (tree->stree zfieldID-t))
+           ;;         fail if this is the new-zfield not yet finalized by
+           ;;         Document_insertField.
+           (is-new? (zfield-is-document-new-zfield? documentID zfieldID)))
+      ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: zfieldID => ~s\n" zfieldID)
+      ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned!: is-new? => ~s\n" is-new?)
+      (if is-new?
+          (begin
+            ;; Then we're done here, that quick, since the new zfield is already
+            ;; partly interned, and isn't finalized until
+            ;; tm-zotero-Document_insertField.
+            ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, is-new? => #t\n")
+            "")
+          (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
+            (if zfd
+                (begin
+                  ;; then we're done, it's already interned.
+                  ;;(tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning, zfd was already interned, zfd => ~s\n" zfd)
+                  "")
+                ;;
+                ;; else...
+                ;;
+                ;; This is designed to be called only from inside of the zcite or
+                ;; zbibliography expansion, during typesetting of the enclosing
+                ;; zfield tag. This tree-search-upwards will terminate very
+                ;; quickly because it will never be very deeply nested inside of
+                ;; the zfield. Remember, this happens during typesetting.
+                ;;
+                (and-with zfield (tree-search-upwards zfieldID-t zfield-tags)
+                  (if (inside-shown-part? zfield)
+                      (begin
+                        (set! zfd (make-instance <zfield-data> #:zfd-tree zfield))
+                        (hash-set! (get-document-zfield-zfd-ht documentID) zfieldID zfd)
+                        (document-merge!-<zfield-data> zfd)
+                        (when (is-zbibliography? zfield)
+                          (document-merge!-zbibliography-zfd zfd))
+                        ;; (tm-zotero-format-debug
+                        ;; "tm-zotero-ext:ensure-zfield-interned! returning. Interned new zfield, zfd => ~s\n" zfd)
+                        )
+                      (begin
+                        ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Not inside show-part. Nothing interned.\n")
+                        )
                       )
-                    (begin
-                      ;; (tm-zotero-format-debug "tm-zotero-ext:ensure-zfield-interned! returning. Not inside show-part. Nothing interned.\n")
-                      )
-                    )
-                ""))))))
+                  ""))))))
+  "")
 
 
 ;;;;;;
@@ -2282,7 +2311,7 @@
 (tm-define (tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! zfieldID-t hashLabel-t)
   (:secure)
   ;; When the tag is not activated, zfieldID-t will be uninitialized.
-  (when (and (not (selection-active-any?))
+  (when (and (not inside-tm-zotero-clipboard-cut)
              (eq? (class-of zfieldID-t) <tree>))
     (let* ((zfieldID (tree->stree zfieldID-t))
            ;;(dummy (tm-zotero-format-debug "tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!: zfieldID => ~s\n" zfieldID))
@@ -4610,7 +4639,7 @@ styles."
   ;; Inside a "with" context that has zt-option-this-zcite-in-text true?
   (and (not (tree-is? zfield 'zbibliography))
        (let* ((with-t (with-like-search (tree-ref zfield :up)))
-              (in-text-opt (and with-t                             
+              (in-text-opt (and with-t
                                 (with-ref with-t
                                           "zt-option-this-zcite-in-text")))
               (forced-in-text? (and in-text-opt
@@ -4638,13 +4667,23 @@ styles."
 (define (tm-zotero-Field_setText tid documentID zfieldID str_text isRich)
   ;; (tm-zotero-set-message
   ;;  (string-append "Processing command: Field_setText " zfieldID "..."))
-  ;; (tm-zotero-format-debug "tm-zotero-Field_setText called.\n")
+  (tm-zotero-format-debug "tm-zotero-Field_setText called.\n")
   (let* ((zfield   (get-document-zfield-by-zfieldID documentID zfieldID))
          (is-note? (and zfield (zfield-IsNote? zfield)))
          (is-bib?  (and zfield (zfield-IsBib? zfield)))
          (tmtext
           (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)))
+    ;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Text-t\n")
+    ;; It was crashing here at the destructor for tree-pointer. I think it's
+    ;; the tree-pointers on the ztHrefFromCiteToBib tags.
+    ;;(set! (zfield-Text-t zfield) tmtext)
+    (set! inside-tm-zotero-clipboard-cut #t)
+    (tm-zotero-format-debug "tm-zotero-Field_setText: about to unintern-ztHrefFromCiteToBib-for-cut\n")
+    (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
+    (tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Text-t\n")
     (set! (zfield-Text-t zfield) tmtext)
+    (set! inside-tm-zotero-clipboard-cut #f)
+    (tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Code-origText\n")
     (set! (zfield-Code-origText zfield) tmtext)
     (set! (zfield-Code-is-modified?-flag zfield) "false")
     (tm-zotero-write tid (safe-scm->json-string '()))))
