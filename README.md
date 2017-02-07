@@ -1,45 +1,55 @@
-Zotero - TeXmacs integration plugin and citation styles.
-========================================================
+# Zotero - TeXmacs integration plugin and citation styles. #
 
-**This branch is the active development branch of this program.**
+__This branch is the active (Α) development branch of this program.__
 
 This is the "Work in progress" branch for performance improvements... It is
-temporary and will be merged into master when it's working.
+temporary and will be merged into master when it's working... better than
+this.
 
-Do not open your important "production" documents with this version yet! It
-will modify the <zcite> tags in place to update them to the new version and I
+*Do not open your important "production" documents with this version yet! It
+will modify the `<zcite>` tags in place to update them to the new version and I
 have not incorporated that into the master branch so opening the document then
 saving it will make it not work anymore in the other branch of this
 program. Use save-as immediately, or better, make a copy of the file first and
 then use it for experimentation only until this is nailed down well enough to
-not blow away your documents.
+not blow away your documents.*
 
-## Important Changes for this branch: ##
+__But please don't be afraid to try it!__
 
-Assuming you have this repository cloned and this branch checked out
-as `~/src/Juris-M/zotero-texmacs-integration` then:
+## YouTube Screencast Demos ##
 
-    cd ~/.TeXmacs/plugins
-    rm zotero
-    ln -s ~/src/Juris-M/zotero-texmacs-integration tm-zotero
+[Juris-M / Zotero and TeXmacs Integration Screencasts Playlist](https://www.youtube.com/playlist?list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
-The reason is that I've changed some file names and some module names.
-
-
-**Yes, after it's all working again, I'll update the documentation!**
-
-This article is very interesting. It talks about verified mathematical
-documents... it makes me wonder if there can be verified legal documents?
-
-http://www.sciencedirect.com/science/article/pii/S1571066107001727
-
-
-[Juris-M / Zotero and TeXmacs Integration Screencast 01](https://www.youtube.com/watch?v=ZhOton-p3T8)
+[Juris-M / Zotero and TeXmacs Integration Screencast 01](https://www.youtube.com/watch?v=ZhOton-p3T8&index=1&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
+[Juris-M / Zotero and TeXmacs Integration Screencast 02](https://www.youtube.com/watch?v=74tzA2OCu4I&index=2&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
 RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/performance-improvments-wip/doc/tm-zotero-tutorial.en.pdf)
 
-How to get this up and running:
--------------------------------
+
+## Important Changes for this branch: ##
+
+### To install this, you have to clone this repository and checkout this branch. ###
+
+The reason for the symlink tests is that I've changed some file names and some
+module names. If you had symlinks to the source in `~/TeXmacs/plugins` before,
+they should be removed, and then only one created named `tm-zotero` that points
+to the top directory of a clone of the source from github, *e.g.,*
+
+    cd ~;
+    mkdir --parents ~/src/Juris-M || true;
+    cd ~/src/Juris-M;
+    git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
+    cd zotero-texmacs-integration
+    git checkout performance-improvments-wip
+    cd ~;
+    mkdir --parents ~/.TeXmacs/plugins || true;
+    cd ~/.TeXmacs/plugins;
+    [[ -L "legal-brief" -a -L "zotero" -a $(realpath "legal-brief") = $(realpath "zotero" ]] && rm legal-brief zotero;
+    [[ -L "zotero" ]] && rm zotero;
+    ln -s ~/src/Juris-M/zotero-texmacs-integration tm-zotero;
+
+
+## How to get this up and running: ##
 
   * Install a recent (development snapshot of) TeXmacs. This program
     is untested with older versions of TeXmacs. If you can not build
@@ -85,18 +95,24 @@ How to get this up and running:
     source code directory and use a symlink from the TeXmacs
     directory:
 
-        cd ~/src;
-        git clone https://github.com/KarlHegbloom/zotero-texmacs-integration.git;
+        cd ~;
+        mkdir --parents ~/src/Juris-M || true;
+        cd ~/src/Juris-M;
+        git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
         cd zotero-texmacs-integration
         git checkout performance-improvments-wip
+        cd ~;
+        mkdir --parents ~/.TeXmacs/plugins || true;
         cd ~/.TeXmacs/plugins;
-        ln -s ~/src/zotero-texmacs-integration zotero;
+        [[ -L "legal-brief" -a -L "zotero" -a $(realpath "legal-brief") = $(realpath "zotero" ]] && rm legal-brief zotero;
+        [[ -L "zotero" ]] && rm zotero;
+        ln -s ~/src/Juris-M/zotero-texmacs-integration tm-zotero;
 
     You could download a zip from github, but then you won't have the
     easy update functionality you get by using git. To update the code
     when I change it, you run:
 
-        cd ~/src/zotero-texmacs-integration;
+        cd ~/src/Juris-M/zotero-texmacs-integration;
         git pull;
 
 Now when you start TeXmacs, it will be able to find the style and the
@@ -123,3 +139,13 @@ Please use the Github issue tracker to report any problems. That will
 assist me in not losing any trouble-tickets:
 
 https://github.com/KarlHegbloom/zotero-texmacs-integration/issues
+
+
+## Other potentially interesting media ##
+
+*Yes, after it's all working again, I'll update the documentation!*
+
+This article is very interesting. It talks about verified mathematical
+documents... it makes me wonder if there can be verified legal documents?
+
+http://www.sciencedirect.com/science/article/pii/S1571066107001727
