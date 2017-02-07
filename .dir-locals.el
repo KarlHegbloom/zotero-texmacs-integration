@@ -27,9 +27,10 @@
           ("TESTING" . "gold")
           ("VERIFY" . "red")
           ("CANCELED" . "OliveDrab")
-          ("CANCELLED" . "OliveDrab"))
+          ("CANCELLED" . "OliveDrab")
+          ("S.E.P." . "DarkOrange"))
          (org-todo-keywords
-          (sequence "TODO(t)" "WIP(w!)" "WAITING(W@/!)" "TESTING(T!)" "VERIFY(v@/!)" "FIXME(f@/!)" "|" "DONE(d!/!)" "CANCELED(c@/!)")
+          (sequence "TODO(t)" "WIP(w!)" "WAITING(W@/!)" "TESTING(T!)" "VERIFY(v@/!)" "FIXME(f@/!)" "|" "DONE(d!/!)" "CANCELED(c@/!)" "S.E.P.(s@/!)")
           (sequence "To Do: " "Done : "))
          (org-export-allow-bind-keywords . t)
          (org-export-with-email . t)
