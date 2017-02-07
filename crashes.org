@@ -1,0 +1,789 @@
+#+TITLE TeXmacs Crashes Todo Journal
+
+#+TODO: TODO(t) WIP(w!) WAITING(W@/!) TESTING(T!) VERIFY(v@/!) FIXME(f@/!) | DONE(d!/!) CANCELED(c@/!) S.E.P.(s@/!)
+#+PRIORITIES: A D B
+
+#+TAGS: {TodoKind : @feature @bug }
+#+TAGS: [assigned : karlheg ]
+#+TAGS: [subsys   : @scheme @style @documentation ]
+
+#+TAGS: [ Issue : {@Issue_.+} ]
+
+This is so I can keep working on a document that I need to write with
+higher priority than fixing scheme crashes that don't cause TeXmacs to
+stop functioning because I have a deadline.
+
+There is an org-capture template defined that helps me to enter these
+here. The procedure is to use a M-x shell buffer to run the texmacs
+command from, so that the scheme stack dumps going to stdout will be
+available from inside of Emacs. When there's a crash, I can then
+highlight it's text as the active region, and then use C-c c to
+initiate org-capture, then press S, which will log a TODO item here,
+also allowing entry of a brief description.
+
+* Cut and Paste
+** WIP TeXmacs stacktrace: Enter a citation, then attempt to cut it using C-w.
+   :LOGBOOK:
+   - State "WIP"        from "TODO"       [2017-02-07 Tue 08:24]
+   :END:
+
+   Entered [2017-01-22 Sun 19:43]
+
+ #+BEGIN_EXAMPLE
+  Backtrace:
+  In unknown file:
+     ?:  0* [#<procedure #f (key time)> "C-w" 116251.0]
+     ?:  1* (if (in-active-graphics?) (cond (# #) (# #)) (former key time))
+     ?:  2  [#<procedure #f (key time)> "C-w" 116251.0]
+  In /usr/share/TeXmacs/progs/kernel/gui/kbd-handlers.scm:
+      ...
+    27:  3  [key-press "C-w"]
+  In unknown file:
+     ?:  4* [#<procedure #f ()>]
+  In /usr/share/TeXmacs/progs/generic/generic-kbd.scm:
+   248:  5* [#<procedure #f (which)> "primary"]
+  In unknown file:
+     ?:  6  (if (and # # #) (begin # #) (former which))
+     ?:  7  (begin (let* (# # # # ...) (map # zfields)) (former which))
+  In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+   901:  8* (let* (# # # # ...) (map # zfields))
+   908:  9  [map #<procedure #f (zfield)> (#)]
+  In unknown file:
+     ?: 10* [#<procedure #f #> #]
+  In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+   909: 11* (let* ((zfieldID #) (zfd #)) (if (not #) (begin # # # ...) (let # # #)))
+   911: 12  (if (not #) (begin # # # ...) (let # # #))
+      ...
+   927: 13  [map #<procedure #f (href)> (#)]
+  In unknown file:
+     ?: 14* [#<procedure #f #> #]
+  In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+   928: 15* (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #))
+  
+  /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: In expression (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #)):
+  /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: Unbound variable: document-remove!-<ztHrefFromCiteToBib-data>
+ #+END_EXAMPLE
+
+** WIP TeXmacs stacktrace: Another crash trying to use C-w on selected zcite
+   :LOGBOOK:
+   - State "WIP"        from "TODO"       [2017-02-07 Tue 08:24]
+   :END:
+
+   Entered [2017-01-22 Sun 21:58]
+
+ #+BEGIN_EXAMPLE
+Backtrace:
+In unknown file:
+   ?:  0* [#<procedure #f (key time)> "C-w" 19829.0]
+   ?:  1* (if (in-active-graphics?) (cond (# #) (# #)) (former key time))
+   ?:  2  [#<procedure #f (key time)> "C-w" 19829.0]
+In /usr/share/TeXmacs/progs/kernel/gui/kbd-handlers.scm:
+    ...
+  27:  3  [key-press "C-w"]
+In unknown file:
+   ?:  4* [#<procedure #f ()>]
+In /usr/share/TeXmacs/progs/generic/generic-kbd.scm:
+ 248:  5* [#<procedure #f (which)> "primary"]
+In unknown file:
+   ?:  6  (if (and # # #) (begin # #) (former which))
+   ?:  7  (begin (let* (# # # # ...) (map # zfields)) (former which))
+In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+ 901:  8* (let* (# # # # ...) (map # zfields))
+ 908:  9  [map #<procedure #f (zfield)> (#)]
+In unknown file:
+   ?: 10* [#<procedure #f #> #]
+In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+ 909: 11* (let* ((zfieldID #) (zfd #)) (if (not #) (begin # # # ...) (let # # #)))
+ 911: 12  (if (not #) (begin # # # ...) (let # # #))
+    ...
+ 927: 13  [map #<procedure #f (href)> (#)]
+In unknown file:
+   ?: 14* [#<procedure #f #> #]
+In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
+ 928: 15* (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #))
+
+/home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: In expression (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #)):
+/home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: Unbound variable: document-remove!-<ztHrefFromCiteToBib-data>
+ #+END_EXAMPLE
+
+
+
+* tree-pointer destructor and guardian
+** WIP TeXmacs stacktrace: crash in tree-pointer destructor
+   :PROPERTIES:
+   :ID:       b6001b50-f170-4a7e-97e5-79a51be2591d
+   :END:
+   :LOGBOOK:
+   - State "WIP"        from "TODO"       [2017-02-07 Tue 08:24]
+   :END:
+
+   Fresh document, add tm-zotero package, use menu to set document preferences,
+   and then enter a citation field with one citation item in it. Press Tab to
+   editCitation, press enter without changing it, and it works fine. Press Tab
+   again to editCitation, then add a second citation to it, and it crashes with
+   the following:
+
+ #+begin_src shell
+karlheg@syrinx:~/src/Juris-M/zotero-texmacs-integration (performance-improvments-wip)$ texmacs --gdb
+GNU gdb (Ubuntu 7.12-0ubuntu1) 7.12
+Copyright (C) 2016 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+<http://www.gnu.org/software/gdb/documentation/>.
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from /usr/lib/texmacs/TeXmacs/bin/texmacs.bin...done.
+(gdb) run
+Starting program: /usr/lib/texmacs/TeXmacs/bin/texmacs.bin 
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+[New Thread 0x7fffb2e20700 (LWP 20226)]
+[New Thread 0x7fff66dfb700 (LWP 20227)]
+Running my-init-texmacs
+Setting developer-mode? #t
+TeXmacs] With linked TrueType support
+WARNING: (tm-zotero): `make' imported from both (guile-user) and (oop goops)
+WARNING: (tm-zotero): imported module (srfi srfi-19) overrides core binding `current-time'
+WARNING: (tm-zotero): `color' imported from both (guile-user) and (term ansi-color)
+1485830767:220044000:(000000043:446974000):tm-zotero-write:tid:0:cmd:"\"setDocPrefs\""
+1485830767:222300000:(000000000:002256000):tm-zotero-listen called by: cmd => "setDocPrefs"
+1485830767:235651000:(000000000:013351000):tm-zotero-listen delayed read: tid => 1, len => 37, cmdstr => "[\"Application_getActiveDocument\",[3]]"
+1485830767:247653000:(000000000:012002000):tm-zotero-write:tid:1:cmd:"[3, \"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]"
+1485830767:259090000:(000000000:011437000):tm-zotero-listen delayed read: tid => 2, len => 82, cmdstr => "[\"Document_getDocumentData\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830767:260657000:(000000000:001567000):tm-zotero-write:tid:2:cmd:"\"\""
+1485830775:651420000:(000000008:390763000):tm-zotero-listen delayed read: tid => 3, len => 1320, cmdstr => "[\"Document_setDocumentData\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"<data data-version=\\\"3\\\" zotero-version=\\\"4.0.29.12m98\\\"><session id=\\\"KtO0WtDh\\\"/><style id=\\\"http://juris-m.github.io/styles/jm-indigobook-catsort-bib\\\" locale=\\\"en-US\\\" hasBibliography=\\\"1\\\" bibliographyStyleHasBeenSet=\\\"0\\\"/><prefs><pref name=\\\"citationTransliteration\\\" value=\\\"en\\\"/><pref name=\\\"citationTranslation\\\" value=\\\"en\\\"/><pref name=\\\"citationSort\\\" value=\\\"en\\\"/><pref name=\\\"citationLangPrefsPersons\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsInstitutions\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsTitles\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsJournals\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsPublishers\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsPlaces\\\" value=\\\"orig\\\"/><pref name=\\\"citationAffixes\\\" value=\\\"|||||||||||||||||||||||||||||||||||||||||||||||\\\"/><pref name=\\\"projectName\\\" value=\\\"\\\"/><pref name=\\\"extractingLibraryID\\\" value=\\\"0\\\"/><pref name=\\\"extractingLibraryName\\\" value=\\\"No group selected\\\"/><pref name=\\\"fieldType\\\" value=\\\"ReferenceMark\\\"/><pref name=\\\"storeReferences\\\" value=\\\"true\\\"/><pref name=\\\"automaticJournalAbbreviations\\\" value=\\\"true\\\"/><pref name=\\\"noteType\\\" value=\\\"0\\\"/><pref name=\\\"suppressTrailingPunctuation\\\" value=\\\"true\\\"/></prefs></data>\"]]"
+1485830775:674924000:(000000000:023504000):tm-zotero-write:tid:3:cmd:"null"
+1485830775:951203000:(000000000:276279000):tm-zotero-listen delayed read: tid => 4, len => 92, cmdstr => "[\"Document_getFields\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830775:953181000:(000000000:001978000):tm-zotero-write:tid:4:cmd:"[[0], [\"TEMP\"], [0]]"
+1485830775:962001000:(000000000:008820000):tm-zotero-listen delayed read: tid => 5, len => 92, cmdstr => "[\"Document_getFields\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830775:963468000:(000000000:001467000):tm-zotero-write:tid:5:cmd:"[[0], [\"TEMP\"], [0]]"
+1485830775:972793000:(000000000:009325000):tm-zotero-listen delayed read: tid => 6, len => 75, cmdstr => "[\"Document_activate\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830775:974109000:(000000000:001316000):tm-zotero-write:tid:6:cmd:"null"
+1485830775:982585000:(000000000:008476000):tm-zotero-listen delayed read: tid => 7, len => 75, cmdstr => "[\"Document_complete\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830775:988727000:(000000000:006142000):tm-zotero-write:tid:7:cmd:"null"
+1485830781:799742000:(000000005:811015000):tm-zotero-write:tid:0:cmd:"\"addCitation\""
+1485830781:801252000:(000000000:001510000):tm-zotero-listen called by: cmd => "addCitation"
+1485830781:819747000:(000000000:018495000):tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => <tree +G8eZjV3CqYJXFa>
+1485830781:843825000:(000000000:024078000):tm-zotero-listen delayed read: tid => 8, len => 37, cmdstr => "[\"Application_getActiveDocument\",[3]]"
+1485830781:845446000:(000000000:001621000):tm-zotero-write:tid:8:cmd:"[3, \"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]"
+1485830781:853700000:(000000000:008254000):tm-zotero-listen delayed read: tid => 9, len => 82, cmdstr => "[\"Document_getDocumentData\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830781:858210000:(000000000:004510000):tm-zotero-write:tid:9:cmd:"\"<data data-version=\\\"3\\\" zotero-version=\\\"4.0.29.12m98\\\"><session id=\\\"KtO0WtDh\\\"/><style id=\\\"http://juris-m.github.io/styles/jm-indigobook-catsort-bib\\\" locale=\\\"en-US\\\" hasBibliography=\\\"1\\\" bibliographyStyleHasBeenSet=\\\"0\\\"/><prefs><pref name=\\\"citationTransliteration\\\" value=\\\"en\\\"/><pref name=\\\"citationTranslation\\\" value=\\\"en\\\"/><pref name=\\\"citationSort\\\" value=\\\"en\\\"/><pref name=\\\"citationLangPrefsPersons\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsInstitutions\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsTitles\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsJournals\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsPublishers\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsPlaces\\\" value=\\\"orig\\\"/><pref name=\\\"citationAffixes\\\" value=\\\"|||||||||||||||||||||||||||||||||||||||||||||||\\\"/><pref name=\\\"projectName\\\" value=\\\"\\\"/><pref name=\\\"extractingLibraryID\\\" value=\\\"0\\\"/><pref name=\\\"extractingLibraryName\\\" value=\\\"No group selected\\\"/><pref name=\\\"fieldType\\\" value=\\\"ReferenceMark\\\"/><pref name=\\\"storeReferences\\\" value=\\\"true\\\"/><pref name=\\\"automaticJournalAbbreviations\\\" value=\\\"true\\\"/><pref name=\\\"noteType\\\" value=\\\"0\\\"/><pref name=\\\"suppressTrailingPunctuation\\\" value=\\\"true\\\"/></prefs></data>\""
+1485830781:873215000:(000000000:015005000):tm-zotero-listen delayed read: tid => 10, len => 97, cmdstr => "[\"Document_canInsertField\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830781:876472000:(000000000:003257000):tm-zotero-write:tid:10:cmd:"true"
+1485830781:883684000:(000000000:007212000):tm-zotero-listen delayed read: tid => 11, len => 96, cmdstr => "[\"Document_cursorInField\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830781:885583000:(000000000:001899000):tm-zotero-write:tid:11:cmd:"null"
+1485830781:893851000:(000000000:008268000):tm-zotero-listen delayed read: tid => 12, len => 96, cmdstr => "[\"Document_insertField\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\",0]]"
+1485830781:898161000:(000000000:004310000):tm-zotero-write:tid:12:cmd:"[\"+G8eZjV3CqYJXFa\", \"\", \"0\"]"
+1485830781:943267000:(000000000:045106000):tm-zotero-listen delayed read: tid => 13, len => 96, cmdstr => "[\"Field_setCode\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\",\"TEMP\"]]"
+1485830781:947149000:(000000000:003882000):tm-zotero-write:tid:13:cmd:"null"
+1485830781:958942000:(000000000:011793000):tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => <tree +G8eZjV3CqYJXFa>
+1485830781:976075000:(000000000:017133000):tm-zotero-listen delayed read: tid => 14, len => 92, cmdstr => "[\"Document_getFields\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830781:977786000:(000000000:001711000):tm-zotero-write:tid:14:cmd:"[[\"+G8eZjV3CqYJXFa\"], [\"TEMP\"], [\"0\"]]"
+1485830791:289885000:(000000009:312099000):tm-zotero-listen delayed read: tid => 15, len => 297, cmdstr => "[\"Field_setText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\",\"{\\\\rtf \\\\zttextit{\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\path{https://scholar.google.com/scholar\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\",true]]"
+1485830791:292810000:(000000000:002925000):tm-zotero-Field_setText called.
+1485830791:343671000:(000000000:050861000):tm-zotero-UTF-8-str_text->texmacs called, str_text => "{\\rtf \\zttextit{\\ztHrefFromCiteToBib{#zbibSysID1618}{\\path{https://scholar.google.com/scholar\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}", is-note? => #f, is-bib? => #f
+1485830791:454269000:(000000000:110598000):tm-zotero-UTF-8-str_text->texmacs returning.
+1485830791:454856000:(000000000:000587000):tm-zotero-Field_setText: about to unintern-ztHrefFromCiteToBib-for-cut
+1485830791:455691000:(000000000:000835000):tm-zotero-Field_setText: about to set zfield-Text-t
+1485830791:457423000:(000000000:001732000):tm-zotero-Field_setText: about to set zfield-Code-origText
+1485830791:459162000:(000000000:001739000):tm-zotero-write:tid:15:cmd:"null"
+1485830791:469635000:(000000000:010473000):tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => <tree +G8eZjV3CqYJXFa>
+1485830791:528667000:(000000000:059032000):tm-zotero-listen delayed read: tid => 16, len => 89, cmdstr => "[\"Field_getText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\"]]"
+1485830791:530321000:(000000000:001654000):tm-zotero-write:tid:16:cmd:"\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\"#zbibSysID1618\\\" (slink \\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\") \\\"Griffi\\\") \\\"n \\\" (abbr \\\"v.\\\") \\\" Illinois\\\")) \\\", 351 US 12 (\\\" (abbr \\\"Sup.\\\") \\\" \\\" (abbr \\\"Ct.\\\") \\\" 1956).\\\")\""
+1485830791:560491000:(000000000:030170000):tm-zotero-listen delayed read: tid => 17, len => 1413, cmdstr => "[\"Field_setCode\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\",\"ITEM CSL_CITATION {\\\"citationID\\\":\\\"bsD1Enn9\\\",\\\"properties\\\":{\\\"formattedCitation\\\":\\\"{\\\\\\\\rtf \\\\\\\\zttextit{\\\\\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\\\\\path{https://scholar.google.com/scholar\\\\\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\\\",\\\"plainCitation\\\":\\\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\\\\\"#zbibSysID1618\\\\\\\" (slink \\\\\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\\\\\") \\\\\\\"Griffi\\\\\\\") \\\\\\\"n \\\\\\\" (abbr \\\\\\\"v.\\\\\\\") \\\\\\\" Illinois\\\\\\\")) \\\\\\\", 351 US 12 (\\\\\\\" (abbr \\\\\\\"Sup.\\\\\\\") \\\\\\\" \\\\\\\" (abbr \\\\\\\"Ct.\\\\\\\") \\\\\\\" 1956).\\\\\\\")\\\"},\\\"citationItems\\\":[{\\\"id\\\":1618,\\\"uris\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"uri\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"itemData\\\":{\\\"type\\\":\\\"legal_case\\\",\\\"title\\\":\\\"Griffin v. Illinois\\\",\\\"container-title\\\":\\\"US\\\",\\\"authority\\\":\\\"Supreme Court\\\",\\\"page\\\":\\\"12\\\",\\\"volume\\\":\\\"351\\\",\\\"URL\\\":\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\",\\\"note\\\":\\\"mlzsync1:0051{\\\\\\\"type\\\\\\\":\\\\\\\"case\\\\\\\",\\\\\\\"extrafields\\\\\\\":{\\\\\\\"jurisdiction\\\\\\\":\\\\\\\"us\\\\\\\"}}00000\\\",\\\"issued\\\":{\\\"raw\\\":\\\"April 23, 1956\\\"},\\\"accessed\\\":{\\\"raw\\\":\\\"2015-06-29T21:41:22Z\\\"}}}],\\\"schema\\\":\\\"https://github.com/citation-style-language/schema/raw/master/csl-citation.json\\\"}\"]]"
+1485830791:567518000:(000000000:007027000):tm-zotero-write:tid:17:cmd:"null"
+1485830791:582187000:(000000000:014669000):tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => <tree +G8eZjV3CqYJXFa>
+1485830791:607935000:(000000000:025748000):tm-zotero-listen delayed read: tid => 18, len => 297, cmdstr => "[\"Field_setText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\",\"{\\\\rtf \\\\zttextit{\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\path{https://scholar.google.com/scholar\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\",true]]"
+1485830791:609304000:(000000000:001369000):tm-zotero-Field_setText called.
+1485830791:651850000:(000000000:042546000):tm-zotero-UTF-8-str_text->texmacs called, str_text => "{\\rtf \\zttextit{\\ztHrefFromCiteToBib{#zbibSysID1618}{\\path{https://scholar.google.com/scholar\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}", is-note? => #f, is-bib? => #f
+1485830791:703011000:(000000000:051161000):tm-zotero-UTF-8-str_text->texmacs returning.
+1485830791:703931000:(000000000:000920000):tm-zotero-Field_setText: about to unintern-ztHrefFromCiteToBib-for-cut
+1485830791:705118000:(000000000:001187000):unintern-ztHrefFromCiteToBib-for-cut: ztHref* => <tree <ztHrefFromCiteToBib|#zbibSysID1618|<slink|https://scholar.google.com/scholar_case?case=7154369965973865405>|Griffi>>
+1485830791:706247000:(000000000:001129000):unintern-ztHrefFromCiteToBib-for-cut: removing zhd with ref-label: "zciteID+G8eZjV3CqYJXFa#zbibSysID1618"
+1485830791:707348000:(000000000:001101000):unintern-ztHrefFromCiteToBib-for-cut: ls before: ("zciteID+G8eZjV3CqYJXFa#zbibSysID1618")
+1485830791:708367000:(000000000:001019000):unintern-ztHrefFromCiteToBib-for-cut: ls after: ()
+1485830791:709570000:(000000000:001203000):tm-zotero-Field_setText: about to set zfield-Text-t
+1485830791:710640000:(000000000:001070000):tm-zotero-Field_setText: about to set zfield-Code-origText
+1485830791:712985000:(000000000:002345000):tm-zotero-write:tid:18:cmd:"null"
+1485830791:725034000:(000000000:012049000):tm-zotero-listen delayed read: tid => 19, len => 75, cmdstr => "[\"Document_activate\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830791:726403000:(000000000:001369000):tm-zotero-write:tid:19:cmd:"null"
+1485830791:769204000:(000000000:042801000):tm-zotero-listen delayed read: tid => 20, len => 75, cmdstr => "[\"Document_complete\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830791:773240000:(000000000:004036000):tm-zotero-write:tid:20:cmd:"null"
+1485830794:828997000:(000000003:055757000):tm-zotero-write:tid:0:cmd:"\"editCitation\""
+1485830794:830548000:(000000000:001551000):tm-zotero-listen called by: cmd => "editCitation"
+1485830794:842792000:(000000000:012244000):tm-zotero-listen delayed read: tid => 21, len => 37, cmdstr => "[\"Application_getActiveDocument\",[3]]"
+1485830794:844846000:(000000000:002054000):tm-zotero-write:tid:21:cmd:"[3, \"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]"
+1485830794:853017000:(000000000:008171000):tm-zotero-listen delayed read: tid => 22, len => 82, cmdstr => "[\"Document_getDocumentData\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830794:858313000:(000000000:005296000):tm-zotero-write:tid:22:cmd:"\"<data data-version=\\\"3\\\" zotero-version=\\\"4.0.29.12m98\\\"><session id=\\\"KtO0WtDh\\\"/><style id=\\\"http://juris-m.github.io/styles/jm-indigobook-catsort-bib\\\" locale=\\\"en-US\\\" hasBibliography=\\\"1\\\" bibliographyStyleHasBeenSet=\\\"0\\\"/><prefs><pref name=\\\"citationTransliteration\\\" value=\\\"en\\\"/><pref name=\\\"citationTranslation\\\" value=\\\"en\\\"/><pref name=\\\"citationSort\\\" value=\\\"en\\\"/><pref name=\\\"citationLangPrefsPersons\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsInstitutions\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsTitles\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsJournals\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsPublishers\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsPlaces\\\" value=\\\"orig\\\"/><pref name=\\\"citationAffixes\\\" value=\\\"|||||||||||||||||||||||||||||||||||||||||||||||\\\"/><pref name=\\\"projectName\\\" value=\\\"\\\"/><pref name=\\\"extractingLibraryID\\\" value=\\\"0\\\"/><pref name=\\\"extractingLibraryName\\\" value=\\\"No group selected\\\"/><pref name=\\\"fieldType\\\" value=\\\"ReferenceMark\\\"/><pref name=\\\"storeReferences\\\" value=\\\"true\\\"/><pref name=\\\"automaticJournalAbbreviations\\\" value=\\\"true\\\"/><pref name=\\\"noteType\\\" value=\\\"0\\\"/><pref name=\\\"suppressTrailingPunctuation\\\" value=\\\"true\\\"/></prefs></data>\""
+1485830794:873397000:(000000000:015084000):tm-zotero-listen delayed read: tid => 23, len => 96, cmdstr => "[\"Document_cursorInField\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830794:879740000:(000000000:006343000):tm-zotero-write:tid:23:cmd:"[\"+G8eZjV3CqYJXFa\", \"ITEM CSL_CITATION {\\\"citationID\\\":\\\"bsD1Enn9\\\",\\\"properties\\\":{\\\"formattedCitation\\\":\\\"{\\\\\\\\rtf \\\\\\\\zttextit{\\\\\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\\\\\path{https://scholar.google.com/scholar\\\\\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\\\",\\\"plainCitation\\\":\\\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\\\\\"#zbibSysID1618\\\\\\\" (slink \\\\\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\\\\\") \\\\\\\"Griffi\\\\\\\") \\\\\\\"n \\\\\\\" (abbr \\\\\\\"v.\\\\\\\") \\\\\\\" Illinois\\\\\\\")) \\\\\\\", 351 US 12 (\\\\\\\" (abbr \\\\\\\"Sup.\\\\\\\") \\\\\\\" \\\\\\\" (abbr \\\\\\\"Ct.\\\\\\\") \\\\\\\" 1956).\\\\\\\")\\\"},\\\"citationItems\\\":[{\\\"id\\\":1618,\\\"uris\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"uri\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"itemData\\\":{\\\"type\\\":\\\"legal_case\\\",\\\"title\\\":\\\"Griffin v. Illinois\\\",\\\"container-title\\\":\\\"US\\\",\\\"authority\\\":\\\"Supreme Court\\\",\\\"page\\\":\\\"12\\\",\\\"volume\\\":\\\"351\\\",\\\"URL\\\":\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\",\\\"note\\\":\\\"mlzsync1:0051{\\\\\\\"type\\\\\\\":\\\\\\\"case\\\\\\\",\\\\\\\"extrafields\\\\\\\":{\\\\\\\"jurisdiction\\\\\\\":\\\\\\\"us\\\\\\\"}}00000\\\",\\\"issued\\\":{\\\"raw\\\":\\\"April 23, 1956\\\"},\\\"accessed\\\":{\\\"raw\\\":\\\"2015-06-29T21:41:22Z\\\"}}}],\\\"schema\\\":\\\"https://github.com/citation-style-language/schema/raw/master/csl-citation.json\\\"}\", \"0\"]"
+1485830794:894113000:(000000000:014373000):tm-zotero-listen delayed read: tid => 24, len => 89, cmdstr => "[\"Field_getText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\"]]"
+1485830794:897661000:(000000000:003548000):tm-zotero-write:tid:24:cmd:"\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\"#zbibSysID1618\\\" (slink \\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\") \\\"Griffi\\\") \\\"n \\\" (abbr \\\"v.\\\") \\\" Illinois\\\")) \\\", 351 US 12 (\\\" (abbr \\\"Sup.\\\") \\\" \\\" (abbr \\\"Ct.\\\") \\\" 1956).\\\")\""
+1485830794:906027000:(000000000:008366000):tm-zotero-listen delayed read: tid => 25, len => 92, cmdstr => "[\"Document_getFields\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830794:910315000:(000000000:004288000):tm-zotero-write:tid:25:cmd:"[[\"+G8eZjV3CqYJXFa\"], [\"ITEM CSL_CITATION {\\\"citationID\\\":\\\"bsD1Enn9\\\",\\\"properties\\\":{\\\"formattedCitation\\\":\\\"{\\\\\\\\rtf \\\\\\\\zttextit{\\\\\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\\\\\path{https://scholar.google.com/scholar\\\\\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\\\",\\\"plainCitation\\\":\\\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\\\\\"#zbibSysID1618\\\\\\\" (slink \\\\\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\\\\\") \\\\\\\"Griffi\\\\\\\") \\\\\\\"n \\\\\\\" (abbr \\\\\\\"v.\\\\\\\") \\\\\\\" Illinois\\\\\\\")) \\\\\\\", 351 US 12 (\\\\\\\" (abbr \\\\\\\"Sup.\\\\\\\") \\\\\\\" \\\\\\\" (abbr \\\\\\\"Ct.\\\\\\\") \\\\\\\" 1956).\\\\\\\")\\\"},\\\"citationItems\\\":[{\\\"id\\\":1618,\\\"uris\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"uri\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"itemData\\\":{\\\"type\\\":\\\"legal_case\\\",\\\"title\\\":\\\"Griffin v. Illinois\\\",\\\"container-title\\\":\\\"US\\\",\\\"authority\\\":\\\"Supreme Court\\\",\\\"page\\\":\\\"12\\\",\\\"volume\\\":\\\"351\\\",\\\"URL\\\":\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\",\\\"note\\\":\\\"mlzsync1:0051{\\\\\\\"type\\\\\\\":\\\\\\\"case\\\\\\\",\\\\\\\"extrafields\\\\\\\":{\\\\\\\"jurisdiction\\\\\\\":\\\\\\\"us\\\\\\\"}}00000\\\",\\\"issued\\\":{\\\"raw\\\":\\\"April 23, 1956\\\"},\\\"accessed\\\":{\\\"raw\\\":\\\"2015-06-29T21:41:22Z\\\"}}}],\\\"schema\\\":\\\"https://github.com/citation-style-language/schema/raw/master/csl-citation.json\\\"}\"], [\"0\"]]"
+1485830796:297772000:(000000001:387457000):tm-zotero-listen delayed read: tid => 26, len => 297, cmdstr => "[\"Field_setText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\",\"{\\\\rtf \\\\zttextit{\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\path{https://scholar.google.com/scholar\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\",true]]"
+1485830796:299477000:(000000000:001705000):tm-zotero-Field_setText called.
+1485830796:328260000:(000000000:028783000):tm-zotero-UTF-8-str_text->texmacs called, str_text => "{\\rtf \\zttextit{\\ztHrefFromCiteToBib{#zbibSysID1618}{\\path{https://scholar.google.com/scholar\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}", is-note? => #f, is-bib? => #f
+1485830796:374553000:(000000000:046293000):tm-zotero-UTF-8-str_text->texmacs returning.
+1485830796:375421000:(000000000:000868000):tm-zotero-Field_setText: about to unintern-ztHrefFromCiteToBib-for-cut
+1485830796:376531000:(000000000:001110000):unintern-ztHrefFromCiteToBib-for-cut: ztHref* => <tree <ztHrefFromCiteToBib|#zbibSysID1618|<slink|https://scholar.google.com/scholar_case?case=7154369965973865405>|Griffi>>
+1485830796:377469000:(000000000:000938000):unintern-ztHrefFromCiteToBib-for-cut: removing zhd with ref-label: "zciteID+G8eZjV3CqYJXFa#zbibSysID1618"
+1485830796:378380000:(000000000:000911000):unintern-ztHrefFromCiteToBib-for-cut: ls before: ()
+1485830796:379235000:(000000000:000855000):unintern-ztHrefFromCiteToBib-for-cut: ls after: ()
+1485830796:380108000:(000000000:000873000):tm-zotero-Field_setText: about to set zfield-Text-t
+1485830796:381089000:(000000000:000981000):tm-zotero-Field_setText: about to set zfield-Code-origText
+1485830796:382519000:(000000000:001430000):tm-zotero-write:tid:26:cmd:"null"
+1485830796:396167000:(000000000:013648000):tm-zotero-listen delayed read: tid => 27, len => 89, cmdstr => "[\"Field_getText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\"]]"
+1485830796:399201000:(000000000:003034000):tm-zotero-write:tid:27:cmd:"\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\"#zbibSysID1618\\\" (slink \\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\") \\\"Griffi\\\") \\\"n \\\" (abbr \\\"v.\\\") \\\" Illinois\\\")) \\\", 351 US 12 (\\\" (abbr \\\"Sup.\\\") \\\" \\\" (abbr \\\"Ct.\\\") \\\" 1956).\\\")\""
+1485830796:462492000:(000000000:063291000):tm-zotero-listen delayed read: tid => 28, len => 1413, cmdstr => "[\"Field_setCode\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\",\"ITEM CSL_CITATION {\\\"citationID\\\":\\\"wkQCRJUY\\\",\\\"properties\\\":{\\\"formattedCitation\\\":\\\"{\\\\\\\\rtf \\\\\\\\zttextit{\\\\\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\\\\\path{https://scholar.google.com/scholar\\\\\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\\\",\\\"plainCitation\\\":\\\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\\\\\"#zbibSysID1618\\\\\\\" (slink \\\\\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\\\\\") \\\\\\\"Griffi\\\\\\\") \\\\\\\"n \\\\\\\" (abbr \\\\\\\"v.\\\\\\\") \\\\\\\" Illinois\\\\\\\")) \\\\\\\", 351 US 12 (\\\\\\\" (abbr \\\\\\\"Sup.\\\\\\\") \\\\\\\" \\\\\\\" (abbr \\\\\\\"Ct.\\\\\\\") \\\\\\\" 1956).\\\\\\\")\\\"},\\\"citationItems\\\":[{\\\"id\\\":1618,\\\"uris\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"uri\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"itemData\\\":{\\\"type\\\":\\\"legal_case\\\",\\\"title\\\":\\\"Griffin v. Illinois\\\",\\\"container-title\\\":\\\"US\\\",\\\"authority\\\":\\\"Supreme Court\\\",\\\"page\\\":\\\"12\\\",\\\"volume\\\":\\\"351\\\",\\\"URL\\\":\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\",\\\"note\\\":\\\"mlzsync1:0051{\\\\\\\"type\\\\\\\":\\\\\\\"case\\\\\\\",\\\\\\\"extrafields\\\\\\\":{\\\\\\\"jurisdiction\\\\\\\":\\\\\\\"us\\\\\\\"}}00000\\\",\\\"issued\\\":{\\\"raw\\\":\\\"April 23, 1956\\\"},\\\"accessed\\\":{\\\"raw\\\":\\\"2015-06-29T21:41:22Z\\\"}}}],\\\"schema\\\":\\\"https://github.com/citation-style-language/schema/raw/master/csl-citation.json\\\"}\"]]"
+1485830796:468772000:(000000000:006280000):tm-zotero-write:tid:28:cmd:"null"
+1485830796:479628000:(000000000:010856000):tm-zotero-ext:ensure-zfield-interned! called, zfieldID-t => <tree +G8eZjV3CqYJXFa>
+1485830796:506398000:(000000000:026770000):tm-zotero-listen delayed read: tid => 29, len => 297, cmdstr => "[\"Field_setText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\",\"{\\\\rtf \\\\zttextit{\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\path{https://scholar.google.com/scholar\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\",true]]"
+1485830796:507762000:(000000000:001364000):tm-zotero-Field_setText called.
+1485830796:521878000:(000000000:014116000):tm-zotero-UTF-8-str_text->texmacs called, str_text => "{\\rtf \\zttextit{\\ztHrefFromCiteToBib{#zbibSysID1618}{\\path{https://scholar.google.com/scholar\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}", is-note? => #f, is-bib? => #f
+1485830796:577569000:(000000000:055691000):tm-zotero-UTF-8-str_text->texmacs returning.
+1485830796:578764000:(000000000:001195000):tm-zotero-Field_setText: about to unintern-ztHrefFromCiteToBib-for-cut
+1485830796:580386000:(000000000:001622000):unintern-ztHrefFromCiteToBib-for-cut: ztHref* => <tree <ztHrefFromCiteToBib|#zbibSysID1618|<slink|https://scholar.google.com/scholar_case?case=7154369965973865405>|Griffi>>
+1485830796:581573000:(000000000:001187000):unintern-ztHrefFromCiteToBib-for-cut: removing zhd with ref-label: "zciteID+G8eZjV3CqYJXFa#zbibSysID1618"
+1485830796:582537000:(000000000:000964000):unintern-ztHrefFromCiteToBib-for-cut: ls before: ("zciteID+G8eZjV3CqYJXFa#zbibSysID1618")
+1485830796:583402000:(000000000:000865000):unintern-ztHrefFromCiteToBib-for-cut: ls after: ()
+1485830796:584260000:(000000000:000858000):tm-zotero-Field_setText: about to set zfield-Text-t
+1485830796:585199000:(000000000:000939000):tm-zotero-Field_setText: about to set zfield-Code-origText
+1485830796:586740000:(000000000:001541000):tm-zotero-write:tid:29:cmd:"null"
+1485830796:591493000:(000000000:004753000):tm-zotero-listen delayed read: tid => 30, len => 75, cmdstr => "[\"Document_activate\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830796:592790000:(000000000:001297000):tm-zotero-write:tid:30:cmd:"null"
+1485830796:633092000:(000000000:040302000):tm-zotero-listen delayed read: tid => 31, len => 75, cmdstr => "[\"Document_complete\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830796:640134000:(000000000:007042000):tm-zotero-write:tid:31:cmd:"null"
+1485830800:431310000:(000000003:791176000):tm-zotero-write:tid:0:cmd:"\"editCitation\""
+1485830800:433084000:(000000000:001774000):tm-zotero-listen called by: cmd => "editCitation"
+1485830800:445209000:(000000000:012125000):tm-zotero-listen delayed read: tid => 32, len => 37, cmdstr => "[\"Application_getActiveDocument\",[3]]"
+1485830800:447739000:(000000000:002530000):tm-zotero-write:tid:32:cmd:"[3, \"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]"
+1485830800:455587000:(000000000:007848000):tm-zotero-listen delayed read: tid => 33, len => 82, cmdstr => "[\"Document_getDocumentData\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\"]]"
+1485830800:463839000:(000000000:008252000):tm-zotero-write:tid:33:cmd:"\"<data data-version=\\\"3\\\" zotero-version=\\\"4.0.29.12m98\\\"><session id=\\\"KtO0WtDh\\\"/><style id=\\\"http://juris-m.github.io/styles/jm-indigobook-catsort-bib\\\" locale=\\\"en-US\\\" hasBibliography=\\\"1\\\" bibliographyStyleHasBeenSet=\\\"0\\\"/><prefs><pref name=\\\"citationTransliteration\\\" value=\\\"en\\\"/><pref name=\\\"citationTranslation\\\" value=\\\"en\\\"/><pref name=\\\"citationSort\\\" value=\\\"en\\\"/><pref name=\\\"citationLangPrefsPersons\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsInstitutions\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsTitles\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsJournals\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsPublishers\\\" value=\\\"orig\\\"/><pref name=\\\"citationLangPrefsPlaces\\\" value=\\\"orig\\\"/><pref name=\\\"citationAffixes\\\" value=\\\"|||||||||||||||||||||||||||||||||||||||||||||||\\\"/><pref name=\\\"projectName\\\" value=\\\"\\\"/><pref name=\\\"extractingLibraryID\\\" value=\\\"0\\\"/><pref name=\\\"extractingLibraryName\\\" value=\\\"No group selected\\\"/><pref name=\\\"fieldType\\\" value=\\\"ReferenceMark\\\"/><pref name=\\\"storeReferences\\\" value=\\\"true\\\"/><pref name=\\\"automaticJournalAbbreviations\\\" value=\\\"true\\\"/><pref name=\\\"noteType\\\" value=\\\"0\\\"/><pref name=\\\"suppressTrailingPunctuation\\\" value=\\\"true\\\"/></prefs></data>\""
+1485830800:476693000:(000000000:012854000):tm-zotero-listen delayed read: tid => 34, len => 96, cmdstr => "[\"Document_cursorInField\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830800:485985000:(000000000:009292000):tm-zotero-write:tid:34:cmd:"[\"+G8eZjV3CqYJXFa\", \"ITEM CSL_CITATION {\\\"citationID\\\":\\\"wkQCRJUY\\\",\\\"properties\\\":{\\\"formattedCitation\\\":\\\"{\\\\\\\\rtf \\\\\\\\zttextit{\\\\\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\\\\\path{https://scholar.google.com/scholar\\\\\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\\\",\\\"plainCitation\\\":\\\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\\\\\"#zbibSysID1618\\\\\\\" (slink \\\\\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\\\\\") \\\\\\\"Griffi\\\\\\\") \\\\\\\"n \\\\\\\" (abbr \\\\\\\"v.\\\\\\\") \\\\\\\" Illinois\\\\\\\")) \\\\\\\", 351 US 12 (\\\\\\\" (abbr \\\\\\\"Sup.\\\\\\\") \\\\\\\" \\\\\\\" (abbr \\\\\\\"Ct.\\\\\\\") \\\\\\\" 1956).\\\\\\\")\\\"},\\\"citationItems\\\":[{\\\"id\\\":1618,\\\"uris\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"uri\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"itemData\\\":{\\\"type\\\":\\\"legal_case\\\",\\\"title\\\":\\\"Griffin v. Illinois\\\",\\\"container-title\\\":\\\"US\\\",\\\"authority\\\":\\\"Supreme Court\\\",\\\"page\\\":\\\"12\\\",\\\"volume\\\":\\\"351\\\",\\\"URL\\\":\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\",\\\"note\\\":\\\"mlzsync1:0051{\\\\\\\"type\\\\\\\":\\\\\\\"case\\\\\\\",\\\\\\\"extrafields\\\\\\\":{\\\\\\\"jurisdiction\\\\\\\":\\\\\\\"us\\\\\\\"}}00000\\\",\\\"issued\\\":{\\\"raw\\\":\\\"April 23, 1956\\\"},\\\"accessed\\\":{\\\"raw\\\":\\\"2015-06-29T21:41:22Z\\\"}}}],\\\"schema\\\":\\\"https://github.com/citation-style-language/schema/raw/master/csl-citation.json\\\"}\", \"0\"]"
+1485830800:499115000:(000000000:013130000):tm-zotero-listen delayed read: tid => 35, len => 89, cmdstr => "[\"Field_getText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\"]]"
+1485830800:502862000:(000000000:003747000):tm-zotero-write:tid:35:cmd:"\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\"#zbibSysID1618\\\" (slink \\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\") \\\"Griffi\\\") \\\"n \\\" (abbr \\\"v.\\\") \\\" Illinois\\\")) \\\", 351 US 12 (\\\" (abbr \\\"Sup.\\\") \\\" \\\" (abbr \\\"Ct.\\\") \\\" 1956).\\\")\""
+1485830800:509784000:(000000000:006922000):tm-zotero-listen delayed read: tid => 36, len => 92, cmdstr => "[\"Document_getFields\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"ReferenceMark\"]]"
+1485830800:514885000:(000000000:005101000):tm-zotero-write:tid:36:cmd:"[[\"+G8eZjV3CqYJXFa\"], [\"ITEM CSL_CITATION {\\\"citationID\\\":\\\"wkQCRJUY\\\",\\\"properties\\\":{\\\"formattedCitation\\\":\\\"{\\\\\\\\rtf \\\\\\\\zttextit{\\\\\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\\\\\path{https://scholar.google.com/scholar\\\\\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956).}\\\",\\\"plainCitation\\\":\\\"(concat (zttextit (concat (ztHrefFromCiteToBib \\\\\\\"#zbibSysID1618\\\\\\\" (slink \\\\\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\\\\\") \\\\\\\"Griffi\\\\\\\") \\\\\\\"n \\\\\\\" (abbr \\\\\\\"v.\\\\\\\") \\\\\\\" Illinois\\\\\\\")) \\\\\\\", 351 US 12 (\\\\\\\" (abbr \\\\\\\"Sup.\\\\\\\") \\\\\\\" \\\\\\\" (abbr \\\\\\\"Ct.\\\\\\\") \\\\\\\" 1956).\\\\\\\")\\\"},\\\"citationItems\\\":[{\\\"id\\\":1618,\\\"uris\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"uri\\\":[\\\"http://zotero.org/users/226074/items/4E2A4M2K\\\"],\\\"itemData\\\":{\\\"type\\\":\\\"legal_case\\\",\\\"title\\\":\\\"Griffin v. Illinois\\\",\\\"container-title\\\":\\\"US\\\",\\\"authority\\\":\\\"Supreme Court\\\",\\\"page\\\":\\\"12\\\",\\\"volume\\\":\\\"351\\\",\\\"URL\\\":\\\"https://scholar.google.com/scholar_case?case=7154369965973865405\\\",\\\"note\\\":\\\"mlzsync1:0051{\\\\\\\"type\\\\\\\":\\\\\\\"case\\\\\\\",\\\\\\\"extrafields\\\\\\\":{\\\\\\\"jurisdiction\\\\\\\":\\\\\\\"us\\\\\\\"}}00000\\\",\\\"issued\\\":{\\\"raw\\\":\\\"April 23, 1956\\\"},\\\"accessed\\\":{\\\"raw\\\":\\\"2015-06-29T21:41:22Z\\\"}}}],\\\"schema\\\":\\\"https://github.com/citation-style-language/schema/raw/master/csl-citation.json\\\"}\"], [\"0\"]]"
+1485830807:160809000:(000000006:645924000):tm-zotero-listen delayed read: tid => 37, len => 493, cmdstr => "[\"Field_setText\",[\"/home/karlheg/.TeXmacs/texts/scratch/no_name_1.tm\",\"+G8eZjV3CqYJXFa\",\"{\\\\rtf \\\\zttextit{\\\\ztHrefFromCiteToBib{#zbibSysID1618}{\\\\path{https://scholar.google.com/scholar\\\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956); \\\\zttextit{\\\\ztHrefFromCiteToBib{#zbibSysID1620}{\\\\path{https://scholar.google.com/scholar\\\\_case?case=3973384553826466817}}{Doug}las v. California}, 372 US 353 (01#@USUSX-X-X 01#@Sup. Ct. 1963).}\",true]]"
+1485830807:162782000:(000000000:001973000):tm-zotero-Field_setText called.
+1485830807:200267000:(000000000:037485000):tm-zotero-UTF-8-str_text->texmacs called, str_text => "{\\rtf \\zttextit{\\ztHrefFromCiteToBib{#zbibSysID1618}{\\path{https://scholar.google.com/scholar\\_case?case=7154369965973865405}}{Griffi}n v. Illinois}, 351 US 12 (01#@USUSX-X-X 01#@Sup. Ct. 1956); \\zttextit{\\ztHrefFromCiteToBib{#zbibSysID1620}{\\path{https://scholar.google.com/scholar\\_case?case=3973384553826466817}}{Doug}las v. California}, 372 US 353 (01#@USUSX-X-X 01#@Sup. Ct. 1963).}", is-note? => #f, is-bib? => #f
+1485830807:265658000:(000000000:065391000):tm-zotero-UTF-8-str_text->texmacs returning.
+1485830807:266590000:(000000000:000932000):tm-zotero-Field_setText: about to unintern-ztHrefFromCiteToBib-for-cut
+1485830807:267760000:(000000000:001170000):unintern-ztHrefFromCiteToBib-for-cut: ztHref* => <tree <ztHrefFromCiteToBib|#zbibSysID1618|<slink|https://scholar.google.com/scholar_case?case=7154369965973865405>|Griffi>>
+1485830807:269094000:(000000000:001334000):unintern-ztHrefFromCiteToBib-for-cut: removing zhd with ref-label: "zciteID+G8eZjV3CqYJXFa#zbibSysID1618"
+1485830807:270084000:(000000000:000990000):unintern-ztHrefFromCiteToBib-for-cut: ls before: ()
+1485830807:270983000:(000000000:000899000):unintern-ztHrefFromCiteToBib-for-cut: ls after: ()
+1485830807:271869000:(000000000:000886000):tm-zotero-Field_setText: about to set zfield-Text-t
+
+Thread 1 "texmacs.bin" received signal SIGSEGV, Segmentation fault.
+0x0000000000000031 in ?? ()
+(gdb) where full
+#0  0x0000000000000031 in  ()
+#1  0x0000555555640e79 in tm_delete<observer_rep>(observer_rep*) (ptr=0x5555597a4190)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/./System/Misc/fast_alloc.hpp:622
+#2  0x0000555555640784 in observer::~observer() (this=0x7fffffffb820, __in_chrg=<optimized out>)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/./Kernel/Abstractions/observer.hpp:102
+#3  0x000055555585165a in insert_observer(observer&, observer) (o=..., what=...)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Data/Observers/list_observer.cpp:242
+#4  0x0000555555853e6c in tree_pointer_rep::set_tree(tree) (this=0x5555597a4190, t=...)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Data/Observers/tree_pointer.cpp:106
+        ref = {rep = 0x55555a995090}
+#5  0x0000555555854305 in tree_pointer_rep::notify_detach(tree&, tree, bool) (this=0x5555597a4190, ref=..., closest=..., right=false)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Data/Observers/tree_pointer.cpp:192
+#6  0x00005555558504a7 in list_observer_rep::notify_detach(tree&, tree, bool) (this=0x5555598abe90, ref=..., closest=..., right=false)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Data/Observers/list_observer.cpp:160
+#7  0x0000555555850414 in list_observer_rep::notify_detach(tree&, tree, bool) (this=0x55555acf6020, ref=..., closest=..., right=false)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Data/Observers/list_observer.cpp:159
+#8  0x0000555555850414 in list_observer_rep::notify_detach(tree&, tree, bool) (this=0x55555a8c0270, ref=..., closest=..., right=false)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Data/Observers/list_observer.cpp:159
+#9  0x0000555555adea1a in detach(tree&, tree, bool) (ref=..., closest=..., right=false)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Kernel/Abstractions/observer.cpp:104
+#10 0x0000555555adeaf0 in detach(tree&, tree, bool) (ref=..., closest=..., right=false)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Kernel/Abstractions/observer.cpp:110
+        i = 0
+        n = 4
+#11 0x0000555555adeaf0 in detach(tree&, tree, bool) (ref=..., closest=..., right=false)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Kernel/Abstractions/observer.cpp:110
+        i = 0
+        n = 1
+#12 0x0000555555adeda7 in raw_assign(tree&, tree) (ref=..., t=...)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Kernel/Abstractions/observer.cpp:126
+        i = 0
+        n = 6
+        mid = 3
+        mod = {rep = 0x55555a7e7380}
+#13 0x0000555555ae2605 in raw_apply(tree&, modification) (t=..., mod=...)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Kernel/Abstractions/observer.cpp:335
+#14 0x0000555555ae3792 in apply(tree&, modification) (ref=..., mod=...)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Kernel/Abstractions/observer.cpp:415
+        ip = {rep = 0x55555a7ee2a0, static init = <optimized out>}
+        rp = {rep = 0x555558f89570, static init = <optimized out>}
+        p = {rep = 0x55555985ddf0, static init = <optimized out>}
+#15 0x0000555555ae3c68 in assign(tree&, tree) (ref=..., t=...)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Kernel/Abstractions/observer.cpp:429
+#16 0x0000555555ae4473 in assign(list<int>, tree) (p=..., t=...)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Kernel/Abstractions/observer.cpp:485
+#17 0x0000555555b03d83 in tree_assign(tree, tree) (r=..., t=...)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Scheme/glue.cpp:286
+        ip = {rep = 0x55555a956b40, static init = <optimized out>}
+#18 0x0000555555b15f81 in tmg_tree_assign(scm_unused_struct*, scm_unused_struct*) (arg1=0x7fff1b8be1a0, arg2=0x7fff1b5be490)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Scheme/../Glue/glue_basic.cpp:2698
+        in1 = {rep = 0x5555591ffff0}
+        in2 = {rep = 0x555559265b30}
+        out = {rep = 0x7fffbfbb3140 <scm_i_master_freelist>}
+#19 0x00007fffbf906dc7 in deval (x=<optimized out>, env=<optimized out>, env@entry=0x7fff1b8c9a90) at eval.c:4370
+        arg2 = <optimized out>
+        proc = 0x555556951ec0
+        arg1 = 0x7fff1b8be1a0
+        debug = {prev = 0x7fffffffc110, status = 128, vect = 0x7fffffffbf20, info = 0x7fffffffbf30}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#20 0x00007fffbf907f59 in deval (x=<optimized out>, env=env@entry=0x7fff1b8c9a90) at eval.c:3698
+        location = 0x7fff1b8bdfe0
+        variable = <optimized out>
+        proc = 0x104
+        arg1 = <optimized out>
+        debug = {prev = 0x7fffffffc240, status = 0, vect = 0x7fffffffc050, info = 0x7fffffffc050}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#21 0x00007fffbf905f2f in deval (x=0x7fff1bd71950, env=0x7fff1b8c9a90, env@entry=0x7fff1b8be030) at eval.c:3397
+        form = <optimized out>
+        proc = 0x555556bbcdd0
+        arg1 = <optimized out>
+        debug = {prev = 0x7fffffffc370, status = 64, vect = 0x7fffffffc180, info = 0x7fffffffc1d0}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#22 0x00007fffbf907f59 in deval (x=<optimized out>, env=env@entry=0x7fff1b8be030) at eval.c:3698
+        location = 0x7fff1b8be048
+        variable = <optimized out>
+        proc = 0x104
+        arg1 = <optimized out>
+        debug = {prev = 0x7fffffffc4a0, status = 0, vect = 0x7fffffffc2b0, info = 0x7fffffffc2b0}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#23 0x00007fffbf905f2f in deval (x=0x7fff1bd69950, env=0x7fff1b8be030, env@entry=0x7fff1b744eb0) at eval.c:3397
+        form = <optimized out>
+        proc = 0x7fff1bc88cb0
+        arg1 = <optimized out>
+        debug = {prev = 0x7fffffffc5d0, status = 64, vect = 0x7fffffffc3e0, info = 0x7fffffffc430}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#24 0x00007fffbf905f2f in deval (x=0x7fff196300b0, env=0x7fff1b744eb0, env@entry=0x7fff1b4cd990) at eval.c:3397
+        form = <optimized out>
+        proc = 0x7fff19644f20
+        arg1 = <optimized out>
+        debug = {prev = 0x7fffffffc700, status = 0, vect = 0x7fffffffc510, info = 0x7fffffffc560}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#25 0x00007fffbf905f2f in deval (x=0x7fff1b0dbee0, env=0x7fff1b4cd990, env@entry=0x7fff1b460670) at eval.c:3397
+        form = <optimized out>
+        proc = 0x7fff1b4b6b20
+        arg1 = <optimized out>
+        debug = {prev = 0x7fffffffc830, status = 64, vect = 0x7fffffffc640, info = 0x7fffffffc690}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#26 0x00007fffbf905f2f in deval (x=0x7fff1b086cc0, env=0x7fff1b460670, env@entry=0x7fff1b4609c0) at eval.c:3397
+        form = <optimized out>
+        proc = 0x7fff194b29a0
+        arg1 = <optimized out>
+        debug = {prev = 0x7fffffffc960, status = 192, vect = 0x7fffffffc770, info = 0x7fffffffc7c0}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#27 0x00007fffbf906c13 in deval (x=0x7fff1b085e80, x@entry=0x7fff1b0828b0, env=env@entry=0x7fff1b4609c0) at eval.c:3648
+        name = 0x555556a50840
+        init = 0x7fff1b0860c0
+        bindings = <optimized out>
+        proc = 0x122
+        arg1 = <optimized out>
+        debug = {prev = 0x7fffffffc9f0, status = 0, vect = 0x7fffffffc8a0, info = 0x7fffffffc8c0}
+        debug_info_end = <optimized out>
+        __PRETTY_FUNCTION__ = "deval"
+#28 0x00007fffbf9052dd in scm_dapply (proc=0x7fff1b0869c0, arg1=<optimized out>, args=0x7fff1b4609c0) at eval.c:5012
+        debug = {prev = 0x0, status = 2176, vect = 0x7fffffffc9e0, info = 0x7fffbfbb9750 <scm_i_thread_key>}
+        debug_vect_body = {e = {exp = 0x7fff194b2890, env = 0x404}, a = {proc = 0x7fff194b2890, args = 0x404}, id = 0x7fff194b2890}
+#29 0x0000555555b0122c in TeXmacs_call(arg_list*) (args=0x7fffffffcce0)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Guile/guile_tm.cpp:145
+#30 0x00007fffbf95e0b1 in scm_c_with_throw_handler (tag=0x104, body=0x555555b011e1 <TeXmacs_call(arg_list*)>, body_data=0x7fffffffcce0, handler=<optimized out>, handler_data=<optimized out>, lazy_catch_p=<optimized out>) at throw.c:278
+        answer = <optimized out>
+        c = 
+          {handler = 0x555555b00e60 <TeXmacs_lazy_catcher(void*, scm_unused_struct*, scm_unused_struct*)>, handler_data = 0x7fffffffcce0, running = 0, lazy_catch_p = 1}
+#31 0x0000555555b0137a in TeXmacs_lazy_call_scm(arg_list*) (args=0x7fffffffcce0)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Guile/guile_tm.cpp:165
+#32 0x00007fffbf95de08 in scm_c_catch (tag=<optimized out>, body=0x555555b01345 <TeXmacs_lazy_call_scm(arg_list*)>, body_data=0x7fffffffcce0, handler=0x555555b00ebf <TeXmacs_catcher(void*, scm_unused_struct*, scm_unused_struct*)>, handler_data=0x7fffffffcce0, pre_unwind_handler=pre_unwind_handler@entry=0x0, pre_unwind_handler_data=0x0) at throw.c:203
+        jbr = 
+          {buf = {{__jmpbuf = {140736410130256, -4435322982081225968, 0, 0, 93825028038192, 140733667711520, -4435322982091711728, -4435462980183254256}, __mask_was_saved = 0, __saved_mask = {__val = {93824998614141, 140737488342096, 140737488342016, 140733650962992, 140737488342016, 140737488342048, 93824998613805, 140737488342144, 140737488342080, 93825084544768, 1124896793555245312, 4, 3, 140737488342192, 4, 3}}}}, throw_tag = 0x3, retval = 0x7fffffffd0c0}
+        jmpbuf = 0x7fff1c459a20
+        answer = 0x404
+        pre_unwind = {handler = 0x0, handler_data = 0x0, running = 0, lazy_catch_p = 0}
+#33 0x00007fffbf95df8e in scm_internal_catch (tag=<optimized out>, body=<optimized out>, body_data=<optimized out>, handler=<optimized out>, handler_data=<optimized out>) at throw.c:217
+#34 0x0000555555b013b1 in TeXmacs_call_scm(arg_list*) (args=0x7fffffffcce0)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Guile/guile_tm.cpp:172
+#35 0x0000555555b013fa in call_scheme(scm_unused_struct*) (fun=0x7fff194b2890)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Guile/guile_tm.cpp:178
+        a = {0x7fff194b2890}
+        args = {n = 0, a = 0x7fffffffccf0}
+#36 0x0000555555b688e7 in call(object) (fun=...) at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Scheme/object.cpp:415
+#37 0x0000555555fc99e0 in command_queue::exec_pending() (this=0x55555774d6d0)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Plugins/Qt/qt_gui.cpp:1047
+        obj = {rep = 0x55555a95fe40}
+        now = 96617
+        a = {rep = 0x55555977d4d0}
+        b = {rep = 0x55555a823510}
+        i = 4
+        n = 5
+#38 0x0000555555fc7994 in qt_gui_rep::process_queued_events(int) (this=0x55555774d650, max=1)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Plugins/Qt/qt_gui.cpp:594
+        ev = @0x7fffffffce40: {<pair<qp_type, blackbox>> = {x1 = {sid = qp_type::QP_DELAYED_COMMANDS}, x2 = {rep = 0x0}}, <No data fields>}
+        count = 0
+#39 0x0000555555fc8730 in qt_gui_rep::update() (this=0x55555774d650)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Plugins/Qt/qt_gui.cpp:774
+        std_delay = 166
+        count_events = 0
+        max_proc_events = 10
+        now = 96617
+        delay = 1
+#40 0x000055555600e104 in QTMGuiHelper::doUpdate() (this=0x55555777b7b0)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Plugins/Qt/QTMGuiHelper.cpp:24
+#41 0x0000555556034883 in QTMGuiHelper::qt_static_metacall(QObject*, QMetaObject::Call, int, void**) (_o=0x55555777b7b0, _c=QMetaObject::InvokeMetaMethod, _id=2, _a=0x7fffffffd0c0) at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/obj-x86_64-linux-gnu/src/Plugins/Qt/moc_QTMGuiHelper.cpp:101
+        _t = 0x55555777b7b0
+#42 0x00007fffbe14db49 in QMetaObject::activate(QObject*, int, int, void**) (sender=sender@entry=0x555557718090, signalOffset=<optimized out>, local_signal_index=local_signal_index@entry=0, argv=argv@entry=0x0) at kernel/qobject.cpp:3730
+        receiverInSameThread = <optimized out>
+        sw = {receiver = 0x55555777b7b0, previousSender = 0x0, currentSender = {sender = 0x555557718090, signal = 3, ref = 1}, switched = true}
+        callFunction = 0x5555560347ba <QTMGuiHelper::qt_static_metacall(QObject*, QMetaObject::Call, int, void**)>
+        receiver = 0x55555777b7b0
+        method_relative = 2
+        c = 0x55555774d800
+        last = 0x55555774d800
+        locker = {val = 140736384673888}
+        connectionLists = {connectionLists = 0x555557770790}
+        list = <optimized out>
+        signal_index = 3
+        empty_argv = {0x0}
+        currentThreadId = 0x7fffbff24380
+#43 0x00007fffbe14e0f7 in QMetaObject::activate(QObject*, QMetaObject const*, int, void**) (sender=sender@entry=0x555557718090, m=m@entry=0x7fffbe36c780 <QTimer::staticMetaObject>, local_signal_index=local_signal_index@entry=0, argv=argv@entry=0x0) at kernel/qobject.cpp:3595
+#44 0x00007fffbe1ca4b0 in QTimer::timeout(QTimer::QPrivateSignal) (this=this@entry=0x555557718090) at .moc/moc_qtimer.cpp:198
+#45 0x00007fffbe15a0e8 in QTimer::timerEvent(QTimerEvent*) (this=0x555557718090, e=<optimized out>) at kernel/qtimer.cpp:247
+        e = <optimized out>
+        this = 0x555557718090
+#46 0x00007fffbe14e653 in QObject::event(QEvent*) (this=0x555557718090, e=<optimized out>) at kernel/qobject.cpp:1278
+#47 0x00007fffbea5b8ac in QApplicationPrivate::notify_helper(QObject*, QEvent*) (this=<optimized out>, receiver=0x555557718090, e=0x7fffffffd440)
+    at kernel/qapplication.cpp:3804
+        consumed = <optimized out>
+        this = <optimized out>
+        e = 0x7fffffffd440
+        receiver = 0x555557718090
+#48 0x00007fffbea60d4f in QApplication::notify(QObject*, QEvent*) (this=0x55555650d4d0, receiver=0x555557718090, e=0x7fffffffd440)
+    at kernel/qapplication.cpp:3561
+        w = 0x555557718090
+        extra = <optimized out>
+        isProxyWidget = <optimized out>
+        res = false
+#49 0x0000555556034107 in QTMApplication::notify(QObject*, QEvent*) (this=0x55555650d4d0, receiver=0x555557718090, event=0x7fffffffd440)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/obj-x86_64-linux-gnu/src/Plugins/Qt/../../../../src/Plugins/Qt/QTMApplication.hpp:51
+#50 0x00007fffbe1203b0 in QCoreApplication::notifyInternal2(QObject*, QEvent*) (receiver=0x555557718090, event=event@entry=0x7fffffffd440)
+    at kernel/qcoreapplication.cpp:1015
+        selfRequired = true
+        result = false
+        cbdata = {0x555557718090, 0x7fffffffd440, 0x7fffffffd3bf}
+        d = <optimized out>
+        threadData = 0x55555650daf0
+        loopLevelCounter = {threadData = 0x55555650daf0}
+#51 0x00007fffbe1753ae in QCoreApplication::sendEvent(QObject*, QEvent*) (event=0x7fffffffd440, receiver=<optimized out>)
+    at ../../include/QtCore/../../src/corelib/kernel/qcoreapplication.h:225
+        e = 
+          {<QEvent> = {_vptr.QEvent = 0x7fffbe3695b8 <vtable for QTimerEvent+16>, static staticMetaObject = {d = {superdata = 0x0, stringdata = 0x7fffbe2f15a0 <qt_meta_stringdata_QEvent>, data = 0x7fffbe2f1000 <qt_meta_data_QEvent>, static_metacall = 0x0, relatedMetaObjects = 0x0, extradata = 0x0}}, d = 0x0, t = 1, posted = 0, spont = 0, m_accept = 1, reserved = 0}, id = 9}
+        currentTimerInfo = 0x0
+        n_act = 1
+        maxCount = <optimized out>
+        currentTime = {tv_sec = 42396, tv_nsec = 973494747}
+#52 0x00007fffbe1753ae in QTimerInfoList::activateTimers() (this=0x5555565664e0) at kernel/qtimerinfo_unix.cpp:637
+        e = 
+          {<QEvent> = {_vptr.QEvent = 0x7fffbe3695b8 <vtable for QTimerEvent+16>, static staticMetaObject = {d = {superdata = 0x0, stringdata = 0x7fffbe2f15a0 <qt_meta_stringdata_QEvent>, data = 0x7fffbe2f1000 <qt_meta_data_QEvent>, static_metacall = 0x0, relatedMetaObjects = 0x0, extradata = 0x0}}, d = 0x0, t = 1, posted = 0, spont = 0, m_accept = 1, reserved = 0}, id = 9}
+        currentTimerInfo = 0x0
+        n_act = 1
+        maxCount = <optimized out>
+        currentTime = {tv_sec = 42396, tv_nsec = 973494747}
+#53 0x00007fffbe175909 in timerSourceDispatch (source=<optimized out>) at kernel/qeventdispatcher_glib.cpp:176
+        timerSource = <optimized out>
+        timerSource = <optimized out>
+#54 0x00007fffbe175909 in idleTimerSourceDispatch(GSource*, GSourceFunc, gpointer) (source=<optimized out>) at kernel/qeventdispatcher_glib.cpp:223
+        timerSource = <optimized out>
+#55 0x00007fffbc41b7d7 in g_main_dispatch (context=0x7fff6c0016f0) at ././glib/gmain.c:3203
+        dispatch = 0x7fffbe1758e0 <idleTimerSourceDispatch(GSource*, GSourceFunc, gpointer)>
+        prev_source = 0x0
+        was_in_call = 0
+        user_data = 0x0
+        callback = 0x0
+        cb_funcs = <optimized out>
+        cb_data = <optimized out>
+        need_destroy = <optimized out>
+        source = 0x555556541350
+        current = 0x5555564e2f40
+        i = 0
+#56 0x00007fffbc41b7d7 in g_main_context_dispatch (context=context@entry=0x7fff6c0016f0) at ././glib/gmain.c:3856
+#57 0x00007fffbc41ba40 in g_main_context_iterate (context=context@entry=0x7fff6c0016f0, block=block@entry=1, dispatch=dispatch@entry=1, self=<optimized out>) at ././glib/gmain.c:3929
+        max_priority = 2147483647
+        timeout = 1
+        some_ready = 1
+        nfds = 3
+        allocated_nfds = 3
+        fds = <optimized out>
+#58 0x00007fffbc41baec in g_main_context_iteration (context=0x7fff6c0016f0, may_block=may_block@entry=1) at ././glib/gmain.c:3990
+        retval = <optimized out>
+#59 0x00007fffbe17648f in QEventDispatcherGlib::processEvents(QFlags<QEventLoop::ProcessEventsFlag>) (this=0x55555656fff0, flags=...)
+    at kernel/qeventdispatcher_glib.cpp:417
+        d = 0x555556569060
+        canWait = true
+        savedFlags = {i = 0}
+        result = <optimized out>
+#60 0x00007fffbe11e0fa in QEventLoop::exec(QFlags<QEventLoop::ProcessEventsFlag>) (this=this@entry=0x7fffffffd690, flags=..., flags@entry=...)
+    at kernel/qeventloop.cpp:204
+        d = 0x5555596a5b80
+        locker = {val = 93825008720864}
+        ref = {d = 0x5555596a5b80, locker = @0x7fffffffd610, exceptionCaught = true}
+#61 0x00007fffbe12690c in QCoreApplication::exec() () at kernel/qcoreapplication.cpp:1285
+        threadData = 0x55555650daf0
+        eventLoop = 
+              {<QObject> = {_vptr.QObject = 0x7fffbe36c3d8 <vtable for QEventLoop+16>, static staticMetaObject = {d = {superdata = 0x0, stringdata = 0x7fffbe292600 <qt_meta_stringdata_QObject>, data = 0x7fffbe2924e0 <qt_meta_data_QObject>, static_metacall = 0x7fffbe155560 <QObject::qt_static_metacall(QObject*, QMetaObject::Call, int, void**)>, relatedMetaObjects = 0x0, extradata = 0x0}}, d_ptr = {d = 0x5555596a5b80}, static staticQtMetaObject = {d = {superdata = 0x0, stringdata = 0x7fffbe2da160 <qt_meta_stringdata_Qt>, data = 0x7fffbe2d76e0 <qt_meta_data_Qt>, static_metacall = 0x0, relatedMetaObjects = 0x0, extradata = 0x0}}}, static staticMetaObject = {d = {superdata = 0x7fffbe363880 <QObject::staticMetaObject>, stringdata = 0x7fffbe2f0be0 <qt_meta_stringdata_QEventLoop>, data = 0x7fffbe2f0b80 <qt_meta_data_QEventLoop>, static_metacall = 0x7fffbe1c9bf0 <QEventLoop::qt_static_metacall(QObject*, QMetaObject::Call, int, void**)>, relatedMetaObjects = 0x0, extradata = 0x0}}}
+        returnCode = <optimized out>
+#62 0x0000555555fc732a in qt_gui_rep::event_loop() (this=0x55555774d650)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Plugins/Qt/qt_gui.cpp:461
+        app = 0x55555650d4d0
+#63 0x0000555555fc7376 in gui_start_loop() () at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Plugins/Qt/qt_gui.cpp:483
+#64 0x0000555555c4012f in TeXmacs_main(int, char**) (argc=1, argv=0x7fffffffe0a8)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Texmacs/Texmacs/texmacs.cpp:434
+        sv = {rep = 0x55555774d928}
+        where = {rep = 0x55555777c7c0}
+        i = 1
+        flag = true
+        the_default_font = {rep = 0x55555777b210}
+#65 0x0000555555b00e08 in new_call_back(void*, int, char**) (closure=0x0, argc=1, argv=0x7fffffffe0a8)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Guile/guile_tm.cpp:35
+#66 0x00007fffbf91fe4f in invoke_main_func (body_data=0x7fffffffdf10) at init.c:367
+        closure = 0x7fffffffdf10
+#67 0x00007fffbf8f746a in c_body (d=d@entry=0x7fffffffdeb0) at continuations.c:349
+        data = 0x7fffffffdeb0
+#68 0x00007fffbf95de08 in scm_c_catch (tag=tag@entry=0x104, body=body@entry=0x7fffbf8f7460 <c_body>, body_data=body_data@entry=0x7fffffffdeb0, handler=handler@entry=0x7fffbf8f7480 <c_handler>, handler_data=handler_data@entry=0x7fffffffdeb0, pre_unwind_handler=pre_unwind_handler@entry=0x7fffbf95e3f0 <scm_handle_by_message_noexit>, pre_unwind_handler_data=0x0) at throw.c:203
+        jbr = 
+          {buf = {{__jmpbuf = {140736410130256, -4435322981489829104, 0, 140736407659504, 93825028038192, 93825028627744, -4435322981433206000, -4435462980183254256}, __mask_was_saved = 0, __saved_mask = {__val = {0, 0, 0, 0, 0, 4278190080, 0, 0, 0, 6510615555426900570, 6510615555426900570, 0, 0, 2314885530818453536, 2314885530818453536, 0}}}}, throw_tag = 0x0, retval = 0xffff00ffffffffff}
+        jmpbuf = 0x555557809d20
+        answer = 0x404
+        pre_unwind = {handler = 0x7fffbf95e3f0 <scm_handle_by_message_noexit>, handler_data = 0x0, running = 0, lazy_catch_p = 0}
+#69 0x00007fffbf8f7a44 in scm_i_with_continuation_barrier (body=body@entry=0x7fffbf8f7460 <c_body>, body_data=body_data@entry=0x7fffffffdeb0, handler=handler@entry=0x7fffbf8f7480 <c_handler>, handler_data=handler_data@entry=0x7fffffffdeb0, pre_unwind_handler=0x7fffbf95e3f0 <scm_handle_by_message_noexit>, pre_unwind_handler_data=pre_unwind_handler_data@entry=0x0) at continuations.c:325
+        stack_item = 140736407237728
+        thread = 0x555557779e30
+        old_controot = 0x555557788490
+        old_contbase = 0x7fffffffdee0
+        old_lastframe = 0x0
+        result = <optimized out>
+#70 0x00007fffbf8f7b20 in scm_c_with_continuation_barrier (func=func@entry=0x7fffbf91fe30 <invoke_main_func>, data=data@entry=0x7fffffffdf10)
+    at continuations.c:367
+        c_data = {func = 0x7fffbf91fe30 <invoke_main_func>, data = 0x7fffffffdf10, result = 0x7fffbf91fe30 <invoke_main_func>}
+#71 0x00007fffbf95c196 in scm_i_with_guile_and_parent (func=0x7fffbf91fe30 <invoke_main_func>, data=0x7fffffffdf10, parent=<optimized out>)
+    at threads.c:733
+        res = <optimized out>
+        really_entered = 1
+        base_item = 0
+#72 0x00007fffbf91ffc5 in scm_boot_guile (argc=<optimized out>, argv=<optimized out>, main_func=<optimized out>, closure=<optimized out>) at init.c:350
+        res = <optimized out>
+        c = {main_func = 0x555555b00de0 <new_call_back(void*, int, char**)>, closure = 0x0, argc = 1, argv = 0x7fffffffe0a8}
+#73 0x0000555555b00e5d in start_scheme(int, char**, void (*)(int, char**)) (argc=1, argv=0x7fffffffe0a8, call_back=
+    0x555555c3d4bb <TeXmacs_main(int, char**)>) at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Scheme/Guile/guile_tm.cpp:49
+#74 0x0000555555c41e9d in main(int, char**) (argc=1, argv=0x7fffffffe0a8)
+    at /home/karlheg/src/TeXmacs/texmacs-git-svn-guile-1.8/src/src/Texmacs/Texmacs/texmacs.cpp:593
+(gdb) quit
+A debugging session is active.
+
+        Inferior 1 [process 20221] will be killed.
+
+  [[file:~/src/Juris-M/zotero-texmacs-integration/.dir-locals.el][file:~/src/Juris-M/zotero-texmacs-integration/.dir-locals.el]]
+
+ #+end_src
+
+** WIP TeXmacs stacktrace: Re: crash in tree-pointer destructor
+   :LOGBOOK:
+   - State "WIP"        from "TODO"       [2017-02-07 Tue 08:20]
+   :END:
+
+   Entered [2017-02-07 Tue 08:17]
+
+ #+BEGIN_EXAMPLE
+I think I sort of "fixed" the crash when tm_delete of a tree-pointer happens in
+C++ by using a guardian, but then never calling them out in the
+after-gc-hook. I'm sure it's leaking them now... since they hang around inside
+the guardian until called out.
+ #+END_EXAMPLE
+
+
+* Other
+** S.E.P. TeXmacs stacktrace: Segv in QDBusConnection at normal exit via quit menu
+   :LOGBOOK:
+   - State "S.E.P."     from              [2017-02-06 Mon 11:11] \\
+     Somebody elses problem.
+   :END:
+   ... or window manager close button.  This happens every time I exit the
+   application. It is not unique to TeXmacs. This copy of TeXmacs is built
+   against Qt 5.6.0-beta from the kubuntu-ppa/backports for yakkety:
+
+     deb http://ppa.launchpad.net/kubuntu-ppa/backports/ubuntu yakkety main
+
+   Entered [2017-02-01 Wed 16:22]
+
+ #+BEGIN_EXAMPLE
+karlheg@syrinx:~/src/TeXmacs/texmacs-git-svn-guile-1.8 (syrinx-pure-cmake-doxygen)$ texmacs --gdb
+GNU gdb (Ubuntu 7.12-0ubuntu1) 7.12
+Copyright (C) 2016 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
+and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<http://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+<http://www.gnu.org/software/gdb/documentation/>.
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from /usr/lib/texmacs/TeXmacs/bin/texmacs.bin...done.
+(gdb) run
+Starting program: /usr/lib/texmacs/TeXmacs/bin/texmacs.bin 
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+[New Thread 0x7fffb2e20700 (LWP 27205)]
+[New Thread 0x7fff66dfb700 (LWP 27212)]
+Running my-init-texmacs
+Setting developer-mode? #t
+TeXmacs] With linked TrueType support
+WARNING: (tm-zotero): `make' imported from both (guile-user) and (oop goops)
+WARNING: (tm-zotero): imported module (srfi srfi-19) overrides core binding `current-time'
+WARNING: (tm-zotero): `color' imported from both (guile-user) and (term ansi-color)
+
+Thread 3 "QDBusConnection" received signal SIGSEGV, Segmentation fault.
+[Switching to Thread 0x7fff66dfb700 (LWP 27212)]
+0x00007fffbe15171f in QObject::disconnect (sender=0x55555657b850, signal=signal@entry=0x0, receiver=receiver@entry=0x7fff20008210, 
+    method=method@entry=0x0) at kernel/qobject.cpp:2949
+2949    kernel/qobject.cpp: No such file or directory.
+(gdb) where full
+#0  0x00007fffbe15171f in QObject::disconnect(QObject const*, char const*, QObject const*, char const*) (sender=0x55555657b850, signal=signal@entry=0x0, receiver=receiver@entry=0x7fff20008210, method=method@entry=0x0) at kernel/qobject.cpp:2949
+        signal_arg = 0x0
+        signal_name = {d = 0x7fffbe1eeba0 <QArrayData::shared_null>}
+        signal_found = false
+        method_name = {d = 0x7fffbe1eeba0 <QArrayData::shared_null>}
+        method_arg = 0x0
+        membcode = <optimized out>
+        method_found = false
+        res = false
+        smeta = 0x7fffbfed1680 <QDBusServiceWatcher::staticMetaObject>
+        signalName = {d = 0x7fffbe1eeba0 <QArrayData::shared_null>}
+        signalTypes = 
+            {a = 10, s = 0, ptr = 0x7fff66dfac50, {array = "\002\000\000\000\000\000\000\000\000\265\334(\234Q\261#\001\000\000\000\000\000\000\000Ќ\000 \377\177\000\000\002\000\000\000\000\000\000\000\060\000\000\000\000\000\000\000\001\000\000\000\000\000\000\000`\255\337f\377\177\000\000\000\267\337f\377\177\000\000\341Ń\263\377\177\000\000\t\000\000\000\000\000\000\000\210\000\000\000\000\000\000\000 \255\337f\377\177\000\000\037\255\337f\377\177\000\000\002\000\000\000\000\000\000\000 \223\000 \377\177\000\000\001\000\000\000\000\000\000\000\030\000\000\000\000\000\000\000\002\000\000\000\000\000\000\000\t\000\000\000\062\000\000", q_for_alignment_1 = 2, q_for_alignment_2 = 9.8813129168249309e-324}}
+        methodName = {d = 0x7fffbe1eeba0 <QArrayData::shared_null>}
+        methodTypes = 
+            {a = 10, s = 0, ptr = 0x7fff66dfad00, {array = "[\000\000\000n", '\000' <repeats 19 times>, "w\000\000\000|\000\000\000\060\000\000\000\000\000\000\000@\352\066\276\377\177\000\000\000\375\036\276\377\177\000\000\b\000\000\000\000\000\000\000`\005\001 \377\177\000\000 \000\000 \377\177\000\000\210", '\000' <repeats 23 times>, "\001\000\000\000\000\000\000\000`\005\001 \377\177\000\000 \000\000 \377\177\000\000\030\000\000\000\000\000\000\000\020\264\000 \377\177\000\000@\016\001 \377\177\000\000`\323\000 \377\177\000", q_for_alignment_1 = 472446402651, q_for_alignment_2 = 2.3341953705113993e-312}}
+#1  0x00007fffbfe71610 in QObject::disconnect(QObject const*, char const*) const (member=0x0, receiver=0x7fff20008210, this=<optimized out>)
+    at ../../include/QtCore/../../src/corelib/kernel/qobject.h:361
+        locker = {<QDBusLockerBase> = {<No data fields>}, self = 0x7fff20008210, action = CloseConnectionAction}
+        oldMode = <optimized out>
+        allObjects = {q_hash = {{d = 0x7fff20010e40, e = 0x7fff20010e40}}}
+        sit = <optimized out>
+        oit = {i = {i = 0x7fff20003020}}
+#2  0x00007fffbfe71610 in QDBusConnectionPrivate::closeConnection() (this=this@entry=0x7fff20008210) at qdbusintegrator.cpp:1142
+        locker = {<QDBusLockerBase> = {<No data fields>}, self = 0x7fff20008210, action = CloseConnectionAction}
+        oldMode = <optimized out>
+        allObjects = {q_hash = {{d = 0x7fff20010e40, e = 0x7fff20010e40}}}
+        sit = <optimized out>
+---Type <return> to continue, or q <return> to quit---q
+Quit
+(gdb) where
+#0  0x00007fffbe15171f in QObject::disconnect(QObject const*, char const*, QObject const*, char const*) (sender=0x55555657b850, signal=signal@entry=0x0, receiver=receiver@entry=0x7fff20008210, method=method@entry=0x0) at kernel/qobject.cpp:2949
+#1  0x00007fffbfe71610 in QObject::disconnect(QObject const*, char const*) const (member=0x0, receiver=0x7fff20008210, this=<optimized out>)
+    at ../../include/QtCore/../../src/corelib/kernel/qobject.h:361
+#2  0x00007fffbfe71610 in QDBusConnectionPrivate::closeConnection() (this=this@entry=0x7fff20008210) at qdbusintegrator.cpp:1142
+#3  0x00007fffbfe5e6c2 in QDBusConnectionManager::run() (this=0x7fffbfed2d60 <(anonymous namespace)::Q_QGS__q_manager::innerFunction()::holder>)
+    at qdbusconnection.cpp:181
+#4  0x00007fffbdf48c68 in QThreadPrivate::start(void*) (arg=0x7fffbfed2d60 <(anonymous namespace)::Q_QGS__q_manager::innerFunction()::holder>)
+    at thread/qthread_unix.cpp:341
+#5  0x00007fffbfbc16ca in start_thread (arg=0x7fff66dfb700) at pthread_create.c:333
+#6  0x00007fffbd3340af in clone () at ../sysdeps/unix/sysv/linux/x86_64/clone.S:105
+(gdb) quit
+A debugging session is active.
+
+        Inferior 1 [process 27143] will be killed.
+
+Quit anyway? (y or n) y
+karlheg@syrinx:~/src/TeXmacs/texmacs-git-svn-guile-1.8 (syrinx-pure-cmake-doxygen)$ ldd /usr/lib/texmacs/TeXmacs/bin/texmacs.bin
+        linux-vdso.so.1 =>  (0x00007ffe027c1000)
+        libpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x00007f820688f000)
+        libguile.so.17 => /usr/lib/libguile.so.17 (0x00007f8206591000)
+        libfreetype.so.6 => /usr/lib/x86_64-linux-gnu/libfreetype.so.6 (0x00007f82062e4000)
+        libjpeg.so.8 => /usr/lib/x86_64-linux-gnu/libjpeg.so.8 (0x00007f820607a000)
+        libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007f8205e60000)
+        libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007f8205c5a000)
+        libQt5PrintSupport.so.5 => /usr/lib/x86_64-linux-gnu/libQt5PrintSupport.so.5 (0x00007f8205be7000)
+        libQt5Widgets.so.5 => /usr/lib/x86_64-linux-gnu/libQt5Widgets.so.5 (0x00007f820555f000)
+        libQt5Gui.so.5 => /usr/lib/x86_64-linux-gnu/libQt5Gui.so.5 (0x00007f8204fd3000)
+        libQt5Core.so.5 => /usr/lib/x86_64-linux-gnu/libQt5Core.so.5 (0x00007f8204afb000)
+        libstdc++.so.6 => /usr/lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f8204773000)
+        libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f8204468000)
+        libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007f8204251000)
+        libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f8203e8a000)
+        /lib64/ld-linux-x86-64.so.2 (0x00005621e5e3d000)
+        libgmp.so.10 => /usr/lib/x86_64-linux-gnu/libgmp.so.10 (0x00007f8203c0a000)
+        libcrypt.so.1 => /lib/x86_64-linux-gnu/libcrypt.so.1 (0x00007f82039d2000)
+        libltdl.so.7 => /usr/lib/x86_64-linux-gnu/libltdl.so.7 (0x00007f82037c8000)
+        libpng16.so.16 => /usr/lib/x86_64-linux-gnu/libpng16.so.16 (0x00007f8203594000)
+        libgobject-2.0.so.0 => /usr/lib/x86_64-linux-gnu/libgobject-2.0.so.0 (0x00007f8203341000)
+        libglib-2.0.so.0 => /lib/x86_64-linux-gnu/libglib-2.0.so.0 (0x00007f820302d000)
+        libX11.so.6 => /usr/lib/x86_64-linux-gnu/libX11.so.6 (0x00007f8202cf4000)
+        libharfbuzz.so.0 => /usr/lib/x86_64-linux-gnu/libharfbuzz.so.0 (0x00007f8202a74000)
+        libGL.so.1 => /usr/lib/x86_64-linux-gnu/mesa/libGL.so.1 (0x00007f8202802000)
+        libicui18n.so.57 => /usr/lib/x86_64-linux-gnu/libicui18n.so.57 (0x00007f8202386000)
+        libicuuc.so.57 => /usr/lib/x86_64-linux-gnu/libicuuc.so.57 (0x00007f8201fde000)
+        libpcre16.so.3 => /usr/lib/x86_64-linux-gnu/libpcre16.so.3 (0x00007f8201d75000)
+        librt.so.1 => /lib/x86_64-linux-gnu/librt.so.1 (0x00007f8201b6d000)
+        libffi.so.6 => /usr/lib/x86_64-linux-gnu/libffi.so.6 (0x00007f8201965000)
+        libpcre.so.3 => /lib/x86_64-linux-gnu/libpcre.so.3 (0x00007f82016f0000)
+        libxcb.so.1 => /usr/lib/x86_64-linux-gnu/libxcb.so.1 (0x00007f82014ce000)
+        libgraphite2.so.3 => /usr/lib/x86_64-linux-gnu/libgraphite2.so.3 (0x00007f82012a9000)
+        libexpat.so.1 => /lib/x86_64-linux-gnu/libexpat.so.1 (0x00007f820107f000)
+        libxcb-dri3.so.0 => /usr/lib/x86_64-linux-gnu/libxcb-dri3.so.0 (0x00007f8200e7c000)
+        libxcb-present.so.0 => /usr/lib/x86_64-linux-gnu/libxcb-present.so.0 (0x00007f8200c79000)
+        libxcb-sync.so.1 => /usr/lib/x86_64-linux-gnu/libxcb-sync.so.1 (0x00007f8200a70000)
+        libxshmfence.so.1 => /usr/lib/x86_64-linux-gnu/libxshmfence.so.1 (0x00007f820086d000)
+        libglapi.so.0 => /usr/lib/x86_64-linux-gnu/libglapi.so.0 (0x00007f820063e000)
+        libXext.so.6 => /usr/lib/x86_64-linux-gnu/libXext.so.6 (0x00007f820042c000)
+        libXdamage.so.1 => /usr/lib/x86_64-linux-gnu/libXdamage.so.1 (0x00007f8200229000)
+        libXfixes.so.3 => /usr/lib/x86_64-linux-gnu/libXfixes.so.3 (0x00007f8200023000)
+        libX11-xcb.so.1 => /usr/lib/x86_64-linux-gnu/libX11-xcb.so.1 (0x00007f81ffe1f000)
+        libxcb-glx.so.0 => /usr/lib/x86_64-linux-gnu/libxcb-glx.so.0 (0x00007f81ffc06000)
+        libxcb-dri2.so.0 => /usr/lib/x86_64-linux-gnu/libxcb-dri2.so.0 (0x00007f81ffa01000)
+        libXxf86vm.so.1 => /usr/lib/x86_64-linux-gnu/libXxf86vm.so.1 (0x00007f81ff7fb000)
+        libdrm.so.2 => /usr/lib/x86_64-linux-gnu/libdrm.so.2 (0x00007f81ff5ea000)
+        libicudata.so.57 => /usr/lib/x86_64-linux-gnu/libicudata.so.57 (0x00007f81fdb6d000)
+        libXau.so.6 => /usr/lib/x86_64-linux-gnu/libXau.so.6 (0x00007f81fd967000)
+        libXdmcp.so.6 => /usr/lib/x86_64-linux-gnu/libXdmcp.so.6 (0x00007f81fd761000)
+karlheg@syrinx:~/src/TeXmacs/texmacs-git-svn-guile-1.8 (syrinx-pure-cmake-doxygen)$ dpkg --status texmacs
+Package: texmacs
+Status: install ok installed
+Priority: optional
+Section: editors
+Installed-Size: 120184
+Maintainer: Karl Martin Hegbloom <karl.hegbloom@gmail.com>
+Architecture: amd64
+Version: 2:1.99.9-1-svn-10605-git-10718-328a56a-guile-1.8.8
+Depends: guile-1.8-libs (>= 1.8.5+1-2ubuntu1), libc6 (>= 2.15), libfreetype6 (>= 2.4.8), libgcc1 (>= 1:3.0), libjpeg8 (>= 8c), libqt5core5a (>= 5.6.0~beta), libqt5gui5 (>= 5.3.0) | libqt5gui5-gles (>= 5.3.0), libqt5printsupport5 (>= 5.0.2), libqt5widgets5 (>= 5.6.0~beta), libstdc++6 (>= 5.2), zlib1g (>= 1:1.1.4)
+Description: A structured wysiwyg scientific text editor [...]
+ #+END_EXAMPLE
+
+
+

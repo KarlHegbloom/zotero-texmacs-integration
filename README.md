@@ -1,122 +1,50 @@
-Zotero - TeXmacs integration plugin and citation styles.
-========================================================
+# Zotero - TeXmacs integration plugin and citation styles. #
 
-** The performance-improvments-wip branch is the active development
-   branch right now. **
+__This branch is the active (Α) development branch of this program.__
 
-Please be patient when you are using this. I realize that the
-turn-around time between issuing an Integration command and having it
-finish making the edits is longer than we'd like it to be.
+*Do not open your important "production" documents with this version yet! It
+will modify the `<zcite>` tags in place to update them to the new version and I
+have not incorporated that into the master branch so opening the document then
+saving it will make it not work anymore in the other branch of this
+program. Use save-as immediately, or better, make a copy of the file first and
+then use it for experimentation only until this is nailed down well enough to
+not blow away your documents.*
 
-On the performance-improvments-wip branch, you can view the changes
-I'm making that are very likely going to make this thing run much
-faster. I'm getting better at this.
+__But please don't be afraid to try it!__
+
+## Documentation and YouTube Screencast Demos ##
+
+RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/performance-improvments-wip/doc/tm-zotero-tutorial.en.pdf)
+
+[Juris-M / Zotero and TeXmacs Integration Screencasts Playlist](https://www.youtube.com/playlist?list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
+
+[Juris-M / Zotero and TeXmacs Integration Screencast 01](https://www.youtube.com/watch?v=ZhOton-p3T8&index=1&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
+
+[Juris-M / Zotero and TeXmacs Integration Screencast 02](https://www.youtube.com/watch?v=74tzA2OCu4I&index=2&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
 
-NEWS
-----
+## Important Changes for this branch: ##
 
-  * 2016-10-10: It now only sends information about the zcite or
-    zbibliography fields that are within the document parts selected
-    as visible when you use the Document -> Part ->
-    Show... menu. TeXmacs can slow down quite a lot when the document
-    is long and has complex structure. Narrowing the visible portion
-    of the document only to the part you are presently working in will
-    significantly improve interactive performance. (No more having to
-    pause 10 seconds to wait for keypress event queue to catch up...)
-    
-    * Prior to this last change, when the document was narrowed to
-      only display one or several parts of it, the zotero integration
-      code did not limit the zfields it gathered information to send
-      to zotero about to only the ones in the visible parts of the
-      document, and so it was taking quite a long time for turn-around
-      when a citation was inserted or the document was updated. It now
-      only finds and deals with zfields within the visible parts of
-      the document (inside show-part), bringing a performance
-      improvement.
-      
-    * You will need to make your entire document visible and then
-      refresh the zotero citations at least once as part of your final
-      production phase. It is possible to temporarily, if not
-      permanently, place your zbibliography inside of it's own
-      document part so that it can be kept hidden during production,
-      since regenerating the bibliography each time a citation is
-      added to the document is one of the long running operations, and
-      is not strictly necessary until later in the production
-      cycle...
-      
-      But sometimes you want to see what it's shaping up to look
-      like. If you insert it then delete it and insert it again, you
-      loose any customization you made using Zotero -> Edit
-      Bibliography. But putting it in it's own document part that you
-      can hide and show at will leaves those customizations in place
-      while at the same time having the advantage of not refreshing
-      the bibliography each time a citation is inserted or updated.
+### To install this, you have to clone this repository and checkout this branch. ###
 
-  * 2016-09-28: propachi-texmacs is now a signed xpi, and so you no
-    longer need to use about:plugins to set
-    xpinstall.signatures.required. You can reset it to its default now
-    if you wish (unless you are running it from a git checkout rather
-    than by installing the xpi, but if you're running it that way, you
-    probably know what you're doing already.)
-    
-    * It is up-to-date with the latest citeproc-js and Juris-M.
+The reason for the symlink tests is that I've changed some file names and some
+module names. If you had symlinks to the source in `~/TeXmacs/plugins` before,
+they should be removed, and then only one created named `tm-zotero` that points
+to the top directory of a clone of the source from github, *e.g.,*
 
-  * 2016-08-04: I think that this will function on Mac OS-X and
-    Windows already because it's the LibreOffice Integration plugin
-    that opens the TCP port on localhost:23116 which is what
-    zotero.scm connects to. The code inside the Firefox LibreOffice
-    Integration plugin where it opens that port does not look to see
-    what OS it's running on first, so I think it opens that port no
-    matter what OS it's on.
-    
-    * If you run Mac OS-X or Windows, please test this and let me know
-      how it works. I have limited time and equipment and require this
-      small amount of assistance. Please use the "Issues" tracking
-      when you report a successful or failed test. Thanks.
-      
-      https://github.com/KarlHegbloom/zotero-texmacs-support/issues
-      
-      
-    * When a citation or the bibliography is in-focus, try the
-      "wrench" icon. There are a lot of settings available now.
+    cd ~;
+    mkdir --parents ~/src/Juris-M || true;
+    cd ~/src/Juris-M;
+    git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
+    cd ~;
+    mkdir --parents ~/.TeXmacs/plugins || true;
+    cd ~/.TeXmacs/plugins;
+    [[ -L "legal-brief" -a -L "zotero" -a $(realpath "legal-brief") = $(realpath "zotero" ]] && rm legal-brief zotero;
+    [[ -L "zotero" ]] && rm zotero;
+    ln -s ~/src/Juris-M/zotero-texmacs-integration tm-zotero;
 
-  * 2016-07-30: The first 4 characters of each citation are now a link
-    to the bibliography entry. Each bibliography entry has a list of
-    pagerefs appended to it, so that you can click to the point in the
-    document where the citation appears. The first 4 characters of
-    each bibliography entry are a hyperlink to the DOI or URL
-    associated with that zotero item.
-    
-    * To fix up the pagerefs & etc., use the Document->Update... menu.
-    
-    * It only uses the first 4 characters because the hlink loci do
-      not line-break, and so when they are long, they can either mess
-      up the paragraph line-breaking, or even stick out into the
-      margin. By using a shorter one, it avoids this.
-    
-    * By the way, it's faster when you don't put a bibliography into
-      the document until finishing stages. Just insert citations as
-      needed, and when it's close to done, insert a bibliography and
-      check it over.
-    
-TODO
-----
 
-  * There should only be a hyperlink to the bibliography entry when
-    the document contains a bibliography. So when it has a
-    bibliography,
-
-This is a work in progress, but it is working. I am now using it to
-write a document with. You can watch this screencast to learn a little
-bit about what this is and how to use it:
-
-[Juris-M / Zotero and TeXmacs Integration Screencast 01](https://www.youtube.com/watch?v=4Ssik5qyt5w)
-
-RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/master/doc/tm-zotero-tutorial.en.pdf)
-
-How to get this up and running:
--------------------------------
+## How to get this up and running: ##
 
   * Install a recent (development snapshot of) TeXmacs. This program
     is untested with older versions of TeXmacs. If you can not build
@@ -126,62 +54,60 @@ How to get this up and running:
     compatible with the last official release version of TeXmacs, as
     long as it's built with Guile 1.8. I doubt it will work with older
     versions of Guile.
-    
+
     https://github.com/KarlHegbloom/texmacs/releases
-    
+
     If you have trouble with one build, try an older one. I'll try and
     keep them fresh and remove ones that are not working right. They
     are reasonably stable, but under development right now.
-    
-    (We need somebody to build OS-X and Windows packages.)
 
   * Install Juris-M from:
-  
+
     https://juris-m.github.io
 
-    * I've tested this with the Juris-M plugin in Firefox, but I think
-      it will work fine using the standalone version.
-      
-  * Install all of the additional support packages as recommended by
-    the Juris-M site. I recommend installing zotfile also.
-      
-  * Install the propachi-texmacs xpi from:
- 
-    https://github.com/KarlHegbloom/propachi-texmacs/releases
-    
-    This monkey-patch loads a citeproc into Juris-M that has the right
-    outputFormat defined for the TeXmacs integration. It also ensures
-    that the integration uses that outputFormat by monkey-patching
-    it. You can disable propachi-texmacs and restart Firefox or
-    Juris-M when you want to use the OpenOffice plugin instead of
-    TeXmacs... (as if, right?)
+    * This works with Juris-M standalone. The last tested version is
 
-    Whenever you update zotero-texmacs-integration, be sure to check
-    for an update to the propachi-texmacs also. They are inter-
-    dependent.
+      [v4.0.29.12m98](https://github.com/Juris-M/zotero-standalone-build/releases/download/v4.0.29.12m98/jurism-for-linux-64bit-4.0.29.12m98.tar.bz2)
+
+  * Install the OpenOffice plugin via Preferences > Cite > Word Processors.
+
+  * Install the propachi-texmacs xpi from:
+
+    https://github.com/KarlHegbloom/propachi-texmacs/releases
+
+    This monkey-patch loads a citeproc into Juris-M that has the right
+    outputFormat defined for the TeXmacs integration. It also ensures that the
+    integration uses that outputFormat by monkey-patching it. You can disable
+    propachi-texmacs and restart Juris-M when you want to use the OpenOffice
+    plugin instead of TeXmacs... (as if, right?)
+
+    Check there for updates or "watch" the github repository to get email when
+    I update it. I will try to get automatic updates to function when I have
+    time for that.
 
   * Now clone this repository, and then symlink to it from your
     TeXmacs home directory to enable it. I normally clone it into a
     source code directory and use a symlink from the TeXmacs
     directory:
 
-        cd ~/src;
-        git clone https://github.com/KarlHegbloom/zotero-texmacs-integration.git;
+        cd ~;
+        mkdir --parents ~/src/Juris-M || true;
+        cd ~/src/Juris-M;
+        git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
+        cd ~;
+        mkdir --parents ~/.TeXmacs/plugins || true;
         cd ~/.TeXmacs/plugins;
-        ln -s ~/src/zotero-texmacs-integration zotero;
-    
+        [[ -L "legal-brief" -a -L "zotero" -a $(realpath "legal-brief") = $(realpath "zotero" ]] && rm legal-brief zotero;
+        [[ -L "zotero" ]] && rm zotero;
+        ln -s ~/src/Juris-M/zotero-texmacs-integration tm-zotero;
+
     You could download a zip from github, but then you won't have the
     easy update functionality you get by using git. To update the code
     when I change it, you run:
-    
- 
-        cd ~/src/zotero-texmacs-integration;
-        git pull;
-    
-    You may also need to update the propachi-texmacs from time to
-    time. It does not presently upgrade automatically when I release a
-    new version.
 
+        cd ~/src/Juris-M/zotero-texmacs-integration;
+        git checkout master;
+        git pull;
 
 Now when you start TeXmacs, it will be able to find the style and the
 scheme program that makes it work. Start a new document, and add the
@@ -195,16 +121,25 @@ new document, and set the main document style to that. Then try the
 hybrid LaTeX-like commands:
 
     \Legal-Heading
-    
+
     or
-    
+
     \Cert-of-Service
 
-The jm-indigobook-catsort-bib.csl can be dropped onto Firefox from
-Nautilus or added using the Juris-M preferences dialog on the Cite |
-Styles tab. I'll add a sample document that uses it after a while.
+The `jm-indigobook-catsort-bib.csl` can be added using the Juris-M preferences
+dialog on the `Cite | Styles` tab.
 
 Please use the Github issue tracker to report any problems. That will
 assist me in not losing any trouble-tickets:
 
-<https://github.com/KarlHegbloom/zotero-texmacs-integration/issues>
+https://github.com/KarlHegbloom/zotero-texmacs-integration/issues
+
+
+## Other potentially interesting media ##
+
+*Yes, after it's all working again, I'll update the documentation!*
+
+This article is very interesting. It talks about verified mathematical
+documents... it makes me wonder if there can be verified legal documents?
+
+http://www.sciencedirect.com/science/article/pii/S1571066107001727

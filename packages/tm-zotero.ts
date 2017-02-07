@@ -4,7 +4,7 @@
 
 <\body>
   <active*|<\src-title>
-    <src-package|tm-zotero|0.007-UT-1-W>
+    <src-package|tm-zotero|0.007-UT-1-W-SOURCE>
 
     <\src-purpose>
       This package contains extended macros for citations and provides a
@@ -29,7 +29,7 @@
       must uninstall or disable the Firefox propachi-texmacs addon.
     </src-purpose>
 
-    <src-copyright|2016|Karl Martin Hegbloom>
+    <src-copyright|2016, 2017,|Karl Martin Hegbloom>
 
     <\src-license>
       This software falls under the <hlink|GNU general public license,
@@ -39,11 +39,33 @@
     </src-license>
   </src-title>>
 
-  <use-module|(zotero)>
+  <\active*>
+    <\src-comment>
+      <with|color|red|I realize that this is very disorganized! So: To do:
+      Organize this style sheet source better.><with|font-series|bold|>
+
+      To do: Clean out XXX'd out ones.
+
+      To do: Simplify
+
+      To do: uniform naming convention\ 
+    </src-comment>
+  </active*>
+
+  <use-module|(tm-zotero)>
 
   <use-package|std-counter|std-utils|env-float|std-list|std-markup>
 
-  \;
+  <\active*>
+    <\src-comment>
+      These are enclosed by macros so that there is a UTF-8 encoded font
+      being used for the paragraphsign and sectionsign so that when the PDF
+      is generated, the outline will have the right symbol showing. When a
+      cork encoded font is the document font, they don't show up right
+      otherwise. I actually recommend using one of the new True Type TeX Gyre
+      fonts, such as Bonum, Pagella, Schola, or Termes.
+    </src-comment>
+  </active*>
 
   <assign|ParagraphSignGlyph|<macro|\<paragraph\>>>
 
@@ -53,14 +75,42 @@
 
   <assign|rdquo|\Q>
 
+  <assign|ztlt|\<less\>>
+
+  <assign|ztgt|\<gtr\>>
+
+  <assign|less-than-sign|\<less\>>
+
+  <assign|greater-than-sign|\<gtr\>>
+
   \;
+
+  <\active*>
+    <\src-comment>
+      Because the underlying zt-format-debug function prints timing
+      information, this can be used to benchmark how long it takes to typeset
+      a document by putting one of these at the top, and another at the
+      bottom.
+
+      To do: extend and improve this mechanism, integrating it with the
+      normal TeXmacs debugging console thing...
+    </src-comment>
+  </active*>
 
   <assign|ztDebug|<macro|body|<extern|(lambda (body) (zt-format-debug
   "Debug:ztDebug: ~s\\n" body))|<arg|body>>>>
 
   \;
 
-  <assign|usepackage*|<macro|ign1|ign2|<concealed|<arg|ign1><arg|ign2>>>>
+  <assign|XXXusepackage*|<macro|ign1|ign2|<concealed|<arg|ign1><arg|ign2>>>>
+
+  <\active*>
+    <\src-comment>
+      In order to prevent the latex to texmacs conversion from mangling
+      these, I had to prefix them with zt to get it past the substitution
+      phase of the converter.
+    </src-comment>
+  </active*>
 
   <assign|zttextit|<macro|body|<with|font-shape|italic|<arg|body>>>>
 
@@ -78,8 +128,8 @@
 
   <\active*>
     <\src-comment>
-      Default values to avoid transcient "bad case" errors prior to setting
-      documentData.
+      Default values to avoid transcient "bad case" errors being thrown
+      (regarding a \\case macro) prior to setting documentData.
     </src-comment>
   </active*>
 
@@ -155,6 +205,17 @@
       End-notes <with|color|red|ARE NOT WORKING.> I do not know how to do
       this without it storing typesetter-expanded things into the endnote
       attachment aux... quote / eval ?
+
+      I think that end-notes are sort of a kind of bibliography... I wonder
+      if TeXmacs ought to just have an end-notes thing, that can put end
+      notes at the end of sections, chapters, or the entire document or
+      whatever. I think they should be gathered by something, and then all
+      displayed when called for by the insertion of an environment where they
+      get displayed, just like a bibliography or table of contents.
+
+      Remember that storing them in reference bindings does not work right.
+      Instead, see the way that the bibtex information gets cached inside
+      documents in the default TeXmacs bibliography generation system.
     </src-comment>
   </active*>
 
@@ -190,28 +251,51 @@
     </src-comment>
   </active*>
 
+  <inactive|<assign|XXXtm-zotero-ext-ensure-ztHref-interned!|<macro|url-for-tree|<extern|(lambda
+  (url-for-tree-t) (tm-zotero-ext:ensure-ztHref-interned!
+  url-for-tree-t))|<arg|url-for-tree>>>>>
+
+  <inactive|<assign|XXXztHref|<macro|url|display|<tm-zotero-ext-ensure-ztHref-interned!|<arg|url>><if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>>
+
+  \;
+
   <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
+
+  \;
 
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 
   <\active*>
     <\src-comment>
-      hashLabel is not yet used by ztHrefFromBibToURL but available to it or
-      to code acting on it.
+      hashLabel is not used by ztHrefFromBibToURL but available to it or to
+      code acting on it. I think I put it in there mainly so that
+      ztHrefFromCiteToBib and ztHrefFromBibToURL will have the same arity and
+      layout. It may go away before this hits beta.
+
+      zt-zciteID is defined here, but locally with-bound inside of the zcite
+      macro.
     </src-comment>
   </active*>
 
+  <inactive|<assign|XXXzt-zciteID|0>>
+
   <assign|zt-link-BibToURL|true>
+
+  \;
 
   <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromBibToURL*|<value|ztHrefFromBibToURL>>
 
+  \;
+
   <assign|zt-link-FromCiteToBib|true>
 
   <assign|ztDefaultCiteURL|>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<zt-has-zbibliography?>>|<label|<merge|zciteID|<value|zt-zciteID>|<arg|hashLabel>>><hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<macro|zfieldID-t|hashLabel-t|<extern|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|zfieldID-t>|<arg|hashLabel-t>>>>
+
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<label|<merge|zciteID|<value|zt-zfieldID>|<arg|hashLabel>>><tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<value|zt-zfieldID>|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
 
   <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
@@ -224,16 +308,11 @@
     </src-comment>
   </active*>
 
-  <assign|zt-flag-modified|<macro|fieldID|<extern|(lambda (id)
-  (zt-ext-flag-if-modified id))|<arg|fieldID>>>>
+  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><arg|citebody>>>
 
-  <assign|zt-zciteID|0>
+  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><arg|citebody>>>>
 
-  <assign|zt-zcite-in-text|<macro|fieldID|citebody|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<case|<value|zt-not-inside-note>|0|<value|zt-in-footnote>|<value|footnote-nr>|<value|zt-in-endnote>|<value|endnote-nr>>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>
-
-  <assign|zt-zcite-as-footnote|<macro|fieldID|citebody|<zt-footnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|footnote-nr>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
-
-  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><zt-flag-modified|<arg|fieldID>><with|zt-zciteID|<arg|fieldID>|<arg|citebody>>>>>
+  <assign|zt-zcite-as-endnote|<macro|fieldID|citebody|<zt-endnote|<set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|<value|endnote-nr>><arg|citebody>>>>
 
   \;
 
@@ -253,7 +332,7 @@
   </active*>
 
   <assign|ztShowID|<macro|node|cslid|body|<extern|(lambda (node cslid body)
-  (zt-ext-ztShowID id))|<arg|node>|<arg|cslid>|<arg|body>>>>
+  (tm-zotero-ext:ztShowID node cslid body))|<arg|node>|<arg|cslid>|<arg|body>>>>
 
   <\active*>
     <\src-comment>
@@ -279,42 +358,110 @@
   </active*>
 
   <assign|zbibCitationItemID|<macro|itemID|<extern|(lambda (itemID)
-  (zt-ext-zbibCitationItemID itemID))|<arg|itemID>>>>
+  (tm-zotero-ext:zbibCitationItemID itemID))|<arg|itemID>>>>
 
   <\active*>
     <\src-comment>
       The indent will be the same as that set by the firstLineIndent and
       bodyIndent.
 
-      So, maxoffset could be used, but I don't think I need to worry about
-      it. If it turns out to need it, I will deal with it then.
-
-      Remember that there might, eventually, be more than one zbibliography
-      field in a document.
-
       Look at std-utils.ts for the indentation macros and see if they can be
       used to improve this sometime when I'm not about to run out of
       batteries.
+
+      TODO The amount of space after the label in ztLeftMargin ought to be
+      such that the text following it lines up exactly with the rest of the
+      bibliography entry, that is, at zotero-BibliographyStyle_bodyIndent...
+      but whenever the width of a label is such that it's first line is
+      pushed over to the right, then perhaps the bodyIndent ought to increase
+      by that amount?
+
+      Anyway, this works pretty good now.
     </src-comment>
   </active*>
 
-  <assign|ztNewBlock|<macro|body|<arg|body><next-line>>>
+  <assign|ztNewBlock|<macro|body|<surround|<next-line>|<next-line>|<arg|body>>>>
 
-  \;
+  <\active*>
+    <\src-comment>
+      TODO verify? The indent will be the same as that set by the
+      firstLineIndent and bodyIndent.
+    </src-comment>
+  </active*>
 
   <assign|ztbibIndent|<macro|body|<arg|body>>>
 
+  <assign|zt-item-hsep|1spc>
+
   \;
 
-  <assign|ztLeftMargin|<macro|body|<arg|body><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<ztRawWidth|<arg|body>>>|<ztRawWidth|<ztRigidHspace|<value|item-hsep>>>>>|<value|item-hsep>>>>>>
+  <assign|ztLeftMargin|<macro|label|<arg|label><with|tab-stop|<if|<greatereq|<get-arity|<value|zotero-BibliographyStyle_arrayList>>|1>|<look-up|<value|zotero-BibliographyStyle_arrayList>|0>|<value|zotero-BibliographyStyle_bodyIndent>>|<ztRigidHspace|<if|<greater|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|0>|<ztAsTmlen|<minimum|<minus|<ztRawWidth|<ztRigidHspace|<value|tab-stop>>>|<plus|<ztRawWidth|<arg|label>>|<ztRawWidth|<ztRigidHspace|<value|zt-item-hsep>>>>>|<ztRawWidth|<ztRigidHspace|<value|zt-item-hsep>>>>>|<value|zt-item-hsep>>>>>>
 
   \;
 
   <assign|ztRightInline|<value|identity>>
 
-  \;
+  <\active*>
+    <\src-comment>
+      The embeddedBibliographyEntry is going to be blank unless the
+      state.sys.prototype.embedBibliographyEntry(state, this.itemID) is
+      defined inside of citeproc. I honestly don't know what it's for right
+      now; there are not any examples of it that I can find with a Google
+      search. I want to remove it now, but it's already there and I don't
+      want to break my older documents... and maybe it will prove useful to
+      define it someday... or remove it later. It is something for injecting
+      behavior into citeproc.js by defining it. Search the citeproc.js
+      sources to see how it's actually referenced in there.
+    </src-comment>
+  </active*>
 
-  <assign|ztbibItemText|<\macro|sysID|insert|citekey|body>
+  <\active*>
+    <\src-comment>
+      One ztbibItemText is emitted by the Juris-M / Zotero citeproc-js bbl
+      output format for each bibliography item. The arguments are:
+
+      \ sysID \ is a string: \ \ sys_id =
+      state.registry.registry[this.system_id].ref.id; \ It looks like an
+      integer.
+
+      refsList is not used yet, and for now it is blank. \ If I decide to
+      move this functionality into the propachi-texmacs citeproc-js bbl
+      output format, I think it will be an in-document-order list of zfieldID
+      strings, one for each zfield or citation cluster (inside of citeproc
+      they are known as citation clusters, not zfields) wherein this
+      bibliography item was referenced. When the same sysID is referenced
+      more than once inside of the same zfield, that zfieldID will appear
+      once for each time. After the first one, subequent ones will have a
+      number appended to the label, incrementing, to create separate labels
+      for each citation. It will not simply link to the start of the citation
+      cluster zfield because those can split across pages when they contain
+      many citations and are long, as for IndigoBook inline legal citations.
+      This implies that it will be necessary to ensure that the zfieldID's
+      never contain spaces or commas or whatever character is used to
+      separate them in this list. How about semi-colons, with no extra
+      spaces? Q: Can that string tree be split by a TeXmacs macro, or will it
+      need to be processed by a scheme function? Also, for use with LaTeX, it
+      may be necessary to have citeproc-js emit the refsList in order to make
+      backlinks work? Not sure; no time for that right now.
+
+      citekey \ is a string, and is formed by pasting the string "sysID" to
+      the sysID for this bibliography entry, unless
+      state.sys.getBibTeXCiteKey(sysID, state) is defined, which I think is
+      supposed to return a BibTeX style citation key. I've never tested this
+      case because better BibTeX for Zotero was incompatible in some way with
+      propachi-texmacs and I think it's where that function gets defined.
+      Because I never use it, this argument could be removed for the purposes
+      of this extension to TeXmacs, but if the same bbl output format was to
+      be used for LaTeX, perhaps auto-completion or whatever would work
+      better for some people if it uses a standard BibTeX citekey format? So
+      for now it stays.
+
+      body \ is the body of the bibliography entry. It contains text wrapped
+      in the macros just above this comment.
+    </src-comment>
+  </active*>
+
+  <assign|ztbibItemText|<\macro|sysID|refsList|citekey|body>
     <\with|par-sep|<times|<value|par-sep>|<value|zotero-BibliographyStyle_lineSpacing>>|ztbibItem-vsep|<times|<value|ztbibItem-vsep>|<value|zotero-BibliographyStyle_entrySpacing>>>
       <\surround|<vspace*|<value|item-vsep>>|<right-flush>>
         <\with|par-no-first|false|par-first|<value|zotero-BibliographyStyle_firstLineIndent>|par-left|<value|zotero-BibliographyStyle_bodyIndent>>
@@ -330,32 +477,32 @@
 
   <assign|zt-render-bibItemRefsLists|true>
 
-  <assign|zbibItemRefsList-sep|, >
+  \;
 
-  <assign|XXXzbibItemRefsList-left| \ [<with|font-shape|italic|refs:> >
+  <inactive|<assign|XXXzbibItemRefsList-left|
+  \ [<with|font-shape|italic|refs:> >>
 
-  <assign|zbibItemRefsList-left| \ [>
+  <assign|ztbibItemRefsList-left| \ [>
 
-  <assign|zbibItemRefsList-right|]>
+  <assign|ztbibItemRefsList-sep|, >
+
+  <assign|ztbibItemRefsList-right|]>
+
+  <assign|ztbibItemRef|<macro|label|<pageref|<arg|label>>>>
 
   \;
 
-  <assign|XXXzbibItemRef|<macro|label|<if|<equal||<reference|<arg|label>>>||<SectionSignGlyph><reference|<arg|label>>
-  on >p.<space|0.1spc><pageref|<arg|label>>>>
+  <assign|zt-ref-sep-extra|<macro|x|<value|ztbibItemRefsList-sep><ztbibItemRef|<arg|x>>>>
 
-  <assign|zbibItemRef|<macro|label|<pageref|<arg|label>>>>
-
-  \;
-
-  <assign|zt-render-bibItemRefsList|<macro|sysID|<extern|(lambda (sysID)
-  (zt-ext-ztbibItemRefsList sysID))|<arg|sysID>>>>
-
-  <assign|ztbibItemRefsList|<macro|sysID|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<zt-render-bibItemRefsList|<arg|sysID>>>>>>
+  <assign|zt-ref-sep|<xmacro|args|<ztbibItemRef|<arg|args|0>><map-args|zt-ref-sep-extra|concat|args|1>>>
 
   \;
 
-  <assign|ztbibitem|<macro|key|<extern|(lambda (key) (zt-ext-bibitem
-  key))|<arg|key>>>>
+  <assign|get-ztbibItemRefsList|<macro|sysID|<extern|tm-zotero-ext:get-ztbibItemRefsList|<arg|sysID>>>>
+
+  <assign|ztbibItemRefsList|<macro|sysID|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<ztbibItemRefsList-left><get-ztbibItemRefsList|<arg|sysID>><ztbibItemRefsList-right>>>>>
+
+  \;
 
   \;
 
@@ -380,10 +527,23 @@
       in-text without it forcing itself to be on it's own line. When I was
       trying to use a converter from rtf to TeXmacs, they kept coming out as
       blocks rather than in-line.
+
+      tm-zotero-ensure-zfield-interned! triggers adding of the zfield to the
+      tm-zotero data structures used to keep track of zfields in the buffer
+      and the information needed for the integration with Juris-M or Zotero.
+      This macro is not meant to be used outside of the expansion of the
+      zcite or zbibliography macros.
     </src-comment>
   </active*>
 
-  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>
+  <assign|tm-zotero-ensure-zfield-interned!|<macro|fieldID-t|<extern|tm-zotero-ext:ensure-zfield-interned!|<arg|fieldID-t>>>>
+
+  <assign|zcite-flag-if-modified|<macro|fieldCode|<case|<look-up|<arg|fieldCode>|2>|<flag|Modified|red>|<flag|Not
+  Modified|green>>>>
+
+  <inactive|<assign|Xzt-zfieldID|+DISACTIVATED>>
+
+  <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|zt-zfieldID|<arg|fieldID>|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>>
 
   <drd-props|render-zcite|accessible|1>
 
@@ -401,11 +561,11 @@
 
   <assign|zt-extra-surround-before|>
 
-  \;
+  <assign|zbibliography-heading|<macro|<principal-section*|<bibliography-text>>>>
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
-      <principal-section*|<bibliography-text>>
+      <tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zbibliography-heading>
 
       <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|<arg|fieldText>>
     </surround>
@@ -415,8 +575,35 @@
 
   \;
 
-  <assign|zt-has-zbibliography?|<macro|<extern|(lambda ()
-  (zt-ext-document-has-zbibliography?))>>>
+  <assign|has-zbibliography?|<macro|<extern|(lambda ()
+  (tm-zotero-ext:document-has-zbibliography?))>>>
+
+  \;
+
+  <assign|inside-footnote?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-footnote? t))|<arg|t>>>>
+
+  <assign|inside-endnote?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-endnote? t))|<arg|t>>>>
+
+  <assign|inside-note?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-note? t))|<arg|t>>>>
+
+  <assign|inside-zcite?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-zcite? t))|<arg|t>>>>
+
+  <assign|inside-zbibliography?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-zbibliography? t))|<arg|t>>>>
+
+  <assign|not-inside-zbibliography?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:not-inside-zbibliography? t))|<arg|t>>>>
+
+  <assign|inside-zfield?|<macro|t|<extern|(lambda (t)
+  (tm-zotero-ext:inside-zfield? t))|<arg|t>>>>
+
+  \;
+
+  \;
 
   \;
 </body>

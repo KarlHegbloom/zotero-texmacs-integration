@@ -1,6 +1,6 @@
 ;;; coding: utf-8
 ;;; ¶
-;;; (json builder) --- Guile JSON implementation.
+;;; (tm-zotero json builder) --- Guile JSON implementation.
 
 ;; Copyright (C) 2013 Aleix Conchillo Flaque <aconchillo@gmail.com>
 ;;
@@ -27,7 +27,7 @@
 
 ;;; Code:
 
-(define-module (json builder)
+(define-module (tm-zotero json builder)
   #:use-module (ice-9 format)
   #:use-module (ice-9 optargs)
   #:use-module (srfi srfi-1)

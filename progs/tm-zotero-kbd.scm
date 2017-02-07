@@ -1,7 +1,7 @@
 ;;; coding: utf-8
-;;;
+;;; ✠ ✞ ♼ ☮ ☯ ☭ ☺
 ;;
-;; MODULE      : zotero-kbd.scm
+;; MODULE      : tm-zotero-kbd.scm
 ;; DESCRIPTION : Zotero Connector Plugin, Key bindings
 ;; COPYRIGHT   : (C) 2016  Karl M. Hegbloom <karl.hegbloom@gmail.com>
 ;;
@@ -11,22 +11,31 @@
 ;;
 ;;;
 
-(texmacs-module (zotero-kbd)
-  (:use (zotero)))
+(texmacs-module (tm-zotero-kbd)
+  (:use (tm-zotero)))
 
 (kbd-commands
   ("zc" "Insert Zotero Citation"
-   (when (in-tm-zotero-style?) (zotero-addCitation)))
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addCitation)))
   ("zcite" "Insert Zotero Citation"
-   (when (in-tm-zotero-style?) (zotero-addCitation)))
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addCitation)))
   ("zb" "Insert Zotero Bibliography"
-   (when (in-tm-zotero-style?) (zotero-addBibliography)))
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addBibliography)))
   ("zbibliography" "Insert Zotero Bibliography"
-   (when (in-tm-zotero-style?) (zotero-addBibliography))))
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addBibliography))))
+
 
 (kbd-map
  (:mode in-tm-zotero-style?)
- ("M-C-r" (zotero-refresh)))
+ ("M-C-r" (tm-zotero-refresh)))
 
 
 ;; (tm-define (kbd-tab)
@@ -49,12 +58,13 @@
 ;; Debug:kbd:kbd-tab: (tree-label (focus-tree)) => zcite
 ;; Debug:kbd:kbd-tab: (tree-func? (focus-tree) 'zcite) => #t
 
-(tm-define (kbd-tab)
-  (:require (and (in-zcite?)
-                 (not (in-source?))))
-  (zotero-editCitation))
 
 (tm-define (kbd-tab)
-  (:require (and (in-zbibliography?)
+  (:require (and (focus-is-zcite?)
                  (not (in-source?))))
-  (zotero-editBibliography))
+  (tm-zotero-editCitation))
+
+(tm-define (kbd-tab)
+  (:require (and (focus-is-zbibliography?)
+                 (not (in-source?))))
+  (tm-zotero-editBibliography))

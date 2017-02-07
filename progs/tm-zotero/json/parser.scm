@@ -1,6 +1,6 @@
 ;;; coding: utf-8
 ;;; ¶
-;;; (json parser) --- Guile JSON implementation.
+;;; (tm-zotero json parser) --- Guile JSON implementation.
 
 ;; Copyright (C) 2013 Aleix Conchillo Flaque <aconchillo@gmail.com>
 ;;
@@ -27,7 +27,7 @@
 
 ;;; Code:
 
-(define-module (json parser)
+(define-module (tm-zotero json parser)
   #:use-module (ice-9 rdelim)
   #:use-module (ice-9 optargs)
   #:use-module (ice-9 syncase)

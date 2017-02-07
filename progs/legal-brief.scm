@@ -1,8 +1,8 @@
 ;;; coding: utf-8
-;;; ✠
+;;; ✠ ✞ ♼ ☮ ☯ ☭ ☺
 ;;;
-;; MODULE      : insert-legal-templates.scm
-;; DESCRIPTION : Insert Templates for Legal Brief Style.
+;; MODULE      : legal-brief-style.scm
+;; DESCRIPTION : Scheme-side support for the Legal Brief Style.
 ;; COPYRIGHT   : (C) 2016  Karl M. Hegbloom <karl.hegbloom@gmail.com>
 ;;
 ;; This software falls under the GNU general public license version 3 or
@@ -10,7 +10,7 @@
 ;; LICENSE in the root directory or <http://www.gnu.org/licenses/gpl-3.0.html>
 ;;
 ;;;
-(texmacs-module (insert-legal-templates)
+(texmacs-module (legal-brief)
   (:use (generic document-style)))
 
 ;;; LaTeX / Hybrid kbd commands:
@@ -23,6 +23,8 @@
    (insert-legal-heading))
   ("Cert-of-Service" "Insert Legal Certificate of Service"
    (insert-legal-cert-of-service))
+  ("Appellate-Issue" "Insert Appellate Issue Template"
+   (insert-appellate-issue-template))
   )
 
 
@@ -261,7 +263,15 @@
          (concat "Document Preparer"))))))
 
 
-
+(tm-define (insert-appellate-issue-template)
+  (insert
+   `(document
+      (subsection "[Name the issue]")
+      "[Succinctly state the issue.]"
+      (subsubsection "Determinative Law")
+      "[Cite any statutes, rules, or cases determinative of the issue.]"
+      (subsubsection "Standard of Review")
+      "[State applicable standard of appellate review for the issue, with supporting authority.]")))
 
 ;;; Local Variables:
 ;;; mode: scheme
