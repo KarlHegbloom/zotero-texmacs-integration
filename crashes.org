@@ -21,10 +21,15 @@ highlight it's text as the active region, and then use C-c c to
 initiate org-capture, then press S, which will log a TODO item here,
 also allowing entry of a brief description.
 
-* TODO TeXmacs stacktrace: Enter a citation, then attempt to cut it using C-w.
+* Cut and Paste
+** WIP TeXmacs stacktrace: Enter a citation, then attempt to cut it using C-w.
+   :LOGBOOK:
+   - State "WIP"        from "TODO"       [2017-02-07 Tue 08:24]
+   :END:
 
-  Entered [2017-01-22 Sun 19:43]
+   Entered [2017-01-22 Sun 19:43]
 
+ #+BEGIN_EXAMPLE
   Backtrace:
   In unknown file:
      ?:  0* [#<procedure #f (key time)> "C-w" 116251.0]
@@ -57,12 +62,16 @@ also allowing entry of a brief description.
   
   /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: In expression (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #)):
   /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: Unbound variable: document-remove!-<ztHrefFromCiteToBib-data>
+ #+END_EXAMPLE
 
-* TODO TeXmacs stacktrace: Another crash trying to use C-w on selected zcite
+** WIP TeXmacs stacktrace: Another crash trying to use C-w on selected zcite
+   :LOGBOOK:
+   - State "WIP"        from "TODO"       [2017-02-07 Tue 08:24]
+   :END:
 
-  Entered [2017-01-22 Sun 21:58]
+   Entered [2017-01-22 Sun 21:58]
 
-#+BEGIN_EXAMPLE
+ #+BEGIN_EXAMPLE
 Backtrace:
 In unknown file:
    ?:  0* [#<procedure #f (key time)> "C-w" 19829.0]
@@ -95,22 +104,26 @@ In /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:
 
 /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: In expression (document-remove!-<ztHrefFromCiteToBib-data> (hash-ref zfield-zfd-ht #)):
 /home/karlheg/.TeXmacs/plugins/tm-zotero/progs/tm-zotero.scm:928:29: Unbound variable: document-remove!-<ztHrefFromCiteToBib-data>
-#+END_EXAMPLE
+ #+END_EXAMPLE
 
 
 
-* TODO TeXmacs stacktrace: crash in tree-pointer destructor
-  :PROPERTIES:
-  :ID:       b6001b50-f170-4a7e-97e5-79a51be2591d
-  :END:
+* tree-pointer destructor and guardian
+** WIP TeXmacs stacktrace: crash in tree-pointer destructor
+   :PROPERTIES:
+   :ID:       b6001b50-f170-4a7e-97e5-79a51be2591d
+   :END:
+   :LOGBOOK:
+   - State "WIP"        from "TODO"       [2017-02-07 Tue 08:24]
+   :END:
 
-  Fresh document, add tm-zotero package, use menu to set document preferences,
-  and then enter a citation field with one citation item in it. Press Tab to
-  editCitation, press enter without changing it, and it works fine. Press Tab
-  again to editCitation, then add a second citation to it, and it crashes with
-  the following:
+   Fresh document, add tm-zotero package, use menu to set document preferences,
+   and then enter a citation field with one citation item in it. Press Tab to
+   editCitation, press enter without changing it, and it works fine. Press Tab
+   again to editCitation, then add a second citation to it, and it crashes with
+   the following:
 
-#+begin_src shell
+ #+begin_src shell
 karlheg@syrinx:~/src/Juris-M/zotero-texmacs-integration (performance-improvments-wip)$ texmacs --gdb
 GNU gdb (Ubuntu 7.12-0ubuntu1) 7.12
 Copyright (C) 2016 Free Software Foundation, Inc.
@@ -594,24 +607,38 @@ A debugging session is active.
 
   [[file:~/src/Juris-M/zotero-texmacs-integration/.dir-locals.el][file:~/src/Juris-M/zotero-texmacs-integration/.dir-locals.el]]
 
+ #+end_src
 
-#+end_src
+** WIP TeXmacs stacktrace: Re: crash in tree-pointer destructor
+   :LOGBOOK:
+   - State "WIP"        from "TODO"       [2017-02-07 Tue 08:20]
+   :END:
+
+   Entered [2017-02-07 Tue 08:17]
+
+ #+BEGIN_EXAMPLE
+I think I sort of "fixed" the crash when tm_delete of a tree-pointer happens in
+C++ by using a guardian, but then never calling them out in the
+after-gc-hook. I'm sure it's leaking them now... since they hang around inside
+the guardian until called out.
+ #+END_EXAMPLE
 
 
-* S.E.P. TeXmacs stacktrace: Segv in QDBusConnection at normal exit via quit menu
-  :LOGBOOK:
-  - State "S.E.P."     from              [2017-02-06 Mon 11:11] \\
-    Somebody elses problem.
-  :END:
-  ... or window manager close button.  This happens every time I exit the
-  application. It is not unique to TeXmacs. This copy of TeXmacs is built
-  against Qt 5.6.0-beta from the kubuntu-ppa/backports for yakkety:
+* Other
+** S.E.P. TeXmacs stacktrace: Segv in QDBusConnection at normal exit via quit menu
+   :LOGBOOK:
+   - State "S.E.P."     from              [2017-02-06 Mon 11:11] \\
+     Somebody elses problem.
+   :END:
+   ... or window manager close button.  This happens every time I exit the
+   application. It is not unique to TeXmacs. This copy of TeXmacs is built
+   against Qt 5.6.0-beta from the kubuntu-ppa/backports for yakkety:
 
-    deb http://ppa.launchpad.net/kubuntu-ppa/backports/ubuntu yakkety main
+     deb http://ppa.launchpad.net/kubuntu-ppa/backports/ubuntu yakkety main
 
-  Entered [2017-02-01 Wed 16:22]
+   Entered [2017-02-01 Wed 16:22]
 
-#+BEGIN_EXAMPLE
+ #+BEGIN_EXAMPLE
 karlheg@syrinx:~/src/TeXmacs/texmacs-git-svn-guile-1.8 (syrinx-pure-cmake-doxygen)$ texmacs --gdb
 GNU gdb (Ubuntu 7.12-0ubuntu1) 7.12
 Copyright (C) 2016 Free Software Foundation, Inc.
@@ -756,5 +783,7 @@ Architecture: amd64
 Version: 2:1.99.9-1-svn-10605-git-10718-328a56a-guile-1.8.8
 Depends: guile-1.8-libs (>= 1.8.5+1-2ubuntu1), libc6 (>= 2.15), libfreetype6 (>= 2.4.8), libgcc1 (>= 1:3.0), libjpeg8 (>= 8c), libqt5core5a (>= 5.6.0~beta), libqt5gui5 (>= 5.3.0) | libqt5gui5-gles (>= 5.3.0), libqt5printsupport5 (>= 5.0.2), libqt5widgets5 (>= 5.6.0~beta), libstdc++6 (>= 5.2), zlib1g (>= 1:1.1.4)
 Description: A structured wysiwyg scientific text editor [...]
-#+END_EXAMPLE
+ #+END_EXAMPLE
+
+
 
