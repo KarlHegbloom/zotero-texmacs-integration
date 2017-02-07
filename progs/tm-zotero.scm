@@ -120,6 +120,8 @@
 	   (and-with p (tree-ref t :up)
 	     (with-like-search p)))))
 
+(define wait-update-current-buffer (@@ (generic document-edit) wait-update-current-buffer))
+
 ;;}}}
 ;;{{{ Error and debugging printouts
 
@@ -342,6 +344,7 @@
     (when (and tp (observer? tp))
       (tree-pointer-detach tp)))
   #t)
+
 ;;;??? does not run at all now.
 ;(add-hook! after-gc-hook tp-guardian-after-gc)
 
@@ -468,9 +471,13 @@
   (delayed ;; allow typesetting/magic to happen before next update
     (:idle 1)
     (cursor-after
-     (when (or (== what "all")
-               (== what "bibliography"))
-       (tm-zotero-refresh))
+     (cond
+       ((== what "all")
+        (tm-zotero-refresh)
+        (wait-update-current-buffer))
+       ((== what "bibliography")
+        (tm-zotero-refresh)
+        (wait-update-current-buffer)))
      (former what))))
 
 
@@ -488,7 +495,8 @@
   (:require (in-tm-zotero-style?))
   ;;(tm-zotero-format-debug "buffer-get-part-mode called, mode => ~s\n" mode)
   (clear-<document-data>! (get-documentID))
-  (former mode))
+  (former mode)
+  (wait-update-current-buffer))
 
 
 
@@ -515,6 +523,7 @@
     (tm-zotero-set-message
      (string-append "zcite reactivated! Checking for modification... is-modified? => "
                     is-modified? ". Done.")))
+  (wait-update-current-buffer)
   #t)
 
 
@@ -574,55 +583,60 @@
                  (in-text?)
                  (has-zfields? (selection-tree))))
   (set! inside-tm-zotero-clipboard-cut #t)
-  (let* ((documentID (get-documentID))
-         (selection-t (selection-tree))
-         (zfields (tm-search selection-t is-zfield?))
-         (zfd-ht (get-document-zfield-zfd-ht documentID))
-         (zfd-ls (get-document-zfield-zfd-ls documentID))
-         (zb-zfd-ls (get-document-zbibliography-zfd-ls documentID))
-         (new-zfield-zfd (get-document-new-zfield-zfd documentID)))
-    (map (lambda (zfield)
-           (let* ((zfieldID (zfield-zfieldID zfield))
-                  (zfd (hash-ref zfd-ht zfieldID #f)))
-             (if (and zfd (not (eq? zfd new-zfield-zfd)))
-                 (begin
-                   (hash-remove! zfd-ht zfieldID)
-                   (set-document-zfield-zfd-ls! documentID
-                    (list-filter zfd-ls
-                                 (lambda (elt)
-                                   (not (eq? elt zfd)))))
-                   (when (is-zbibliography? zfield)
-                     (set-document-zbiblioraphy-zfd-ls!
-                      (list-filter zb-zfd-ls
-                                   (lambda (elt)
-                                     (not (eq? elt zfd))))))
-                   ;; TODO Experiment + UTSL to find out if I need to do this
-                   ;;      with tree-pointer. I am not sure if it sticks to the
-                   ;;      tree while the tree is detached, or if it gets left
-                   ;;      at the place where the selection tree has been cut
-                   ;;      from. Also is it GC'd, or would it leak?
-                   (clear-tree-pointer zfd)
-                   (unintern-ztHrefFromCiteToBib-for-cut documentID zfield))
-                 (let ((tp (tree-pointer new-zfield-zfd))) ; is the new one???
-                   ;;
-                   ;; How? This can happen only when the protocol between
-                   ;; Zotero and TeXmacs has failed for some reason, usually
-                   ;; due to a bug in this program causing it to be
-                   ;; interrupted, leaving the new-zfield in the document.
-                   ;;
-                   (tm-zotero-format-error
-                    "clipboard-cut: Cutting new zfield! Fixme: Probably protocol breakdown; Restart Firefox and TeXmacs.")
-                   (tree-set! zfield
-                              (stree->tree
-                               '(strong "{?? New Citation ??}")))
-                   (when tp
-                     (when (observer? tp)
-                       (tree-pointer-detach tp)
-                       )
-                     (set-document-new-zfield-zfd! #f))))))
-         zfields)
-      (clipboard-set which selection-t)
-      (tree-set! selection-t ""))
+  (if (string=? which "nowhere")
+      (former "nowhere")
+      (let* ((documentID (get-documentID))
+             (selection-t (selection-tree))
+             (zfields (tm-search selection-t is-zfield?))
+             (zfd-ht (get-document-zfield-zfd-ht documentID))
+             (zfd-ls (get-document-zfield-zfd-ls documentID))
+             (zb-zfd-ls (get-document-zbibliography-zfd-ls documentID))
+             (new-zfield-zfd (get-document-new-zfield-zfd documentID)))
+        (map (lambda (zfield)
+               (let* ((zfieldID (zfield-zfieldID zfield))
+                      (zfd (hash-ref zfd-ht zfieldID #f)))
+                 (cond
+                   ((and zfd (not (eq? zfd new-zfield-zfd)))
+                    (hash-remove! zfd-ht zfieldID)
+                    (set-document-zfield-zfd-ls! documentID
+                                                 (list-filter zfd-ls
+                                                              (lambda (elt)
+                                                                (not (eq? elt zfd)))))
+                    (when (is-zbibliography? zfield)
+                      (set-document-zbiblioraphy-zfd-ls!
+                       (list-filter zb-zfd-ls
+                                    (lambda (elt)
+                                      (not (eq? elt zfd))))))
+                    ;; TODO Experiment + UTSL to find out if I need to do this
+                    ;;      with tree-pointer. I am not sure if it sticks to the
+                    ;;      tree while the tree is detached, or if it gets left
+                    ;;      at the place where the selection tree has been cut
+                    ;;      from. Also is it GC'd, or would it leak?
+                    (clear-tree-pointer zfd)
+                    (unintern-ztHrefFromCiteToBib-for-cut documentID zfield))
+                   (zfd
+                    (let ((tp (tree-pointer zfd))) ; is the new one???
+                      ;;
+                      ;; How? This can happen only when the protocol between
+                      ;; Zotero and TeXmacs has failed for some reason, usually
+                      ;; due to a bug in this program causing it to be
+                      ;; interrupted, leaving the new-zfield in the document.
+                      ;;
+                      (tm-zotero-format-error
+                       "clipboard-cut: Cutting new zfield! Fixme: Probably protocol breakdown; Restart Firefox and TeXmacs.")
+                      (tree-set! zfield
+                                 (stree->tree
+                                  '(strong "{?? New Citation ??}")))
+                      ;; (when tp
+                      ;;   (when (observer? tp)
+                      ;;     (tp-guardian tp)
+                      ;;     ;;(tree-pointer-detach tp)
+                      ;;     )
+                      (clear-tree-pointer zfd)
+                      (set-document-new-zfield-zfd! #f))))))
+             zfields)
+        (clipboard-set which selection-t)
+        (tree-set! selection-t (stree->tree '(concat "")))))
   (set! inside-tm-zotero-clipboard-cut #f))
 
 
@@ -1369,7 +1383,10 @@
 ;;; comparison string from the current value of the zfield-Text.
 ;;;
 (define (zfield-Text zfield)
-  (format #f "~s" (tree->stree (zfield-Text-t zfield))))
+  (if (and zfield (tree? zfield))
+      (format #f "~s" (tree->stree (zfield-Text-t zfield)))
+      ""))
+
 ;;;
 ;;; There is no setter for zfield-Text.
 
@@ -1631,7 +1648,7 @@
                 #:slot-ref (lambda (zfd)
                             (slot-ref zfd '%tree-pointer))
                 #:slot-set! (lambda (zfd tp)
-                              (if tp
+                              (if (and tp (observer? tp))
                                   (begin
                                     (tp-guardian tp)
                                     (slot-set! zfd '%tree-pointer tp))
@@ -1645,7 +1662,7 @@
                                (tree-pointer->tree tp)
                                #f)))
             #:slot-set! (lambda (zfd t)
-                          (if t
+                          (if (and t (tree? t))
                               (begin
                                 (set! (tree-pointer zfd) (tree->tree-pointer t))
                                 (slot-set! zfd 'the-zfieldID-of (zfield-zfieldID t)))
@@ -1679,7 +1696,7 @@
                 #:slot-ref (lambda (zhd)
                             (slot-ref zhd '%tree-pointer))
                 #:slot-set! (lambda (zhd tp)
-                              (if tp
+                              (if (and tp (observer? tp))
                                   (begin
                                     (tp-guardian tp)
                                     (slot-set! zhd '%tree-pointer tp))
@@ -1687,14 +1704,14 @@
                                     (slot-set! zhd '%tree-pointer #f)))))
   (zhd-tree #:allocation #:virtual
             #:slot-ref (lambda (zhd)
-                         (let ((tp (slot-ref zhd 'tree-pointer)))
-                           (if tp
+                         (let ((tp (tree-pointer zhd)))
+                           (if (and tp (observer? tp))
                                (tree-pointer->tree tp)
                                #f)))
             #:slot-set! (lambda (zhd t)
-                          (if t
+                          (if (and t (tree? t))
                               (set! (tree-pointer zhd) (tree->tree-pointer t))
-                              (set (tree-pointer zhd) #f)))))
+                              (set! (tree-pointer zhd) #f)))))
 
 
 (define-method (the-ref-label-of (zhd <ztHrefFromCiteToBib-data>))
@@ -3237,6 +3254,7 @@
 (define (tm-zotero-Document_activate tid documentID)
   ;;(tm-zotero-set-message "Processing command: Document_activate...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_activate called.\n")
+  (wait-update-current-buffer)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
