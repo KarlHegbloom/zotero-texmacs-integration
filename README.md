@@ -16,14 +16,15 @@ not blow away your documents.*
 
 __But please don't be afraid to try it!__
 
-## YouTube Screencast Demos ##
+## Documentation and YouTube Screencast Demos ##
+
+RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/performance-improvments-wip/doc/tm-zotero-tutorial.en.pdf)
 
 [Juris-M / Zotero and TeXmacs Integration Screencasts Playlist](https://www.youtube.com/playlist?list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
 [Juris-M / Zotero and TeXmacs Integration Screencast 01](https://www.youtube.com/watch?v=ZhOton-p3T8&index=1&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
-[Juris-M / Zotero and TeXmacs Integration Screencast 02](https://www.youtube.com/watch?v=74tzA2OCu4I&index=2&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
-RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/performance-improvments-wip/doc/tm-zotero-tutorial.en.pdf)
+[Juris-M / Zotero and TeXmacs Integration Screencast 02](https://www.youtube.com/watch?v=74tzA2OCu4I&index=2&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
 
 ## Important Changes for this branch: ##
