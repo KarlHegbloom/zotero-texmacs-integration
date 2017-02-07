@@ -329,6 +329,23 @@
                   (cons (car l) acc))
               (cdr l)))))
 
+
+;;;;;;
+;;;
+;;; See: info:(guile-1.8) Guardians
+;;;
+(define tp-guardian (make-guardian))
+
+(define (tp-guardian-after-gc)
+  (do ((tp (tp-guardian) (tp-guardian)))
+      ((and tp (observer? tp)))
+    (when (and tp (observer? tp))
+      (tree-pointer-detach tp)))
+  #t)
+;;;??? does not run at all now.
+;(add-hook! after-gc-hook tp-guardian-after-gc)
+
+
 ;;;;;;
 ;;;
 ;;; tree-pointers are used when maintaining the list of zfields in
@@ -567,7 +584,7 @@
     (map (lambda (zfield)
            (let* ((zfieldID (zfield-zfieldID zfield))
                   (zfd (hash-ref zfd-ht zfieldID #f)))
-             (if (not (eq? zfd new-zfield-zfd))
+             (if (and zfd (not (eq? zfd new-zfield-zfd)))
                  (begin
                    (hash-remove! zfd-ht zfieldID)
                    (set-document-zfield-zfd-ls! documentID
@@ -600,7 +617,8 @@
                                '(strong "{?? New Citation ??}")))
                    (when tp
                      (when (observer? tp)
-                       (tree-pointer-detach tp))
+                       (tree-pointer-detach tp)
+                       )
                      (set-document-new-zfield-zfd! #f))))))
          zfields)
       (clipboard-set which selection-t)
@@ -1164,7 +1182,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((zfieldID-t (tree-ref zfield 0)))
-       (tree-set! zfieldID-t t)))))
+       (tree-assign zfieldID-t t)))))
 
 
 (define zfield-zfieldID
@@ -1180,8 +1198,8 @@
    ;; set!
    (lambda (zfield str)
      (let ((zfieldID-t (zfield-zfieldID-t zfield)))
-       (tree-set! zfieldID-t
-                  (stree->tree str))))))
+       (tree-assign zfieldID-t
+                    (stree->tree str))))))
 
 
 ;;;;;;
@@ -1217,36 +1235,36 @@
                    ;; <tuple|3|<raw-data|THIS>|"false"|<raw-data|"origText">>
                    (tree-ref code 1 0))
                   ((tm-func? code 'raw-data) ; v.2
-                   (tree-set! code
-                              (stree->tree
-                               `(tuple "3" ; update to v.3
-                                       ,(tree->stree code)
-                                       "false"
-                                       (raw-data ""))))
+                   (tree-assign code
+                                (stree->tree
+                                 `(tuple "3" ; update to v.3
+                                         ,(tree->stree code)
+                                         "false"
+                                         (raw-data ""))))
                    (ref-impl zfield) ; tail-call
                    )
                   ((tm-atomic? code)    ; v.1
-                   (tree-set! code
-                              (stree->tree
-                               `(tuple "3" ; to v.3
-                                       (raw-data ,(tree->stree code))
-                                       "false"
-                                       (raw-data ""))))
+                   (tree-assign code
+                                (stree->tree
+                                 `(tuple "3" ; to v.3
+                                         (raw-data ,(tree->stree code))
+                                         "false"
+                                         (raw-data ""))))
                    (ref-impl zfield) ; tail-call
                    )
                   (else ; ? I don't think this can really happen.
-                    (tree-set! code
-                               (stree->tree
-                                `(tuple "3" ; to v.3
-                                        (raw-data "")
-                                        "false"
-                                        (raw-data ""))))
+                    (tree-assign code
+                                 (stree->tree
+                                  `(tuple "3" ; to v.3
+                                          (raw-data "")
+                                          "false"
+                                          (raw-data ""))))
                     (ref-impl zfield) ; tail-call
                     )))))
            (set!-impl
             (lambda (zfield t)
               (let ((code-t (ref-impl zfield)))
-                (tree-set! code-t t))))
+                (tree-assign code-t t))))
            )
     (make-procedure-with-setter ref-impl set!-impl)))
 
@@ -1265,8 +1283,8 @@
    ;;
    (lambda (zfield str)
      (let ((code-t (zfield-Code-code-t zfield)))
-       (tree-set! code-t
-                  (stree->tree str))))))
+       (tree-assign code-t
+                    (stree->tree str))))))
 
 ;;;;;;
 ;;;
@@ -1285,7 +1303,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((is-modified?-flag-t (tree-ref zfield 1 2)))
-       (tree-set! is-modified?-flag-t t)))))
+       (tree-assign is-modified?-flag-t t)))))
 
 
 (define zfield-Code-is-modified?-flag
@@ -1296,8 +1314,8 @@
    ;; set!
    (lambda (zfield str-bool)
      (let ((is-modified?-flag-t (zfield-Code-is-modified?-flag-t zfield)))
-       (tree-set! is-modified?-flag-t
-                  (stree->tree str-bool))))))
+       (tree-assign is-modified?-flag-t
+                    (stree->tree str-bool))))))
 
 ;;;;;;
 ;;;
@@ -1314,7 +1332,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((origText-t (tree-ref zfield 1 3 0)))
-       (tree-set! origText-t t)))))
+       (tree-assign origText-t t)))))
 
 (define zfield-Code-origText
   (make-procedure-with-setter
@@ -1324,8 +1342,8 @@
    ;; set!
    (lambda (zfield t)
      (let ((origText-t (zfield-Code-origText-t zfield)))
-       (tree-set! origText-t
-                  (format #f "~s" (tree->stree t)))))))
+       (tree-assign origText-t
+                    (format #f "~s" (tree->stree t)))))))
 
 ;;;;;;
 ;;;
@@ -1340,7 +1358,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((text-t (tree-ref zfield 2)))
-       (tree-set! text-t t)))))
+       (tree-assign text-t t)))))
 
 ;;;;;;
 ;;;
@@ -1608,23 +1626,32 @@
   ;; TeXmacs tree-pointer, locating the zfield's tree, for fast access with no
   ;; searching the document. They are of type <observer>.
   ;;
-  (tree-pointer #:init-value #f)
+  (%tree-pointer #:init-value #f)
+  (tree-pointer #:allocation #:virtual
+                #:slot-ref (lambda (zfd)
+                            (slot-ref zfd '%tree-pointer))
+                #:slot-set! (lambda (zfd tp)
+                              (if tp
+                                  (begin
+                                    (tp-guardian tp)
+                                    (slot-set! zfd '%tree-pointer tp))
+                                  (begin
+                                    (slot-set! zfd '%tree-pointer #f)))))
   (zfd-tree #:allocation #:virtual
             #:slot-ref (lambda (zfd)
-                         (let ((tp (slot-ref zfd 'tree-pointer)))
+                         (let ((tp (tree-pointer zfd)))
                            (if (and tp
                                     (observer? tp))
                                (tree-pointer->tree tp)
                                #f)))
             #:slot-set! (lambda (zfd t)
-                          (and-with tp (slot-ref zfd 'tree-pointer)
-                            (when (and tp
-                                       (observer? tp))
-                              (tree-pointer-detach tp)))
-                          (slot-set! zfd 'tree-pointer (tree->tree-pointer t))
-                          (slot-set! zfd 'the-zfieldID-of (zfield-zfieldID t))
-                          ;; (slot-set! zfd 'zfd-zfield-Code (zfield-zfield-Code-code t))
-                          ))
+                          (if t
+                              (begin
+                                (set! (tree-pointer zfd) (tree->tree-pointer t))
+                                (slot-set! zfd 'the-zfieldID-of (zfield-zfieldID t)))
+                              (begin
+                                (set! (tree-pointer zfd) #f)
+                                (slot-set! zfd 'the-zfieldID-of #f)))))
   ;; String, original unmodified text for comparison
   (zfd-orig-text #:init-value "")
   ;;;
@@ -1635,11 +1662,7 @@
   )
 
 (define-method (clear-tree-pointer (zfd <zfield-data>))
-  (let ((tp (tree-pointer zfd)))
-    (when tp
-      (when (observer? tp)
-        (tree-pointer-detach tp))
-      (set! (tree-pointer zfd) #f))))
+  (set! (tree-pointer zfd) #f))
 
 ;;}}}
 ;;{{{ define-class for <ztHrefFromCiteToBib-data>
@@ -1651,7 +1674,17 @@
   (the-zfieldID-of #:init-value "")
   (the-sysID-of #:init-value "")
   ;; TeXmacs tree-pointer
-  (tree-pointer #:init-value #f)
+  (%tree-pointer #:init-value #f)
+  (tree-pointer #:allocation #:virtual
+                #:slot-ref (lambda (zhd)
+                            (slot-ref zhd '%tree-pointer))
+                #:slot-set! (lambda (zhd tp)
+                              (if tp
+                                  (begin
+                                    (tp-guardian tp)
+                                    (slot-set! zhd '%tree-pointer tp))
+                                  (begin
+                                    (slot-set! zhd '%tree-pointer #f)))))
   (zhd-tree #:allocation #:virtual
             #:slot-ref (lambda (zhd)
                          (let ((tp (slot-ref zhd 'tree-pointer)))
@@ -1659,7 +1692,9 @@
                                (tree-pointer->tree tp)
                                #f)))
             #:slot-set! (lambda (zhd t)
-                          (slot-set! zhd 'tree-pointer (tree->tree-pointer t)))))
+                          (if t
+                              (set! (tree-pointer zhd) (tree->tree-pointer t))
+                              (set (tree-pointer zhd) #f)))))
 
 
 (define-method (the-ref-label-of (zhd <ztHrefFromCiteToBib-data>))
@@ -1667,11 +1702,7 @@
 
 
 (define-method (clear-tree-pointer (zhd <ztHrefFromCiteToBib-data>))
-  (let ((tp (tree-pointer zhd)))
-    (when tp
-      (when (observer? tp)
-        (tree-pointer-detach tp))
-      (set! (tree-pointer zhd) #f))))
+  (set! (tree-pointer zhd) #f))
 
 ;;}}}
 ;;{{{ define-class for <document-data>
@@ -1744,6 +1775,7 @@
 ;;}}}
 
 ;;{{{ <document-data>-ht, get-<document-data>, set-<document-data>!
+
 ;;;
 ;;; Reloading the zotero.scm module will cause this to be reinitialized to an
 ;;; empty hash table. That's fine. It will also get cleared when the
@@ -1803,7 +1835,6 @@
     (set-<document-data>! documentID
                           (make-instance <document-data>))))
 
-
 ;;}}}
 
 ;;{{{ document-active-mark-nr
@@ -1849,7 +1880,7 @@
         #f)))
 
 ;;;
-;;; Called from the   document-mark-cancel-error-cleanup-hook
+;;; Called from the document-mark-cancel-error-cleanup-hook
 ;;;
 (define (cleanup-document-new-zfieldID! documentID)
   (and-with zfd (get-document-new-zfield-zfd documentID)
@@ -1950,12 +1981,14 @@
 
 
 (define (get-document-zfield-tree-pointer-by-zfieldID documentID zfieldID)
-  (tree-pointer
-   (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
+  (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
+    (when zfd
+      (tree-pointer zfd))))
 
 (define (set-document-zfield-tree-pointer-by-zfieldID! documentID zfieldID tp)
-  (set! (tree-pointer (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
-        tp))
+  (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
+    (when zfd
+      (set! (tree-pointer zfd) tp))))
 
 
 (define (get-document-zfield-by-zfieldID documentID zfieldID)
@@ -1979,9 +2012,9 @@
 
 (define (document-zfield-text-user-modified? documentID zfieldID)
   (let* ((zfield        (get-document-zfield-by-zfieldID documentID zfieldID))
-         (zfield-Text-t (and zfield (zfield-Text-t zfield)))
+         (zfield-Tt (and zfield (zfield-Text-t zfield)))
          ;; from the document tree itself
-         (text          (or (and zfield-Text-t
+         (text          (or (and zfield-Tt
                                  (zfield-Text zfield))
                             ""))
          ;; from the <zfield-data>
@@ -2728,7 +2761,7 @@
 
 
 (define (tm-zotero-write tid cmd)
-  (tm-zotero-format-debug "tm-zotero-write:tid:~s:cmd:~s\n" tid cmd)
+  (tm-zotero-format-debug "tm-zotero-write:tid:~s:cmd:~s\n\n" tid cmd)
   (let ((zp (get-tm-zotero-socket-port)))
     (catch 'system-error
       ;;; This writes raw bytes. The string can be UTF-8.
@@ -2742,13 +2775,15 @@
           (force-output zp)))
       (lambda args
         (let ((documentID (get-documentID)))
-          (tm-zotero-format-error "ERR: System error in tm-zotero-write: ~s ~s\n" tid cmd)
-          (tm-zotero-format-error "ERR: Exception caught: ~s\n" args)
-          (tm-zotero-format-error "ERR: Closing Zotero port!\n")
+          (tm-zotero-format-error (string-append (colorize-string "ERR: System error in tm-zotero-write:" 'RED)
+                                                 "tid:~s:cmd:~s\n" tid cmd))
+          (tm-zotero-format-error (string-append (colorize-string "ERR: Exception caught:" 'RED)
+                                                 " ~s\n" args))
+          (tm-zotero-format-error (colorize-string "ERR: Closing Zotero port!\n\n" 'RED))
           (close-tm-zotero-socket-port!)
           (set-document-active-mark-nr! documentID #f)
           (dialogue-window
-           (zotero-display-alert 
+           (zotero-display-alert
             documentID
             (string-append "\\begin{center}\n"
                            "Exception caught in: "
@@ -2776,11 +2811,11 @@
                (len (read-network-u32 zp))
                (cmdv (make-u8vector len 0)))
           (uniform-vector-read! cmdv zp)
-          (list tid len (list->string (map integer->char 
+          (list tid len (list->string (map integer->char
                                            (u8vector->list cmdv))))))
       (lambda args
-        (tm-zotero-format-error "ERR: Exception caught in tm-zotero-read: ~s\n" args)
-        (list (or tid 0) (or len 666) (format #f "ERR: System error in tm-zotero-read: ~s" args)))))) ;; return to tm-zotero-listen
+        (tm-zotero-format-error (string-append (colorize-string "ERR: Exception caught in tm-zotero-read:" 'RED) " ~s\n") args)
+        (list (or tid 0) (or len 666) (format #f (string-append (colorize-string "ERR: System error in tm-zotero-read:" 'RED) " ~s") args)))))) ;; return to tm-zotero-listen
 
 
 (define (safe-json-string->scm str)
@@ -2798,13 +2833,16 @@
     (lambda ()
       (scm->json-string scm))
     (lambda args
-      (tm-zotero-format-error "ERR: Exception caught from scm->json-string: ~s\n" args)
-      (tm-zotero-format-error "ERR: scm: ~s\n" scm)
+      (tm-zotero-format-error (string-append (colorize-string "ERR: Exception caught from scm->json-string:" 'RED) " ~s\n") args)
+      (tm-zotero-format-error (string-append (colorize-string "ERR: scm:" 'RED) " ~s\n") scm)
       ;;
       ;; Return ERR: to caller, usually tm-zotero-write, so send to Zotero.  That
       ;; will cause Zotero to initiate an error dialog and reset back to
       ;; Document_complete state.
       ;;
+      ;; No colorized string here! The first argument's "ERR:" prefix is a
+      ;; signal to Zotero. It must not be wrapped with colorizing ANSI terminal
+      ;; escape codes.
       (format #f (string-append "ERR: Error! "
                                 "Exception caught from scm->json-string \n\n"
                                 "Exception args: ~s\n\n"
@@ -4278,7 +4316,7 @@ styles."
 
 (define (fixup-embedded-slink-as-url lnk)
   (when (match? lnk '((:or ztHrefFromBibToURL ztHrefFromCiteToBib) :%1 ((:or slink verbatim) :%1)))
-    (tree-assign! lnk `(,(tree-label lnk) ,(tree-ref lnk 0) ,(tree-ref lnk 1 0)))))
+    (tree-set! lnk `(,(tree-label lnk) ,(tree-ref lnk 0) ,(tree-ref lnk 1 0)))))
 
 ;;}}}
 
@@ -4417,10 +4455,10 @@ styles."
          (("(\\SectionSignGlyph\\{\\})([  ])")
           pre 1 "\\hspace{0.5spc}" post)
          ;;
-         (("(<doi:)")
-          pre "\\ztlt{}doi:" post)
-         (("(}>)")
-          pre "}\\ztgt{}" post)
+         ;; (("(<doi:)")
+         ;;  pre "\\ztlt{}doi:" post)
+         ;; (("(}>)")
+         ;;  pre "}\\ztgt{}" post)
          ;;
          ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation) When a legal case is cited twice in a row
          ;; in a citation cluster, they are collapsed into a parallel citation. With Indigobook, the in-text citation looks perfect,

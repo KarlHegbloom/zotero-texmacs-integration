@@ -79,6 +79,10 @@
 
   <assign|ztgt|\<gtr\>>
 
+  <assign|less-than-sign|\<less\>>
+
+  <assign|greater-than-sign|\<gtr\>>
+
   \;
 
   <\active*>
@@ -365,8 +369,8 @@
       used to improve this sometime when I'm not about to run out of
       batteries.
 
-      The amount of space after the label in ztLeftMargin ought to be such
-      that the text following it lines up exactly with the rest of the
+      TODO The amount of space after the label in ztLeftMargin ought to be
+      such that the text following it lines up exactly with the rest of the
       bibliography entry, that is, at zotero-BibliographyStyle_bodyIndent...
       but whenever the width of a label is such that it's first line is
       pushed over to the right, then perhaps the bodyIndent ought to increase
@@ -378,7 +382,12 @@
 
   <assign|ztNewBlock|<macro|body|<surround|<next-line>|<next-line>|<arg|body>>>>
 
-  \;
+  <\active*>
+    <\src-comment>
+      TODO verify? The indent will be the same as that set by the
+      firstLineIndent and bodyIndent.
+    </src-comment>
+  </active*>
 
   <assign|ztbibIndent|<macro|body|<arg|body>>>
 
