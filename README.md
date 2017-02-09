@@ -2,15 +2,7 @@
 
 __This branch is the active (Α) development branch of this program.__
 
-*Do not open your important "production" documents with this version yet! It
-will modify the `<zcite>` tags in place to update them to the new version and I
-have not incorporated that into the master branch so opening the document then
-saving it will make it not work anymore in the other branch of this
-program. Use save-as immediately, or better, make a copy of the file first and
-then use it for experimentation only until this is nailed down well enough to
-not blow away your documents.*
-
-__But please don't be afraid to try it!__
+__It is ready to try! I need alpha testers. Please report!__
 
 ## Documentation and YouTube Screencast Demos ##
 
