@@ -62,8 +62,10 @@
       being used for the paragraphsign and sectionsign so that when the PDF
       is generated, the outline will have the right symbol showing. When a
       cork encoded font is the document font, they don't show up right
-      otherwise. I actually recommend using one of the new True Type TeX Gyre
-      fonts, such as Bonum, Pagella, Schola, or Termes.
+      otherwise.
+
+      I recommend using one of the new True Type TeX Gyre fonts, such as
+      Bonum, Pagella, Schola, or Termes.
     </src-comment>
   </active*>
 
@@ -92,13 +94,13 @@
       a document by putting one of these at the top, and another at the
       bottom.
 
-      To do: extend and improve this mechanism, integrating it with the
-      normal TeXmacs debugging console thing...
+      TODO extend and improve this debug/scaffold format to stderr mechanism,
+      integrating it with the normal TeXmacs debugging console thing...
     </src-comment>
   </active*>
 
-  <assign|ztDebug|<macro|body|<extern|(lambda (body) (zt-format-debug
-  "Debug:ztDebug: ~s\\n" body))|<arg|body>>>>
+  <assign|ztDebug|<macro|body|<extern|(lambda (body-t) (zt-format-debug
+  "Debug:ztDebug: ~s\\n" (tree-\<gtr\>stree body-t)))|<arg|body>>>>
 
   \;
 
@@ -108,7 +110,8 @@
     <\src-comment>
       In order to prevent the latex to texmacs conversion from mangling
       these, I had to prefix them with zt to get it past the substitution
-      phase of the converter.
+      phase of the converter. Also, zttexttt is used by the exception / error
+      dialog formatting.
     </src-comment>
   </active*>
 
@@ -119,6 +122,8 @@
   <assign|zttextup|<macro|body|<with|font-shape|right|<arg|body>>>>
 
   <assign|zttextsc|<macro|body|<with|font-shape|small-caps|<arg|body>>>>
+
+  <assign|zttexttt|<macro|body|<with|font-family|tt|<arg|body>>>>
 
   <assign|zttextnormal|<macro|body|<with|font-family|rm|font-shape|right|font-series|medium|<arg|body>>>>
 
@@ -251,17 +256,7 @@
     </src-comment>
   </active*>
 
-  <inactive|<assign|XXXtm-zotero-ext-ensure-ztHref-interned!|<macro|url-for-tree|<extern|(lambda
-  (url-for-tree-t) (tm-zotero-ext:ensure-ztHref-interned!
-  url-for-tree-t))|<arg|url-for-tree>>>>>
-
-  <inactive|<assign|XXXztHref|<macro|url|display|<tm-zotero-ext-ensure-ztHref-interned!|<arg|url>><if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>>
-
-  \;
-
   <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
-
-  \;
 
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 
@@ -272,14 +267,25 @@
       ztHrefFromCiteToBib and ztHrefFromBibToURL will have the same arity and
       layout. It may go away before this hits beta.
 
-      zt-zciteID is defined here, but locally with-bound inside of the zcite
-      macro.
+      zt-zfieldID is defined here, and the string +DISACTIVATED is a flag
+      value that must not be changed here because it is relied upon by
+      tm-zotero.scm. It's value will be locally with-bound inside of the
+      zcite macro so that from within that dynamic scope, zt-zfieldID will
+      hold the expected string value.
     </src-comment>
   </active*>
 
-  <inactive|<assign|XXXzt-zciteID|0>>
+  <assign|zt-zfieldID|+DISACTIVATED>
+
+  \;
 
   <assign|zt-link-BibToURL|true>
+
+  <assign|ztDefaultCiteURL|>
+
+  <assign|zt-link-FromCiteToBib|true>
+
+  \;
 
   \;
 
@@ -288,10 +294,6 @@
   <assign|ztHrefFromBibToURL*|<value|ztHrefFromBibToURL>>
 
   \;
-
-  <assign|zt-link-FromCiteToBib|true>
-
-  <assign|ztDefaultCiteURL|>
 
   <assign|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<macro|zfieldID-t|hashLabel-t|<extern|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|zfieldID-t>|<arg|hashLabel-t>>>>
 
@@ -541,7 +543,7 @@
   <assign|zcite-flag-if-modified|<macro|fieldCode|<case|<look-up|<arg|fieldCode>|2>|<flag|Modified|red>|<flag|Not
   Modified|green>>>>
 
-  <assign|zt-zfieldID|+DISACTIVATED>
+  \;
 
   <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|zt-zfieldID|<arg|fieldID>|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>>
 
@@ -610,8 +612,8 @@
 
 <\initial>
   <\collection>
-    <associate|font|TeX Gyre Termes>
-    <associate|math-font|math-termes>
+    <associate|font|bonum>
+    <associate|math-font|math-bonum>
     <associate|preamble|true>
   </collection>
 </initial>
