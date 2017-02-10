@@ -147,32 +147,112 @@
 ;;;
 (debug-set! stack 0)
 
+(define color-code-rx
+  (map (lambda (elt)
+         (cons (apply make-regexp `,(car elt))
+               (cdr elt)))
+       `((("(_BLACK_)")
+          pre ,(color 'BLACK) post)
+         (("(_BLINK_)")
+          pre ,(color 'BLINK) post)
+         (("(_BLUE_)")
+          pre ,(color 'BLUE) post)
+         (("(_BOLD_)")
+          pre ,(color 'BOLD) post)
+         (("(_CLEAR_)")
+          pre ,(color 'CLEAR) post)
+         (("(_CONCEALED_)")
+          pre ,(color 'CONCEALED) post)
+         (("(_CYAN_)")
+          pre ,(color 'CYAN) post)
+         (("(_DARK_)")
+          pre ,(color 'DARK) post)
+         (("(_GREEN_)")
+          pre ,(color 'GREEN) post)
+         (("(_MAGENTA_)")
+          pre ,(color 'MAGENTA) post)
+         (("(_ON-BLACK_)")
+          pre ,(color 'ON-BLACK) post)
+         (("(_ON-BLUE_)")
+          pre ,(color 'ON-BLUE) post)
+         (("(_ON-CYAN_)")
+          pre ,(color 'ON-CYAN) post)
+         (("(_ON-GREEN_)")
+          pre ,(color 'ON-GREEN) post)
+         (("(_ON-MAGENTA_)")
+          pre ,(color 'ON-MAGENTA) post)
+         (("(_ON-RED_)")
+          pre ,(color 'ON-RED) post)
+         (("(_ON-WHITE_)")
+          pre ,(color 'ON-WHITE) post)
+         (("(_ON-YELLOW_)")
+          pre ,(color 'ON-YELLOW) post)
+         (("(_RED_)")
+          pre ,(color 'RED) post)
+         (("(_RESET_)")
+          pre ,(color 'RESET) post)
+         (("(_REVERSE_)")
+          pre ,(color 'REVERSE) post)
+         (("(_UNDERLINE_)")
+          pre ,(color 'UNDERLINE) post)
+         (("(_UNDERSCORE_)")
+          pre ,(color 'UNDERSCORE) post)
+         (("(_WHITE_)")
+          pre ,(color 'WHITE) post)
+         (("(_YELLOW_)")
+          pre ,(color 'YELLOW) post))))
 
-(define timestamp-format-string-colored
-  (string-concatenate
-   (list
-    (colorize-string "~9,,,'0@s" 'GREEN) ;; seconds +
-    ":"
-    (colorize-string "~9,,,'0@s" 'GREEN) ;; nanoseconds
-    ":("
-    (colorize-string "~9,,,'0@s" 'CYAN)  ;; seconds since last timestamp +
-    ":"
-    (colorize-string "~9,,,'0@s" 'CYAN)  ;; nanoseconds since last timestamp
-    "):")))
+(define color-code-strip-rx
+  (map (lambda (elt)
+         (cons (apply make-regexp `,(car elt))
+               (cdr elt)))
+       `((("(_BLACK_)") pre post)
+         (("(_BLINK_)") pre post)
+         (("(_BLUE_)") pre post)
+         (("(_BOLD_)") pre post)
+         (("(_CLEAR_)") pre post)
+         (("(_CONCEALED_)") pre post)
+         (("(_CYAN_)") pre post)
+         (("(_DARK_)") pre post)
+         (("(_GREEN_)") pre post)
+         (("(_MAGENTA_)") pre post)
+         (("(_ON-BLACK_)") pre post)
+         (("(_ON-BLUE_)") pre post)
+         (("(_ON-CYAN_)") pre post)
+         (("(_ON-GREEN_)") pre post)
+         (("(_ON-MAGENTA_)") pre post)
+         (("(_ON-RED_)") pre post)
+         (("(_ON-WHITE_)") pre post)
+         (("(_ON-YELLOW_)") pre post)
+         (("(_RED_)") pre post)
+         (("(_RESET_)") pre post)
+         (("(_REVERSE_)") pre post)
+         (("(_UNDERLINE_)") pre post)
+         (("(_UNDERSCORE_)") pre post)
+         (("(_WHITE_)") pre post)
+         (("(_YELLOW_)") pre post))))
 
-(define timestamp-format-string-plain
-  "~9,,,'0@s:~9,,,'0@s:(~9,,,'0@s:~9,,,'0@s):")
+(define tm-zotero-colorize? #t)
 
-(define timestamp-format-string timestamp-format-string-colored)
+(define (colorize-format-string str)
+  (let ((str str)
+        (rc (if tm-zotero-colorize? color-code-rx color-code-strip-rx)))
+    (do ((rc color-code-rx (cdr rc)))
+        ((null? rc) str)
+      ;; each is applied in turn, so later ones can modify results of earlier
+      ;; ones if you like.
+      (set! str (apply regexp-substitute/global `(#f ,(caar rc) ,str ,@(cdar rc)))))))
 
+
+(define timestamp-format-string
+  "_BOLD__GREEN_~9,,,'0@s_WHITE_:_GREEN_~9,,,'0@s_WHITE_:(_CYAN_~9,,,'0@s_WHITE_:_CYAN_~9,,,'0@s_WHITE_):_RESET_")
 
 (define last-time (current-time))
 
 (define (timestamp time)
   "@time is a time-utc as returned by srfi-19:current-time."
   (let* ((td (time-difference time last-time))
-         (ret (format #f
-                timestamp-format-string
+         (ret (format #f timestamp-format-string
                 (time-second time)
                 (time-nanosecond time)
                 (time-second td)
@@ -185,12 +265,13 @@
   (tm-errput
    (apply format (cons #f
                        (cons
-                        (string-concatenate
-                         (list
-                          "~&~!"
-                          (timestamp (current-time))
-                          (car args)
-                          "~%"))
+                        (colorize-format-string
+                         (string-concatenate
+                          (list
+                           "~&~!_RESET_"
+                           (timestamp (current-time))
+                           (car args)
+                           "_RESET_\n")))
                         (cdr args))))))
 
 
@@ -208,12 +289,13 @@
     (tm-output
      (apply format (cons #f
                          (cons
-                          (string-concatenate
-                           (list
-                            "~&~!"
-                            (timestamp (current-time))
-                            (car args)
-                            "~%"))
+                          (colorize-format-string
+                           (string-concatenate
+                            (list
+                             "~&~!_RESET_"
+                             (timestamp (current-time))
+                             (car args)
+                             "_RESET_\n")))
                           (cdr args)))))))
 
 ;;}}}
@@ -406,7 +488,11 @@
 
 
 (define (inside-inactive? t)
-  (not (not (tree-search-upwards t '(inactive)))))
+  (or (and (not (tree? t))
+           #f)
+      (and (tm-atomic? t)
+           (== "+DISACTIVATED" (tree->stree t)))
+      (tree-search-upwards t 'inactive)))
 
 
 ;;;;;;
@@ -480,11 +566,11 @@
     (:idle 1)
     (cursor-after
      (cond
-       ((== what "all")
+       ((or (== what "all")
+            (== what "bibliography"))
         (tm-zotero-refresh)
-        (wait-update-current-buffer))
-       ((== what "bibliography")
-        (tm-zotero-refresh)
+        (wait-update-current-buffer)
+        (wait-update-current-buffer)
         (wait-update-current-buffer)))
      (former what))))
 
@@ -504,6 +590,8 @@
   ;;(tm-zotero-format-debug "buffer-get-part-mode called, mode => ~s" mode)
   (clear-<document-data>! (get-documentID))
   (former mode)
+  (wait-update-current-buffer)
+  (wait-update-current-buffer)
   (wait-update-current-buffer))
 
 
@@ -531,6 +619,8 @@
     (tm-zotero-set-message
      (string-append "zcite reactivated! Checking for modification... is-modified? => "
                     is-modified? ". Done.")))
+  (wait-update-current-buffer)
+  (wait-update-current-buffer)
   (wait-update-current-buffer)
   #t)
 
@@ -1213,7 +1303,7 @@
         ;;      with inserting the new zfield... Or perhaps it ought to convert
         ;;      it into an editCitation rather than an insertCitation?
         ;;
-        (tm-zotero-format-error "ERR: insert-new-zfield ~s : focus-tree is a ~s\n"
+        (tm-zotero-format-error "_BOLD__RED_ERR: insert-new-zfield_RESET_ ~s : focus-tree is a ~s\n"
                                 tag (tree-label (focus-tree)))
         #f)))
 
@@ -2513,7 +2603,7 @@
          (zhd-ht (get-document-ztbibItemRefs-ht documentID))
          (zhd-ls (hash-ref zhd-ht sysID '()))
          (ref-labels-ls (map the-ref-label-of zhd-ls)))
-    (tm-zotero-format-debug "tm-zotero-ext:get-ztbibItemRefsList: ref-labels-ls => ~s" ref-labels-ls)
+    (tm-zotero-format-debug "tm-zotero-ext:_BOLD_get-ztbibItemRefsList:_RESET_ _GREEN_ref-labels-ls_RESET_ => ~s" ref-labels-ls)
     `(zt-ref-sep ,@ref-labels-ls)))
 
 ;;;;;;
@@ -2552,14 +2642,14 @@
        (get-document-zfield-by-zfieldID (tree->stree zfieldID-t)))
       "true"
       "false"))
-            
+
 (tm-define (tm-zotero-ext:is-zbibliography? zfieldID-t)
   (:secure)
   (if (is-zbibliography?
        (get-document-zfield-by-zfieldID (tree->stree zfieldID-t)))
       "true"
       "false"))
-  
+
 (tm-define (tm-zotero-ext:is-zfield? zfieldID-t)
   (:secure)
   (if (is-zfield?
@@ -2627,10 +2717,10 @@
 ;;;
 ;;; "\\ztShowID{#{state.opt.nodenames[cslid]}}{#{cslid}}{#{str}}"
 ;;;
-(tm-define (tm-zotero-ext:ztShowID node cslid body)
-  (:secure)
-  ;; (tm-zotero-format-debug "zt-ext-ztShowID: ~s ~s ~s" node clsid body)
-  '(concat ""))
+;; (tm-define (tm-zotero-ext:ztShowID node cslid body)
+;;   (:secure)
+;;   ;; (tm-zotero-format-debug "zt-ext-ztShowID: ~s ~s ~s" node clsid body)
+;;   '(concat ""))
 
 
 ;;; zbibCitationItemID
@@ -2659,17 +2749,18 @@
 ;;; It occurs to me that in order to select which part of the text to wrap with
 ;;; a locus for the hyperlink, I'll either have to arbitrarily select the first
 ;;; word or two, or obtain semantic information from either the fieldCode JSON
-;;; object (with the 
+;;; object (with the... the... bell rang or something and I never finished what
+;;; I'd been saying there...)
 ;;;
-(tm-define (tm-zotero-ext:zbibCitationItemID sysID)
-  (:secure)
-  ;; (tm-zotero-format-debug "STUB:zt-ext-zbibCitationItemID: ~s" sysID)
-  "")
+;; (tm-define (tm-zotero-ext:zbibCitationItemID sysID)
+;;   (:secure)
+;;   ;; (tm-zotero-format-debug "STUB:zt-ext-zbibCitationItemID: ~s" sysID)
+;;   "")
 
-(tm-define (tm-zotero-ext:bibitem key)
-  (:secure)
-  ;; (tm-zotero-format-debug "STUB:zt-ext-bibitem: ~s" key)
-  "")
+;; (tm-define (tm-zotero-ext:bibitem key)
+;;   (:secure)
+;;   ;; (tm-zotero-format-debug "STUB:zt-ext-bibitem: ~s" key)
+;;   "")
 
 ;;}}}
 
@@ -2723,6 +2814,20 @@
 
 (define tm-zotero-socket-port #f)
 
+
+;;;;;;
+;;;
+;;; This is flag that will be set while the clipboard-cut operation is taking
+;;; place, in an attempt to try and prevent the ztHrefFromCiteToBib fields
+;;; inside of a selection about to be cut from being interned again right after
+;;; uninterning them just prior to actually cutting the text out of the
+;;; document.
+;;;
+(define fluid/is-during-tm-zotero-clipboard-cut? (make-fluid))
+(fluid-set! fluid/is-during-tm-zotero-clipboard-cut? #f)
+
+(tm-define (is-during-tm-zotero-clipboard-cut?)
+  (fluid-ref fluid/is-during-tm-zotero-clipboard-cut?))
 
 ;;;;;;
 ;;;
@@ -2850,21 +2955,20 @@
             )))
     (lambda args
       (let ((documentID (get-documentID)))
-        (tm-zotero-format-error "ERR: Exception caught in get-tm-zotero-socket-port: ~s\n" args)
+        (tm-zotero-format-error "_BOLD__RED_ERR: Exception caught in get-tm-zotero-socket-port:_RESET_ ~s" args)
         (close-port tm-zotero-socket-port)
         (set! tm-zotero-socket-port #f)
       (set-document-active-mark-nr! documentID #f)
       (dialogue-window
        (zotero-display-alert
         documentID
-        (string-append "\\begin{center}\n"
-                       "Exception caught in: "
-                       "\\texttt{get-tm-zotero-socket-port}\n\n"
-                       "\\textbf{System Error:} " (caar (cdddr args)) "\n\n"
-                       "Is Zotero running?\n\n"
-                       "If so, then you may need to {\\em restart} Firefox\\\\\n"
-                       "or Zotero Standalone.\n"
-                       "\\end{center}\n")
+        `(document
+           (concat "Exception caught in: " (zttextbf (zttexttt "get-tm-zotero-socket-port")) "\n")
+           (document
+             (concat (zttextbf "System Error:") " " ,(caar (cdddr args)) "\n")
+             (document
+               (concat (zttextbf "Is Juris-M or Zotero running?")
+                       " If so, then you may need to " (zttextit "restart") " Firefox or Zotero Standalone.\n"))))
         DIALOG_ICON_STOP
         DIALOG_BUTTONS_OK)
        (lambda (val)
@@ -2896,8 +3000,7 @@
 
 
 (define (tm-zotero-write tid cmd)
-  (tm-zotero-format-debug "~a:tid:~s:cmd:~s"
-                          (colorize-string "tm-zotero-write" 'RED)
+  (tm-zotero-format-debug "_BOLD__RED_tm-zotero-write_RESET_: tid => ~s, cmd => ~s"
                           tid cmd)
   (let ((zp (get-tm-zotero-socket-port)))
     (catch 'system-error
@@ -2912,26 +3015,25 @@
           (force-output zp)))
       (lambda args
         (let ((documentID (get-documentID)))
-          (tm-zotero-format-error (string-append (colorize-string "ERR: System error in tm-zotero-write:" 'RED)
-                                                 "tid:~s:cmd:~s\n" tid cmd))
-          (tm-zotero-format-error (string-append (colorize-string "ERR: Exception caught:" 'RED)
-                                                 " ~s\n" args))
-          (tm-zotero-format-error (colorize-string "ERR: Closing Zotero port!\n\n" 'RED))
+          (tm-zotero-format-error "_BOLD__RED_ERR: System error in tm-zotero-write:_RESET_ tid => ~s, cmd => ~s" tid cmd)
+          (tm-zotero-format-error "_BOLD__RED_ERR: Exception caught_RESET_: ~s\n" args)
+          (tm-zotero-format-error "_BOLD__RED_ERR: Closing Zotero port!_RESET_\n")
           (close-tm-zotero-socket-port!)
           (set-document-active-mark-nr! documentID #f)
           (dialogue-window
            (zotero-display-alert
             documentID
-            (string-append "\\begin{center}\n"
-                           "Exception caught in: "
-                           "\\texttt{tm-zotero-write}\n\n"
-                           "\\textbf{System Error:} Is Zotero running?\n"
-                           "\n"
-                           "If so, then you may need to {\\em restart}"
-                           "Firefox\\\\\n"
-                           "or Zotero Standalone.\n\n"
-                           "\\textbf{Closing Zotero port.}\n"
-                           "\\end{center}\n")
+            `(document
+               (with "par-mode" "center"
+                 (document
+                   "Exception caught in: " (zttexttt "tm-zotero-write") "\n"
+                   "\n"
+                   (zttextbf "System Error:") " Is Zotero running?\n"
+                   "\n"
+                   "If so, then you may need to " (zttextit "restart")
+                   " Firefox or Zotero Standalone.\n"
+                   "\n"
+                   (zttextbf "Closing Zotero port.") "\n")))
             DIALOG_ICON_STOP
             DIALOG_BUTTONS_OK)
            (lambda (val)
@@ -2951,8 +3053,12 @@
           (list tid len (list->string (map integer->char
                                            (u8vector->list cmdv))))))
       (lambda args
-        (tm-zotero-format-error (string-append (colorize-string "ERR: Exception caught in tm-zotero-read:" 'RED) " ~s\n") args)
-        (list (or tid 0) (or len 666) (format #f (string-append (colorize-string "ERR: System error in tm-zotero-read:" 'RED) " ~s") args)))))) ;; return to tm-zotero-listen
+        (tm-zotero-format-error "_BOLD__RED_ERR: Exception caught in tm-zotero-read:_RESET_ ~s\n" args)
+        (list
+         (or tid 0)
+         (or len 666)
+         (format #f
+           "ERR: System error in tm-zotero-read: ~s" args)))))) ;; return to tm-zotero-listen
 
 
 (define (safe-json-string->scm str)
@@ -2960,7 +3066,7 @@
     (lambda ()
       (json-string->scm str))
     (lambda args
-      (tm-zotero-format-error "ERR: Exception caught from json-string->scm: ~s\n" args)
+      (tm-zotero-format-error "_BOLD__RED_ERR: Exception caught from json-string->scm:_RESET_ ~s\n" args)
       ;; return to tm-zotero-listen
       (list (format #f "ERR: Invalid JSON: ~s\n" str) '()))))
 
@@ -2970,8 +3076,8 @@
     (lambda ()
       (scm->json-string scm))
     (lambda args
-      (tm-zotero-format-error (string-append (colorize-string "ERR: Exception caught from scm->json-string:" 'RED) " ~s\n") args)
-      (tm-zotero-format-error (string-append (colorize-string "ERR: scm:" 'RED) " ~s\n") scm)
+      (tm-zotero-format-error "_BOLD__RED_ERR: Exception caught from scm->json-string:_RESET_ ~s\n" args)
+      (tm-zotero-format-error "_BOLD__RED_ERR:_RESET_ scm => ~s\n" scm)
       ;;
       ;; Return ERR: to caller, usually tm-zotero-write, so send to Zotero.  That
       ;; will cause Zotero to initiate an error dialog and reset back to
@@ -3074,8 +3180,7 @@
         ;; Only run when data is ready to be read...
         (when (char-ready? tm-zotero-socket-port)
           (with (tid len cmdstr) (tm-zotero-read)
-            (tm-zotero-format-debug "~a:delayed read:tid => ~s, len => ~s, cmdstr => ~s"
-                                    (colorize-string "tm-zotero-listen" 'RED)
+            (tm-zotero-format-debug "_BOLD__RED_tm-zotero-listen_WHITE_:_GREEN_delayed read_WHITE_:_RESET_tid => ~s, len => ~s, cmdstr => ~s"
                                     tid len cmdstr)
             (if (> len 0)
                 ;; then
@@ -3301,6 +3406,7 @@
 ;;}}}
 
 ;;{{{ Document_displayAlert
+
 ;;;
 ;;{{{ Alert dialog widget
 
@@ -3325,16 +3431,21 @@
 (define DIALOG_BUTTONS_YES_NO_CANCEL_CANCEL_PRESSED 0)
 
 
-(tm-widget ((zotero-display-alert documentID str_Text int_Icon int_Buttons) cmd)
-  (let ((text (tree->stree (latex->texmacs (parse-latex str_Text)))))
-    (centered
-      (hlist ((icon (list-ref (map %search-load-path
-                                   '("icon-stop.png"
-                                     "icon-notice.png"
-                                     "icon-caution.png"))
-                              int_Icon)) (noop))
-             >> (texmacs-output `(document (very-large ,text))
-                                `(style (tuple "generic"))))))
+(tm-widget ((zotero-display-alert documentID stree_TextBody int_Icon int_Buttons) cmd)
+  (centered
+    (hlist ((icon (list-ref (map %search-load-path
+                                 '("icon-stop-48.png"
+                                   "icon-notice-48.png"
+                                   "icon-caution-48.png"))
+                            int_Icon)) (noop))
+           >> (texmacs-output `(document
+                                 (with "page-width" "8.0in"
+                                   "margin-top"  "0.25in" "margin-bottom" "0.25in"
+                                   "margin-left" "0.25in" "margin-right"  "0.25in"
+                                   "par-mode" "justify" "par-hyphen" "professional"
+                                   (surround "" (right-flush)
+                                             (document ,stree_TextBody))))
+                              `(style (tuple "generic" "tm-zotero")))))
   (bottom-buttons >>> (cond
                         ((= int_Buttons DIALOG_BUTTONS_OK)
                          ("Ok"     (cmd DIALOG_BUTTONS_OK_OK_PRESSED)))
@@ -3359,10 +3470,12 @@
                                          int_buttons)
   ;;(tm-zotero-set-message "Processing command: Document_displayAlert...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_displayAlert:called...")
-  (dialogue-window (zotero-display-alert documentID str_dialogText int_icon int_buttons)
-                   (lambda (val)
-                     (tm-zotero-write tid (safe-scm->json-string val)))
-                   "Zotero Alert!"))
+  (let ((stree_dialogText (tree->stree
+                           (tm-zotero-UTF-8-str_text->texmacs str_dialogText #f #f))))
+    (dialogue-window (zotero-display-alert documentID stree_dialogText int_icon int_buttons)
+                     (lambda (val)
+                       (tm-zotero-write tid (safe-scm->json-string val)))
+                     "Zotero Alert!")))
 
 ;;}}}
 ;;{{{ Document_activate
@@ -3375,6 +3488,8 @@
 (define (tm-zotero-Document_activate tid documentID)
   ;;(tm-zotero-set-message "Processing command: Document_activate...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_activate:called...")
+  (wait-update-current-buffer)
+  (wait-update-current-buffer)
   (wait-update-current-buffer)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
@@ -4578,7 +4693,7 @@ styles."
          (("(([  ]?|\\hspace.[^}+].)\\(\\))") ;; empty parentheses and space before them (but NOT period or space after).
           pre post)
          (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
-          pre 2 post) ;; Category heading dummy entries.
+          pre 2 post) ;; Category heading dummy entries. Replaces the entire line!
          ;;
          ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
          ;; encoded) these characters won't work right for some reason. The macros I'm replacing them with below expand to the same
@@ -4642,6 +4757,7 @@ styles."
          (("([A-Z]\\.)([  ])")
           pre "\\abbr{" 1 "}" 2 post)
          )))
+
 
 ;;; ("<abbr>([^<]+)</abbr>"
 ;;;  pre "\\abbr{" 1 "}" post)
@@ -4780,7 +4896,7 @@ styles."
     (buffer-pretend-saved b)
     (buffer-close b)
     (recall-message)
-    (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:returning.")
+    (tm-zotero-format-debug "_BOLD__BLUE_tm-zotero-UTF-8-str_text->texmacs:_GREEN_returning_RESET_ => ~s" (tree->stree t))
     t))
 
 ;;}}}
@@ -4944,5 +5060,4 @@ styles."
 ;;; truncate-lines: t
 ;;; folded-file: t
 ;;; End:
-
 ;;;;;;
