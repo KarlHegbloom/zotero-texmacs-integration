@@ -1967,10 +1967,10 @@
          (zhd-ht (and dd (get-document-ztbibItemRefs-ht documentID)))
          ;; see: tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!
          (zhd-ls (and zhd-ht
-                       (map (cut hash-ref zhd-ht <> #f)
-                            (pick (lambda (key)
-                                    (string-prefix? zciteID-string-prefix key))
-                                  (hash-for-each (lambda (key elt)
+                      (map (cut hash-ref zhd-ht <> #f)
+                           (pick (lambda (key)
+                                   (string-prefix? zciteID-string-prefix key))
+                                 (hash-map->list (lambda (key elt)
                                                    key)
                                                  zhd-ht))))))
     (when new-zfield-zfd
@@ -1980,8 +1980,7 @@
       (map clear-tree-pointer zfd-ls)) ; TODO Guardians and after-gc-hook
     (when zhd-ls
       (map clear-tree-pointer zhd-ls)) ; TODO Guardians and after-gc-hook
-    (set-<document-data>! documentID
-                          (make-instance <document-data>))))
+    (set-<document-data>! documentID (make-instance <document-data>))))
 
 ;;}}}
 
