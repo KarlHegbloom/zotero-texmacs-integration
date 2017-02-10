@@ -1,1 +1,1 @@
-/home/karlheg/Dropbox/Orgzly/zotero-texmacs-integration_Notes.org
+../../OrgzlyNotes/zotero-texmacs-integration_Notes.org
