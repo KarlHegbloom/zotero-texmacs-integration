@@ -547,9 +547,9 @@
 
   <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|zt-zfieldID|<arg|fieldID>|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>>
 
-  <drd-props|render-zcite|accessible|1>
+  <drd-props|XXXrender-zcite|accessible|1>
 
-  <drd-props|zcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
+  <drd-props|zcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|disable-writability|2|unaccessible|2>
 
   \;
 
