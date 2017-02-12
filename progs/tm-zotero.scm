@@ -569,8 +569,6 @@
        ((or (== what "all")
             (== what "bibliography"))
         (tm-zotero-refresh)
-        (wait-update-current-buffer)
-        (wait-update-current-buffer)
         (wait-update-current-buffer)))
      (former what))))
 
@@ -590,8 +588,6 @@
   ;;(tm-zotero-format-debug "buffer-get-part-mode called, mode => ~s" mode)
   (clear-<document-data>! (get-documentID))
   (former mode)
-  (wait-update-current-buffer)
-  (wait-update-current-buffer)
   (wait-update-current-buffer))
 
 
@@ -620,8 +616,6 @@
      (string-append "zcite reactivated! Checking for modification... is-modified? => "
                     is-modified? ". Done.")))
   (wait-update-current-buffer)
-  (wait-update-current-buffer)
-  (wait-update-current-buffer)
   #t)
 
 
@@ -648,130 +642,173 @@
 (define inside-tm-zotero-clipboard-cut #f)
 
 (define (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
-  (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_called..._RESET_")
+  ;;(tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_called..._RESET_")
   (let ((zhd-ht (get-document-ztbibItemRefs-ht documentID))
         (zfieldID (zfield-zfieldID zfield))
         (ztHref*-ls (tm-search
                      zfield
                      (cut tm-func? <> 'ztHrefFromCiteToBib))))
     (map (lambda (ztHref*)
-           (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_map lambda_WHITE_:ztHref* => ~s_RESET_"
-                                   (tree->stree ztHref*))
+           ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:  _GREEN_map lambda_WHITE_:ztHref* => ~s_RESET_"
+           ;;                         (tree->stree ztHref*))
            (let* ((sysID (ztHref*-sysID ztHref*))
                   (ref-label (ztHrefFromCiteToBib-reflabel zfieldID sysID))
                   (zhd (hash-ref zhd-ht ref-label #f)))
              (if zhd
                  (begin
-                   (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_map lambda_WHITE_:_GREEN_removing zhd with ref-label: _BOLD_~s_RESET_" ref-label)
-                   (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_map lambda_RESET_:ls before: ~s"
-                                           (map (lambda (z)
-                                                  (ztHrefFromCiteToBib-reflabel (the-zfieldID-of z) (the-sysID-of z)))
-                                                (hash-ref zhd-ht sysID '())))
+                   ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:  _GREEN_map lambda_WHITE_:_GREEN_removing zhd with ref-label: _BOLD_~s_RESET_" ref-label)
+                   ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:  _GREEN_map lambda_RESET_:ls before: ~s"
+                   ;;                         (map (lambda (z)
+                   ;;                                (ztHrefFromCiteToBib-reflabel (the-zfieldID-of z) (the-sysID-of z)))
+                   ;;                              (hash-ref zhd-ht sysID '())))
                    (hash-set! zhd-ht sysID
                               (list-filter
                                (hash-ref zhd-ht sysID '())
                                (lambda (z)
                                  (not (eq? zhd z)))))
-                   (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_map lambda_RESET_:ls after: ~s"
-                                           (map (lambda (z)
-                                                  (ztHrefFromCiteToBib-reflabel (the-zfieldID-of z) (the-sysID-of z)))
-                                                (hash-ref zhd-ht sysID '())))
+                   ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:  _GREEN_map lambda_RESET_:ls after: ~s"
+                   ;;                         (map (lambda (z)
+                   ;;                                (ztHrefFromCiteToBib-reflabel (the-zfieldID-of z) (the-sysID-of z)))
+                   ;;                              (hash-ref zhd-ht sysID '())))
                    (clear-tree-pointer zhd)
                    (hash-remove! zhd-ht ref-label))
                  (begin
-                   (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_map lambda_WHITE_:_RED_no zhd with ref-label: ~s_RESET_" ref-label)
-                   ))))
+                   ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:  _GREEN_map lambda_WHITE_:_BOLD__RED_no zhd with ref-label _GREEN_~s_RESET_" ref-label)
+                   #f))))
          ztHref*-ls))
-  (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_returning._RESET_"))
+  ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_returning._RESET_")
+  )
+
+
+(tm-define (clipboard-copy which)
+  (:require (and (in-tm-zotero-style?)
+                 (in-text?)
+                 (not (is-during-tm-zotero-clipboard-cut?))
+                 (has-zfields? (selection-tree))))
+  (with-fluids
+      ((fluid/is-during-tm-zotero-clipboard-cut? #t))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_WHITE_:_GREEN_called_RESET_")
+    (let* ((documentID (get-documentID))
+           (zfd-ht (get-document-zfield-zfd-ht documentID))
+           (zfd-ls (get-document-zfield-zfd-ls documentID))
+           (zb-zfd-ls (get-document-zbibliography-zfd-ls documentID))
+           (new-zfield-zfd (get-document-new-zfield-zfd documentID))
+           (selection-t (selection-tree))
+           (copy-t (tree-copy selection-t))
+           (c-zfields (tm-search copy-t is-zfield?)))
+      (map (lambda (zfield)
+           (let* ((zfieldID (zfield-zfieldID zfield))
+                  (zfd (hash-ref zfd-ht zfieldID #f)))
+             (cond
+               ((and zfd (not (eq? zfd new-zfield-zfd)))
+                ;;(tm-zotero-format-debug "clipboard-copy:zfd => ~s (~s)" zfd zfieldID)
+                ;; (hash-remove! zfd-ht zfieldID)
+                ;; (set-document-zfield-zfd-ls! documentID
+                ;;                              (list-filter zfd-ls
+                ;;                                           (lambda (elt)
+                ;;                                             (not (eq? elt zfd)))))
+                ;; (when (is-zbibliography? zfield)
+                ;;   ;;(tm-zotero-format-debug "clipboard-copy:is-zbibliography? => #t")
+                ;;   (set-document-zbiblioraphy-zfd-ls!
+                ;;    (list-filter zb-zfd-ls
+                ;;                 (lambda (elt)
+                ;;                   (not (eq? elt zfd))))))
+                ;; TODO Experiment + UTSL to find out if I need to do this
+                ;;      with tree-pointer. I am not sure if it sticks to the
+                ;;      tree while the tree is detached, or if it gets left
+                ;;      at the place where the selection tree has been cut
+                ;;      from. Also is it GC'd, or would it leak?
+                ;; (clear-tree-pointer zfd)
+                (unintern-ztHrefFromCiteToBib-for-cut documentID zfield))
+               (zfd
+                (let ((tp (tree-pointer zfd))) ; is the new one???
+                  ;;
+                  ;; How? This can happen only when the protocol between
+                  ;; Zotero and TeXmacs has failed for some reason, usually
+                  ;; due to a bug in this program causing it to be
+                  ;; interrupted, leaving the new-zfield in the document.
+                  ;;
+                  (tm-zotero-format-error
+                   "_BOLD__RED_clipboard-copy_RESET_: _RED_Copying new zfield!_RESET_ _BOLD__RED_Fixme:_RESET_ Probably protocol breakdown; Restart Firefox and TeXmacs.")
+                  (tree-assign zfield
+                               (stree->tree
+                                '(strong "{?? New Citation ??}")))
+                  (clear-tree-pointer zfd)
+                  (set-document-new-zfield-zfd! #f))))))
+         c-zfields)
+      (clipboard-set which copy-t))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_WHITE_:_GREEN_returning._RESET_")
+    ))
 
 
 (tm-define (clipboard-cut which)
   (:require (and (in-tm-zotero-style?)
                  (in-text?)
+                 (not (is-during-tm-zotero-clipboard-cut?))
                  (has-zfields? (selection-tree))))
-  (set! inside-tm-zotero-clipboard-cut #t)
-  (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_WHITE_:_GREEN_called_RESET_, which => ~s" which)
-  (if (or (string=? which "none") (string=? which "nowhere"))
-      (former which)
-      (let* (;;(dummy (tm-zotero-format-debug "clipboard-cut:documentID..."))
-             (documentID (get-documentID))
-             ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfd-ht..."))
-             (zfd-ht (get-document-zfield-zfd-ht documentID))
-             ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfd-ls..."))
-             (zfd-ls (get-document-zfield-zfd-ls documentID))
-             ;;(dummy (tm-zotero-format-debug "clipboard-cut:zb-zfd-ls..."))
-             (zb-zfd-ls (get-document-zbibliography-zfd-ls documentID))
-             ;;(dummy (tm-zotero-format-debug "clipboard-cut:new-zfield-zfd..."))
-             (new-zfield-zfd (get-document-new-zfield-zfd documentID))
-             ;;(dummy (tm-zotero-format-debug "clipboard-cut:selection-t..."))
-             (selection-t (selection-tree))
-             ;;(dummy (tm-zotero-format-debug "clipboard-cut:selection-t => ~s" (tree->stree selection-t)))
-             ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfields..."))
-             (zfields (tm-search selection-t is-zfield?)))
-        ;; (tm-zotero-format-debug "clipboard-cut:clipboard-set...")
-        ;; (clipboard-set which selection-t)
-        ;;(tm-zotero-format-debug "clipboard-cut:(cpp-clipboard-cut \"none\")...")
-        ;;(cpp-clipboard-cut "none")
-        ;;(tm-zotero-format-debug "clipboard-cut:(former \"none\")...")
-        ;;(former "none")
-        ;;(and zfields (tm-zotero-format-debug "clipboard-cut:zfields => ~s" (map tree->stree zfields)))
-        (map (lambda (zfield)
-               (let* ((zfieldID (zfield-zfieldID zfield))
-                      (zfd (hash-ref zfd-ht zfieldID #f)))
-                 (cond
-                   ((and zfd (not (eq? zfd new-zfield-zfd)))
-                    ;;(tm-zotero-format-debug "clipboard-cut:zfd => ~s (~s)" zfd zfieldID)
-                    (hash-remove! zfd-ht zfieldID)
-                    (set-document-zfield-zfd-ls! documentID
-                                                 (list-filter zfd-ls
-                                                              (lambda (elt)
-                                                                (not (eq? elt zfd)))))
-                    (when (is-zbibliography? zfield)
-                      ;;(tm-zotero-format-debug "clipboard-cut:is-zbibliography? => #t")
-                      (set-document-zbiblioraphy-zfd-ls!
-                       (list-filter zb-zfd-ls
-                                    (lambda (elt)
-                                      (not (eq? elt zfd))))))
-                    ;; TODO Experiment + UTSL to find out if I need to do this
-                    ;;      with tree-pointer. I am not sure if it sticks to the
-                    ;;      tree while the tree is detached, or if it gets left
-                    ;;      at the place where the selection tree has been cut
-                    ;;      from. Also is it GC'd, or would it leak?
+  (with-fluids
+      ((fluid/is-during-tm-zotero-clipboard-cut? #t))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_WHITE_:_GREEN_called_RESET_, which => ~s" which)
+    (let* (;;(dummy (tm-zotero-format-debug "clipboard-cut:documentID..."))
+           (documentID (get-documentID))
+           ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfd-ht..."))
+           (zfd-ht (get-document-zfield-zfd-ht documentID))
+           ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfd-ls..."))
+           (zfd-ls (get-document-zfield-zfd-ls documentID))
+           ;;(dummy (tm-zotero-format-debug "clipboard-cut:zb-zfd-ls..."))
+           (zb-zfd-ls (get-document-zbibliography-zfd-ls documentID))
+           ;;(dummy (tm-zotero-format-debug "clipboard-cut:new-zfield-zfd..."))
+           (new-zfield-zfd (get-document-new-zfield-zfd documentID))
+           ;;(dummy (tm-zotero-format-debug "clipboard-cut:selection-t..."))
+           (selection-t (selection-tree))
+           ;;(dummy (tm-zotero-format-debug "clipboard-cut:selection-t => ~s" (tree->stree selection-t)))
+           ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfields..."))
+           (zfields (tm-search selection-t is-zfield?)))
+      (map (lambda (zfield)
+             (let* ((zfieldID (zfield-zfieldID zfield))
+                    (zfd (hash-ref zfd-ht zfieldID #f)))
+               (cond
+                 ((and zfd (not (eq? zfd new-zfield-zfd)))
+                  ;;(tm-zotero-format-debug "clipboard-cut:zfd => ~s (~s)" zfd zfieldID)
+                  (hash-remove! zfd-ht zfieldID)
+                  (set-document-zfield-zfd-ls! documentID
+                                               (list-filter zfd-ls
+                                                            (lambda (elt)
+                                                              (not (eq? elt zfd)))))
+                  (when (is-zbibliography? zfield)
+                    ;;(tm-zotero-format-debug "clipboard-cut:is-zbibliography? => #t")
+                    (set-document-zbiblioraphy-zfd-ls!
+                     (list-filter zb-zfd-ls
+                                  (lambda (elt)
+                                    (not (eq? elt zfd))))))
+                  ;; TODO Experiment + UTSL to find out if I need to do this
+                  ;;      with tree-pointer. I am not sure if it sticks to the
+                  ;;      tree while the tree is detached, or if it gets left
+                  ;;      at the place where the selection tree has been cut
+                  ;;      from. Also is it GC'd, or would it leak?
+                  (clear-tree-pointer zfd)
+                  (unintern-ztHrefFromCiteToBib-for-cut documentID zfield))
+                 (zfd
+                  (let ((tp (tree-pointer zfd))) ; is the new one???
+                    ;;
+                    ;; How? This can happen only when the protocol between
+                    ;; Zotero and TeXmacs has failed for some reason, usually
+                    ;; due to a bug in this program causing it to be
+                    ;; interrupted, leaving the new-zfield in the document.
+                    ;;
+                    (tm-zotero-format-error
+                     "_BOLD__RED_clipboard-cut_RESET_: _RED_Cutting new zfield!_RESET_ _BOLD__RED_Fixme:_RESET_ Probably protocol breakdown; Restart Firefox and TeXmacs.")
+                    (tree-assign zfield
+                                 (stree->tree
+                                  '(strong "{?? New Citation ??}")))
                     (clear-tree-pointer zfd)
-                    (unintern-ztHrefFromCiteToBib-for-cut documentID zfield))
-                   (zfd
-                    (let ((tp (tree-pointer zfd))) ; is the new one???
-                      ;;
-                      ;; How? This can happen only when the protocol between
-                      ;; Zotero and TeXmacs has failed for some reason, usually
-                      ;; due to a bug in this program causing it to be
-                      ;; interrupted, leaving the new-zfield in the document.
-                      ;;
-                      (tm-zotero-format-error
-                       "_BOLD__RED_clipboard-cut_RESET_: _RED_Cutting new zfield!_RESET_ _BOLD__RED_Fixme:_RESET_ Probably protocol breakdown; Restart Firefox and TeXmacs.")
-                      (tree-assign zfield
-                                   (stree->tree
-                                    '(strong "{?? New Citation ??}")))
-                      (clear-tree-pointer zfd)
-                      (set-document-new-zfield-zfd! #f))))))
-             zfields)
-        ;; (tm-zotero-format-debug "clipboard-cut:tree-set! selection-t \"\"...")
-        ;; (selection-cancel)
-        ;; (tree-set! selection-t (stree->tree ""))
-        ;; (tm-zotero-format-debug "clipboard-cut:(former \"nowhere\")...")
-        ;; (former "nowhere")
-        ;; (clipboard-clear "nowhere")
-        ;; (tm-zotero-format-debug "clipboard-cut:cpp-clipboard-cut...")
-        ;; (cpp-clipboard-cut "nowhere")
-        ;; (tm-zotero-format-debug "clipboard-cut:clipboard-clear...")
-        ;; (clipboard-clear "nowhere")
-        ;;(tm-zotero-format-debug "clipboard-cut:cpp-clipboard-cut...")
-        (cpp-clipboard-cut "none")
-        ;;(tm-zotero-format-debug "clipboard-cut:clipboard-set...")
-        (clipboard-set which selection-t)
-        ))
-  (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_WHITE_:_GREEN_returning._RESET_")
-  (set! inside-tm-zotero-clipboard-cut #f))
+                    (set-document-new-zfield-zfd! #f))))))
+           zfields)
+      (cpp-clipboard-cut "none")
+      (when (not (== which "none"))
+        (clipboard-set which selection-t)))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_WHITE_:_GREEN_returning._RESET_")
+    ))
 
 
 ;;;;;;
@@ -790,14 +827,25 @@
                  (not (focus-is-zfield?))
                  (in-text?)
                  (has-zfields? (clipboard-get which))))
-  (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:_GREEN_called..._RESET_")
+  ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:_GREEN_called..._RESET_")
   (let ((clipboard-t (clipboard-get which)))
-    (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_RESET_:clipboard-t => ~s" (tree->stree clipboard-t))
-    (insert (tree-ref clipboard-t 1) 1)
-    (let ((zfields (tm-search clipboard-t is-zfield?)))
-      (map (lambda (zfield)
-             (set! (zfield-zfieldID zfield) (get-new-zfieldID)))
-           zfields))))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:  _GREEN_before_RESET_: _BOLD__YELLOW_clipboard-t =>_RESET_\n~y"
+    ;;                         (tree->stree clipboard-t))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:  _GREEN_before_RESET_: _BOLD__YELLOW_zfieldID's =>_RESET_ ~s"
+    ;;                         (map (lambda (zfield) (zfield-zfieldID zfield))
+    ;;                              (tm-search clipboard-t is-zfield?)))
+    ;;(insert (tree-ref clipboard-t 1) 1)
+    (insert (tree-ref clipboard-t 1) 0) ;; ? cursor in front after ?
+    (map (lambda (zfield)
+           (set! (zfield-zfieldID zfield) (get-new-zfieldID)))
+         (tm-search clipboard-t is-zfield?))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:  _GREEN_after_RESET_: _BOLD__YELLOW_zfieldID's =>_RESET_ ~s"
+    ;;                         (map (lambda (zfield) (zfield-zfieldID zfield))
+    ;;                              (tm-search clipboard-t is-zfield?)))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_RESET_:  _GREEN_after_RESET_: _BOLD__YELLOW_clipboard-t =>_RESET_\n~y"
+    ;;                         (tree->stree clipboard-t))
+    ))
+
 
 ;;}}}
 
@@ -941,7 +989,7 @@
 (tm-define (hidden-child? t i)
   (:require (focus-is-zcite?))
   #f)
-        
+
 
 ;;; Todo: go to next similar tag does not work right with zcite. Why?
 ;;; The following seems to have no effect...
@@ -2296,28 +2344,31 @@
 ;;;
 (tm-define (tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:secure)
-  (tm-zotero-format-debug "_BOLD__YELLOW_tm-zotero-ext:ensure-zfield-interned!_RESET_:called, zfieldID => ~s"
-                          (or (and zfieldID-t
-                                   (tree? zfieldID-t)
-                                   (tree->stree zfieldID-t))
-                              "{?? undefined ??}"))
+  ;; (tm-zotero-format-debug "_BOLD__YELLOW_tm-zotero-ext:ensure-zfield-interned!_RESET_:called, zfieldID => ~s"
+  ;;                         (or (and zfieldID-t
+  ;;                                  (tree? zfieldID-t)
+  ;;                                  (tree->stree zfieldID-t))
+  ;;                             "{?? undefined ??}"))
   (%tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   "")
 
 (tm-define (%tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_Default_RESET_"))
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_Default_RESET_")
+  #t)
 
 (tm-define (%tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:require (and (in-tm-zotero-style?)
                  (is-during-tm-zotero-clipboard-cut?)))
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_is-during-tm-zotero-clipboard-cut_RESET_"))
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_is-during-tm-zotero-clipboard-cut_RESET_")
+  #t)
 
 (tm-define (%tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:require (and (in-tm-zotero-style?)
                  (not (is-during-tm-zotero-clipboard-cut?))
                  (tree? zfieldID-t)
                  (not (inside-shown-part? zfieldID-t))))
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_zfield not inside shown part_RESET_"))
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_zfield not inside shown part_RESET_")
+  #t)
 
 (tm-define (%tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
   (:require (and (in-tm-zotero-style?)
@@ -2325,7 +2376,8 @@
                  (tree? zfieldID-t)
                  (inside-shown-part? zfieldID-t)
                  (inside-inactive? zfieldID-t)))
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_zfield inactive_RESET_"))
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_zfield inactive_RESET_")
+  #t)
 
 
 (tm-define (%tm-zotero-ext:ensure-zfield-interned! zfieldID-t)
@@ -2334,22 +2386,22 @@
                  (tree? zfieldID-t)
                  (inside-shown-part? zfieldID-t)
                  (not (inside-inactive? zfieldID-t))))
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_Interning!_RESET_")
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_WHITE_:  _BOLD__RED_Interning!_RESET_")
   (let* ((documentID (get-documentID))
          (zfieldID (tree->stree zfieldID-t))
          ;;         fail if this is the new-zfield not yet finalized by
          ;;         Document_insertField.
          (is-new? (zfield-is-document-new-zfield? documentID zfieldID)))
-    (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_RESET_:    zfieldID => ~s, is-new? => ~a" zfieldID is-new?)
+    ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!_RESET_:    zfieldID => ~s, is-new? => ~a" zfieldID is-new?)
     (if is-new?
         (begin
-          (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!:    _BOLD__RED_returning, is-new? => #t_RESET_")
+          ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!:    _BOLD__RED_returning, is-new? => #t_RESET_")
           "")
         (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
           (if zfd
               (begin
                 ;; then we're done, it's already interned.
-                (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!:    _BOLD__RED_returning, zfd was already interned_RESET_")
+                ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!:    _BOLD__RED_returning, zfd was already interned_RESET_")
                 "")
               ;;
               ;; else...
@@ -2367,8 +2419,8 @@
                   (document-merge!-<zfield-data> zfd)
                   (when (is-zbibliography? zfield)
                     (document-merge!-zbibliography-zfd zfd)))
-                (tm-zotero-format-debug
-                 "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!:    _RED_returning. _BOLD_Interned new zfield._RESET_")
+                ;; (tm-zotero-format-debug
+                ;;  "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!:    _RED_returning. _BOLD_Interned new zfield._RESET_")
                 ""))))))
 
 
@@ -2523,27 +2575,30 @@
 
 (tm-define (tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! zfieldID-t hashLabel-t)
   (:secure)
-  (tm-zotero-format-debug "_BOLD__YELLOW_tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_RESET_:called, zfieldID => ~s, hashLabel => ~s"
-                          (tree->stree zfieldID-t) (tree->stree hashLabel-t))
+  ;; (tm-zotero-format-debug "_BOLD__YELLOW_tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_RESET_:called, zfieldID => ~s, hashLabel => ~s"
+  ;;                         (tree->stree zfieldID-t) (tree->stree hashLabel-t))
   (%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! zfieldID-t hashLabel-t)
   "")
 
 
 (tm-define (%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! zfieldID-t hashLabel-t)
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_WHITE_:  _BOLD__RED_Default_RESET_"))
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_WHITE_:  _BOLD__RED_Default_RESET_")
+  #t)
 
 
 (tm-define (%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! zfieldID-t hashLabel-t)
   (:require (and (in-tm-zotero-style?)
                  (is-during-tm-zotero-clipboard-cut?)))
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_WHITE_:  _BOLD__RED_inside-tm-zotero-clipboard-cut_RESET_"))
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_WHITE_:  _BOLD__RED_inside-tm-zotero-clipboard-cut_RESET_")
+  #t)
 
 
 (tm-define (%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! zfieldID-t hashLabel-t)
   (:require (and (in-tm-zotero-style?)
                  (not (is-during-tm-zotero-clipboard-cut?))
                  (inside-inactive? zfieldID-t)))
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_WHITE_:  _BOLD__RED_zfield inactive_RESET_"))
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_WHITE_:  _BOLD__RED_zfield inactive_RESET_")
+  #t)
 
 
 (tm-define (%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! zfieldID-t hashLabel-t)
@@ -2551,7 +2606,8 @@
                  (not (is-during-tm-zotero-clipboard-cut?))
                  (inside-inactive? zfieldID-t)
                  (not (inside-shown-part? zfieldID-t))))
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_WHITE_:  _BOLD__RED_zfield not inside shown part_RESET_"))
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_WHITE_:  _BOLD__RED_zfield not inside shown part_RESET_")
+  #t)
 
 
 (tm-define (%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned! zfieldID-t hashLabel-t)
@@ -2560,7 +2616,7 @@
                  (tree? zfieldID-t)
                  (not (inside-inactive? zfieldID-t))
                  (inside-shown-part? zfieldID-t)))
-  (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!:  _BOLD__RED_Interning..._RESET_")
+  ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!:  _BOLD__RED_Interning..._RESET_")
   (let* ((zfieldID (tree->stree zfieldID-t))
          (ztHref* (tree-up hashLabel-t))
          ;;(dummy (tm-zotero-format-debug "tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!: ztHref* => ~s" ztHref*))
@@ -2576,15 +2632,15 @@
                                   #:the-zfieldID-of zfieldID
                                   #:the-sysID-of sysID
                                   #:zhd-tree ztHref*)))
-          (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!:    _BOLD__RED_Interned new:_RESET_ ~a"
-                                  ref-label)
+          ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!:    _BOLD__RED_Interned new:_RESET_ ~a"
+          ;;                         ref-label)
           ;; handles for later clearing of the tree pointers in these
           (hash-set! zhd-ht ref-label zhd)
           (document-merge!-ztbibItemRefs-ls zhd))
         (begin
-          (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!:    _BOLD__RED_Already interned:_RESET_ ~a"
-                                  ref-label)
-          ))))
+          ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!:    _BOLD__RED_Already interned:_RESET_ ~a"
+          ;;                         ref-label)
+          #t))))
 
 ;;;;;;
 ;;;
@@ -2597,7 +2653,7 @@
          (zhd-ht (get-document-ztbibItemRefs-ht documentID))
          (zhd-ls (hash-ref zhd-ht sysID '()))
          (ref-labels-ls (map the-ref-label-of zhd-ls)))
-    (tm-zotero-format-debug "tm-zotero-ext:_BOLD_get-ztbibItemRefsList:_RESET_ _GREEN_ref-labels-ls_RESET_ => ~s" ref-labels-ls)
+    ;; (tm-zotero-format-debug "tm-zotero-ext:_BOLD_get-ztbibItemRefsList:_RESET_ _GREEN_ref-labels-ls_RESET_ => ~s" ref-labels-ls)
     `(zt-ref-sep ,@ref-labels-ls)))
 
 ;;;;;;
@@ -3483,8 +3539,6 @@
   ;;(tm-zotero-set-message "Processing command: Document_activate...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_activate:called...")
   (wait-update-current-buffer)
-  (wait-update-current-buffer)
-  (wait-update-current-buffer)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
@@ -4315,7 +4369,7 @@
 ;;;  * In footnote or endnote:
 ;;;
 ;;;    * hlink is not a DOI (http://dx.doi.org/.* or http://doi.org/.*)
-;;;    
+;;;
 ;;;      * Option set true, create href on line by itself after text of
 ;;;        footnote?  When there is more than one hlink inside of a footnote,
 ;;;        then each related href must go on it's own line, like footnotes to
@@ -4818,12 +4872,12 @@ styles."
 ;;;;;;
 ;;;
 (define (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)
-  (tm-zotero-set-message-and-system-wait
-   "Munging, transcoding, and parsing input..." please-wait)
-  (noop)
+  ;; (tm-zotero-set-message-and-system-wait
+  ;;  "Munging, transcoding, and parsing input..." please-wait)
+  ;; (noop)
   (tm-zotero-set-message-and-system-wait ; try to force refresh so it is readable
    "Munging, transcoding, and parsing input..." please-wait)
-  (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs called, str_text => ~s, is-note? => ~s, is-bib? => ~s" str_text is-note? is-bib?)
+  ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_: called, str_text => ~s, is-note? => ~s, is-bib? => ~s" str_text is-note? is-bib?)
   ;;
   ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
   ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
@@ -4900,7 +4954,7 @@ styles."
     (buffer-pretend-saved b)
     (buffer-close b)
     (recall-message)
-    (tm-zotero-format-debug "_BOLD__BLUE_tm-zotero-UTF-8-str_text->texmacs:_GREEN_returning_RESET_ => ~s" (tree->stree t))
+    ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_WHITE_:_BOLD__GREEN_returning_RESET_ => ~s" (tree->stree t))
     t))
 
 ;;}}}
@@ -4975,16 +5029,20 @@ styles."
          (is-bib?  (and zfield (zfield-IsBib? zfield)))
          (tmtext
           (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)))
-    ;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Text-t")
-    ;; It was crashing here at the destructor for tree-pointer. I think it's
-    ;; the tree-pointers on the ztHrefFromCiteToBib tags.
-    ;;(set! (zfield-Text-t zfield) tmtext)
-    ;;(set! inside-tm-zotero-clipboard-cut #t) ;; TODO fluid-ref
+    ;;;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Text-t")
+    ;;; It was crashing here at the destructor for tree-pointer. I think it's
+    ;;; the tree-pointers on the ztHrefFromCiteToBib tags.
+    ;;;;(set! (zfield-Text-t zfield) tmtext)
+    ;;
+  (with-fluids
+      ((fluid/is-during-tm-zotero-clipboard-cut? #t))
+    ;; (begin
+    ;;   (set! inside-tm-zotero-clipboard-cut #t) ;; TODO fluid-ref
     ;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to unintern-ztHrefFromCiteToBib-for-cut")
     (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
     ;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Text-t")
-    (set! (zfield-Text-t zfield) tmtext)
-    ;;(set! inside-tm-zotero-clipboard-cut #f)
+    (set! (zfield-Text-t zfield) tmtext))
+    ;; (set! inside-tm-zotero-clipboard-cut #f))
     ;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Code-origText")
     (set! (zfield-Code-origText zfield) tmtext)
     (set! (zfield-Code-is-modified?-flag zfield) "false")
@@ -5064,4 +5122,4 @@ styles."
 ;;; truncate-lines: t
 ;;; folded-file: t
 ;;; End:
-;;;;;;
+;;;;;
