@@ -777,10 +777,10 @@
                                                               (not (eq? elt zfd)))))
                   (when (is-zbibliography? zfield)
                     ;;(tm-zotero-format-debug "clipboard-cut:is-zbibliography? => #t")
-                    (set-document-zbiblioraphy-zfd-ls!
-                     (list-filter zb-zfd-ls
-                                  (lambda (elt)
-                                    (not (eq? elt zfd))))))
+                    (set-document-zbiblioraphy-zfd-ls! documentID
+                                                       (list-filter zb-zfd-ls
+                                                                    (lambda (elt)
+                                                                      (not (eq? elt zfd))))))
                   ;; TODO Experiment + UTSL to find out if I need to do this
                   ;;      with tree-pointer. I am not sure if it sticks to the
                   ;;      tree while the tree is detached, or if it gets left
@@ -1616,7 +1616,7 @@
    ;; set!
    (lambda (ztHref* t)
      (let ((hashLabel-t (tree-ref ztHref* 0)))
-       (tree-set! hashLabel-t t)))))
+       (tree-assign hashLabel-t t)))))
 
 (define ztHref*-hashLabel
   (make-procedure-with-setter
@@ -1626,8 +1626,8 @@
    ;; set!
    (lambda (ztHref* str)
      (let ((hashLabel-t (ztHref*-hashLabel-t ztHref*)))
-       (tree-set! hashLabel-t
-                  (stree->tree str))))))
+       (tree-assign hashLabel-t
+                    (stree->tree str))))))
 
 
 (define ztHref*-sysID
@@ -1656,7 +1656,7 @@
    ;; set!
    (lambda (ztHref* t)
      (let ((url-t (tree-ref ztHref* 1)))
-       (tree-set! hashLabel-t t)))))
+       (tree-assign hashLabel-t t)))))
 
 (define ztHref*-url
   (make-procedure-with-setter
@@ -1666,8 +1666,8 @@
    ;; set!
    (lambda (ztHref* str)
      (let ((url-t (ztHref*-url-t ztHref*)))
-       (tree-set! url-t
-                  (stree->tree str))))))
+       (tree-assign url-t
+                    (stree->tree str))))))
 
 
 (define ztHref*-display-t
@@ -1678,7 +1678,7 @@
    ;; set!
    (lambda (ztHref* t)
      (let ((display-t (tree-ref ztHref* 2)))
-       (tree-set! display-t t)))))
+       (tree-assign display-t t)))))
 
 
 
@@ -1690,7 +1690,7 @@
    ;; set!
    (lambda (ztHref t)
      (let ((url-t (tree-ref ztHref 0)))
-       (tree-set! url-t t)))))
+       (tree-assign url-t t)))))
 
 (define ztHref-url
   (make-procedure-with-setter
@@ -1700,8 +1700,8 @@
    ;; set!
    (lambda (ztHref str)
      (let ((url-t (ztHref-url-t ztHref)))
-       (tree-set! url-t
-                  (stree->tree str))))))
+       (tree-assign url-t
+                    (stree->tree str))))))
 
 
 (define ztHref-display-t
@@ -1712,7 +1712,7 @@
    ;; set!
    (lambda (ztHref t)
      (let ((display-t (tree-ref ztHref 1)))
-       (tree-set! display-t t)))))
+       (tree-assign display-t t)))))
 
 
 ;;}}}
@@ -2051,6 +2051,10 @@
 
 (define get-new-zfieldID create-unique-id)
 
+(tm-define (tm-zotero-ext:create-unique-id)
+  (:secure)
+  (create-unique-id))
+
 ;; (define-method (get-document-new-zfield-zfd)
 ;;   (get-document-new-zfield-zfd (get-documentID)))
 
@@ -2109,7 +2113,6 @@
 (define (reset-document-zfield-zfd-ht! documentID)
   (set! (document-zfield-zfd-ht (get-<document-data> documentID))
         (make-hash-table)))
-
 
 ;;}}}
 ;;{{{ document-zbibliography-zfd-ls
@@ -4613,18 +4616,19 @@ styles."
 
 
 
-;; (define (fixup-embedded-slink-as-url lnk)
-;;   (tm-zotero-format-debug "fixup-embedded-slink-as-url called.")
-;;   (cond
-;;     ((and (tree-in? lnk '(ztHrefFromBibToURL ztHrefFromCiteToBib))
-;;           (tree-in? (tree-ref lnk 1) '(slink verbatim)))
-;;      (let ((slink-or-verbatim (tree-ref lnk 1)))
-;;        (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
-;;   lnk)
-
 (define (fixup-embedded-slink-as-url lnk)
-  (when (match? lnk '((:or ztHrefFromBibToURL ztHrefFromCiteToBib) :%1 ((:or slink verbatim) :%1)))
-    (tree-set! lnk `(,(tree-label lnk) ,(tree-ref lnk 0) ,(tree-ref lnk 1 0)))))
+  ;;(tm-zotero-format-debug "_GREEN_fixup-embedded-slink-as-url_WHITE_:called._RESET_ ~s" (tree->stree lnk))
+  (cond
+    ((and (tree-in? lnk '(ztHrefFromBibToURL ztHrefFromCiteToBib))
+          (tree-in? (tree-ref lnk 1) '(slink verbatim)))
+     (let ((slink-or-verbatim (tree-ref lnk 1)))
+       (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
+  ;;(tm-zotero-format-debug "_GREEN_fixup-embedded-slink-as-url_WHITE_:returning._RESET_ ~s" (tree->stree lnk))
+  lnk)
+
+;; (define (fixup-embedded-slink-as-url lnk)
+;;   (when (match? lnk '((:or ztHrefFromBibToURL ztHrefFromCiteToBib) :%1 ((:or slink verbatim) :%1)))
+;;     (tree-set! lnk `(,(tree-label lnk) ,(tree-ref lnk 0) ,(tree-ref lnk 1 0)))))
 
 ;;}}}
 
@@ -4735,11 +4739,11 @@ styles."
          ;;
          (("(([0-9][-.0-9a-zA-Z]+#@)+)")
           pre post)
-         (("((.*)\\2X-X-X([  ]?|\\hspace.[^}+].))") ;; RepeatRepeatX-X-X to delete. Hopefully won't affect sort-order much.
+         (("((.*)\\2X-X-X([  ]|\\hspace.[^}+].)?)") ;; RepeatRepeatX-X-X to delete. Hopefully won't affect sort-order much.
           pre post)
-         (("(X-X-X([  ]?|\\hspace.[^}]+.))")
+         (("(X-X-X([  ]|\\hspace.[^}]+.)?)")
           pre post)
-         (("(([  ]?|\\hspace.[^}+].)\\(\\))") ;; empty parentheses and space before them (but NOT period or space after).
+         (("(([  ]|\\hspace.[^}]+.)?\\(([  ]|\\hspace.[^}]+.)*\\))") ;; empty parentheses and space before them (but NOT period or space after).
           pre post)
          (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
           pre 2 post) ;; Category heading dummy entries. Replaces the entire line!
@@ -4911,41 +4915,49 @@ styles."
     ;;
     ;; Used from inside tm-zotero.ts
     ;;
-    (let ((lt (select t '(:* (:or ztHref hlink href)))))
-      ;; It turns out that tm-select will return these not in tree or document
-      ;; order.  For this function, that's alright.
-      ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:t ztHref hlink href before: ~s" t)
-      ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:select lt: ~s" lt)
-      (let loop ((lt2 lt))
-        (let ((lnk (and (pair? lt2) (car lt2)))) ; lnk will be bool or tree
-          (cond
-            ((null? lt2) #t)
-            ((or is-note? is-bib?)
-             (move-link-to-own-line lnk)
-             (loop (cdr lt2)))
-            (else
-              (loop (cdr lt2)))))))
+    (map (lambda (lnk)
+           (when (or is-note? is-bib)
+             (move-link-to-own-line lnk)))
+         (select t '(:* (:or ztHref hlink href))))
+    ;; (let ((lt (select t '(:* (:or ztHref hlink href)))))
+    ;;   ;; It turns out that tm-select will return these not in tree or document
+    ;;   ;; order.  For this function, that's alright.
+    ;;   ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:t ztHref hlink href before: ~s" t)
+    ;;   ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:select lt: ~s" lt)
+    ;;   (let loop ((lt2 lt))
+    ;;     (let ((lnk (and (pair? lt2) (car lt2)))) ; lnk will be bool or tree
+    ;;       (cond
+    ;;         ((null? lt2) #t)
+    ;;         ((or is-note? is-bib?)
+    ;;          (move-link-to-own-line lnk)
+    ;;          (loop (cdr lt2)))
+    ;;         (else
+    ;;           (loop (cdr lt2)))))))
     ;;
     ;; from propachi-texmacs/bootstrap.js monkeypatch VariableWrapper
     ;;
-    (let ((lt (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib)))))
-      ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:t ztHrefFromBibToURL ztHrefFromCiteToBib before: ~s" t)
-      ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:select lt: ~s" lt)
-      (let loop ((lt2 lt))
-        (let ((lnk (and (pair? lt2) (car lt2))))
-          (cond
-            ((null? lt2) #t)
-            (else
-              ;;
-              ;; juris-m citeproc.js propachi-texmacs monkeypatch
-              ;; VariableWrapper sends text of a URL inside of a \path{} tag so
-              ;; that the conversion inside of TeXmacs into a texmacs tree does
-              ;; not modify the URL. It creates an slink tag in TeXmacs, and
-              ;; that's unwrapped here to make the links function
-              ;; correctly. They don't like having their URL be an slink.
-              ;;
-              ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:fixup-slink-as-url lnk:~s" lnk)
-              (fixup-embedded-slink-as-url lnk))))))
+    (map (lambda (lnk)
+           ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
+           (tree-set! lnk (fixup-embedded-slink-as-url lnk)))
+         (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib))))
+    ;; (let ((lt (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib)))))
+    ;;   (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_before:_RESET_ t => ~s" (tree->stree t))
+    ;;   (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_selected:_RESET_ => ~s" (map tree->stree lt))
+    ;;   (let loop ((lt2 lt))
+    ;;     (let ((lnk (and (pair? lt2) (car lt2))))
+    ;;       (cond
+    ;;         ((null? lt2) #t)
+    ;;         (else
+    ;;           ;;
+    ;;           ;; juris-m citeproc.js propachi-texmacs monkeypatch
+    ;;           ;; VariableWrapper sends text of a URL inside of a \path{} tag so
+    ;;           ;; that the conversion inside of TeXmacs into a texmacs tree does
+    ;;           ;; not modify the URL. It creates an slink tag in TeXmacs, and
+    ;;           ;; that's unwrapped here to make the links function
+    ;;           ;; correctly. They don't like having their URL be an slink.
+    ;;           ;;
+    ;;           (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
+    ;;           (tree-set! lnk (fixup-embedded-slink-as-url lnk)))))))
     ;;
     ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:before tree-simplify")
     (tree-simplify t)

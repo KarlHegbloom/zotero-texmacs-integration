@@ -287,9 +287,15 @@
 
   \;
 
+  <assign|create-unique-id|<macro|<extern|tm-zotero-ext:create-unique-id>>>
+
   \;
 
-  <assign|ztHrefFromBibToURL|<macro|hashLabel|url|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|ztHrefFromBibToURL|<macro|hashLabel|URL|display|<with|link-BibToURL|<value|zt-link-BibToURL>|unique-id|<create-unique-id>|<if|<value|link-BibToURL>|<locus|<id|<value|unique-id>>|<link|hyperlink|<id|<value|unique-id>>|<url|<arg|URL>>>|<arg|display>>|<arg|display>>>>>
+
+  \;
+
+  <assign|XXztHrefFromBibToURL|<macro|hashLabel|URI|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|URI>>|<arg|display>>>>>
 
   <assign|ztHrefFromBibToURL*|<value|ztHrefFromBibToURL>>
 
@@ -297,7 +303,7 @@
 
   <assign|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<macro|zfieldID-t|hashLabel-t|<extern|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|zfieldID-t>|<arg|hashLabel-t>>>>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|url|display|<label|<merge|zciteID|<value|zt-zfieldID>|<arg|hashLabel>>><tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<value|zt-zfieldID>|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<hlink|<arg|display>|<arg|hashLabel>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<hlink|<arg|display>|<arg|url>>|<arg|display>>>>>
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|URL|display|<label|<merge|zciteID|<value|zt-zfieldID>|<arg|hashLabel>>><tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<value|zt-zfieldID>|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|unique-id|<create-unique-id>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<locus|<id|<value|unique-id>>|<link|hyperlink|<id|<value|unique-id>>|<url|<arg|hashLabel>>>|<arg|display>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<locus|<id|<value|unique-id>>|<link|<id|<value|unique-id>>|<url|<arg|URL>>>|<arg|display>>|<arg|display>>>>>
 
   <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
