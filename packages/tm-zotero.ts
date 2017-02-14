@@ -256,7 +256,7 @@
     </src-comment>
   </active*>
 
-  <assign|ztHref|<macro|url|display|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<hlink|URL|<arg|url>><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<hlink|<arg|display>|<arg|url>>>>|<zt-footnote|<small|<hlink|<arg|display>|<arg|url>>>>><rsup|)>|<small|<hlink|<arg|display>|<arg|url>>>>>>
+  <assign|ztHref|<macro|URL|display|<with|unique-id1|<create-unique-id>|unique-id2|<create-unique-id>|<if|<and|<value|zt-not-inside-note>|<value|zt-not-inside-zbibliography>>|<locus|<id|<value|unique-id1>>|<link|<id|<value|unique-id1>>|<url|<arg|URL>>>|URL><space|0.2spc><rsup|(><if|<value|zotero-pref-noteType2>|<zt-endnote|<small|<locus|<id|<value|unique-id2>>|<link|<id|<value|unique-id2>>|<url|<arg|URL>>>|<arg|display>>>>|<zt-footnote|<small|<locus|<id|<value|unique-id2>>|<link|<id|<value|unique-id2>>|<url|<arg|URL>>>|<arg|display>>>>><rsup|)>|<small|<locus|<id|<value|unique-id1>>|<link|<id|<value|<value|unique-id1>>>|<url|<arg|URL>>>|<arg|display>>>>>>>
 
   <drd-props|ztHref|accessible|all|enable-writability|all|border|yes>
 
@@ -294,8 +294,6 @@
   <assign|ztHrefFromBibToURL|<macro|hashLabel|URL|display|<with|link-BibToURL|<value|zt-link-BibToURL>|unique-id|<create-unique-id>|<if|<value|link-BibToURL>|<locus|<id|<value|unique-id>>|<link|hyperlink|<id|<value|unique-id>>|<url|<arg|URL>>>|<arg|display>>|<arg|display>>>>>
 
   \;
-
-  <assign|XXztHrefFromBibToURL|<macro|hashLabel|URI|display|<with|link-BibToURL|<value|zt-link-BibToURL>|<if|<value|link-BibToURL>|<hlink|<arg|display>|<arg|URI>>|<arg|display>>>>>
 
   <assign|ztHrefFromBibToURL*|<value|ztHrefFromBibToURL>>
 

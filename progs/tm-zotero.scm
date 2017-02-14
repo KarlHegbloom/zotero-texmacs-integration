@@ -4622,6 +4622,10 @@ styles."
     ((and (tree-in? lnk '(ztHrefFromBibToURL ztHrefFromCiteToBib))
           (tree-in? (tree-ref lnk 1) '(slink verbatim)))
      (let ((slink-or-verbatim (tree-ref lnk 1)))
+       (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0))))
+    ((and (tree-in? lnk '(ztHref))
+          (tree-in? (tree-ref lnk 0) '(slink verbatim)))
+     (let ((slink-or-verbatim (tree-ref lnk 0)))
        (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
   ;;(tm-zotero-format-debug "_GREEN_fixup-embedded-slink-as-url_WHITE_:returning._RESET_ ~s" (tree->stree lnk))
   lnk)
@@ -4908,65 +4912,35 @@ styles."
                     "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
-    ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs after let*. !!!")
+    ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_: after let*. !!!")
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
     ;;
     ;; Used from inside tm-zotero.ts
     ;;
+    ;; It turns out that tm-select will return these not in tree or document
+    ;; order.  For this function, that's alright.
+    ;;
     (map (lambda (lnk)
-           (when (or is-note? is-bib)
+           (when (or is-note? is-bib?)
              (move-link-to-own-line lnk)))
          (select t '(:* (:or ztHref hlink href))))
-    ;; (let ((lt (select t '(:* (:or ztHref hlink href)))))
-    ;;   ;; It turns out that tm-select will return these not in tree or document
-    ;;   ;; order.  For this function, that's alright.
-    ;;   ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:t ztHref hlink href before: ~s" t)
-    ;;   ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:select lt: ~s" lt)
-    ;;   (let loop ((lt2 lt))
-    ;;     (let ((lnk (and (pair? lt2) (car lt2)))) ; lnk will be bool or tree
-    ;;       (cond
-    ;;         ((null? lt2) #t)
-    ;;         ((or is-note? is-bib?)
-    ;;          (move-link-to-own-line lnk)
-    ;;          (loop (cdr lt2)))
-    ;;         (else
-    ;;           (loop (cdr lt2)))))))
     ;;
     ;; from propachi-texmacs/bootstrap.js monkeypatch VariableWrapper
     ;;
     (map (lambda (lnk)
            ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
            (tree-set! lnk (fixup-embedded-slink-as-url lnk)))
-         (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib))))
-    ;; (let ((lt (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib)))))
-    ;;   (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_before:_RESET_ t => ~s" (tree->stree t))
-    ;;   (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_selected:_RESET_ => ~s" (map tree->stree lt))
-    ;;   (let loop ((lt2 lt))
-    ;;     (let ((lnk (and (pair? lt2) (car lt2))))
-    ;;       (cond
-    ;;         ((null? lt2) #t)
-    ;;         (else
-    ;;           ;;
-    ;;           ;; juris-m citeproc.js propachi-texmacs monkeypatch
-    ;;           ;; VariableWrapper sends text of a URL inside of a \path{} tag so
-    ;;           ;; that the conversion inside of TeXmacs into a texmacs tree does
-    ;;           ;; not modify the URL. It creates an slink tag in TeXmacs, and
-    ;;           ;; that's unwrapped here to make the links function
-    ;;           ;; correctly. They don't like having their URL be an slink.
-    ;;           ;;
-    ;;           (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
-    ;;           (tree-set! lnk (fixup-embedded-slink-as-url lnk)))))))
-    ;;
-    ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:before tree-simplify")
+         (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib ztHref))))
+    ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_before tree-simplify_RESET_")
     (tree-simplify t)
-    ;; (tm-zotero-format-debug "tm-zotero-UTF-8-str_text->texmacs:after tree-simplify")
+    ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_after tree-simplify_RESET_")
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
     (buffer-close b)
     (recall-message)
-    ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_WHITE_:_BOLD__GREEN_returning_RESET_ => ~s" (tree->stree t))
+    ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__GREEN_returning_RESET_ => ~s" (tree->stree t))
     t))
 
 ;;}}}
