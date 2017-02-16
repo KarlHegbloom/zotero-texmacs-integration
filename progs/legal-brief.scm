@@ -11,7 +11,69 @@
 ;;
 ;;;
 (texmacs-module (legal-brief)
-  (:use (generic document-style)))
+  (:use (generic document-style))
+  (:use (utils library cursor))
+  (:use (tm-zotero))
+  )
+
+(texmacs-modes
+  (in-legal-brief-style% (style-has? "legal-brief-style")))
+
+(tm-define (lb-ext:is-in-legal-brief-style?)
+  (:secure)
+  (if (in-legal-brief-style?)
+      "true"
+      "false"))
+
+
+(define-public (in-paragraph?)
+  (let ((found #f))
+    (cursor-after
+     (go-start-paragraph)
+     (set! found (tree-in? (cursor-tree) '(paragraph subparagraph subsubparagraph))))
+    found))
+
+(tm-define (kbd-enter t shift?)
+  (:require (and (inside? 'paragraph)
+                 (not (inside? 'hybrid))
+                 (not (is-zfield? t))
+                 (in-legal-brief-style?)))
+  (go-end-paragraph)
+  (insert-return)
+  (insert '(paragraph "")))
+
+(tm-define (kbd-enter t shift?)
+  (:require (and (not (inside? 'paragraph))
+                 (not (inside? 'hybrid))
+                 (not (is-zfield? t))
+                 (in-legal-brief-style?)
+                 (in-paragraph?)))
+  (when shift?
+    (go-end-paragraph))
+  (insert-return)
+  (insert '(paragraph "")))
+
+
+
+;; (define-public (in-section?)
+;;   (let ((found #f))
+;;     (cursor-after
+;;      (go-start-paragraph)
+;;      (set! found (tree-in? (cursor-tree) '(section subsection subsubsection))))
+;;     found))
+
+(tm-define (kbd-enter t shift?)
+  (:require (and (not (inside? 'hybrid))
+                 (in-legal-brief-style?)
+                 ;; (in-section?)
+                 (or (inside? 'section)
+                     (inside? 'subsection)
+                     (inside? 'subsubsection))))
+  (go-end-line)
+  (insert-return)
+  (insert '(paragraph "")))
+
+
 
 ;;; LaTeX / Hybrid kbd commands:
 ;;;

@@ -931,13 +931,12 @@
   (:require
    (and (focus-is-zbibliography?)
         (in? l (list "zt-option-zbib-font-size"
-                     "zt-bibliography-two-columns"
+                     "zbibColumns"
+                     "zbibPageBefore"
+                     "ztbibSubHeadingTextSize"
                      "ztbibSubHeadingVspace*"
                      "zt-link-BibToURL"
-                     "zt-render-bibItemRefsLists"
-                     "zbibItemRefsList-sep"
-                     "zbibItemRefsList-left"
-                     "zbibItemRefsList-right"))))
+                     "zt-render-bibItemRefsLists"))))
   #t)
 
 
@@ -962,9 +961,6 @@
     (("zt-link-BibToURL")           "Link bibitem to URL?")
     (("zt-link-FromCiteToBib")      "Link from citation to bib item?")
     (("zt-render-bibItemRefsLists") "Render bib item refs lists?")
-    (("zbibItemRefsList-sep")       "Refs list sep")
-    (("zbibItemRefsList-left")      "Refs list surround left")
-    (("zbibItemRefsList-right")     "Refs list surround right")
     (else
       (former l))))
 

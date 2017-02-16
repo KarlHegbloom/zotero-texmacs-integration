@@ -35,6 +35,8 @@
 
   <use-module|(legal-brief)>
 
+  <assign|is-in-legal-brief-style|<macro|<extern|lb-ext:is-in-legal-brief-style?>>>
+
   <\active*>
     <\src-comment>
       Page size and margins per Utah Rules.
@@ -65,7 +67,7 @@
 
   <assign|font-base-size|12>
 
-  <assign|XXXfont-base-size|13>
+  <inactive|<assign|XXXfont-base-size|13>>
 
   <assign|font|TeX Gyre Termes>
 
@@ -77,7 +79,7 @@
 
   <assign|legal-brief-quote-env-par-line-sep|0.025fns>
 
-  <assign|XXXlegal-brief-quote-env-par-par-sep|<value|quote-interparagraph>>
+  <inactive|<assign|XXXlegal-brief-quote-env-par-par-sep|<value|quote-interparagraph>>>
 
   <assign|legal-brief-quote-env-par-par-sep|0.25fn>
 
@@ -97,31 +99,21 @@
 
   <assign|subparagraph-display-numbers|<macro|true>>
 
-  \;
-
-  <assign|paragraph-sep|<macro|<space|0.5spc>>>
-
-  <assign|subparagraph-sep|<macro|<space|0.5spc>>>
-
   <\active*>
     <\src-comment>
       par-sep is "interline separation"
     </src-comment>
   </active*>
 
-  <assign|XXXpar-sep|0.2fn>
+  <inactive|<assign|XXXpar-sep|0.2fn>>
 
-  <assign|XXXXpar-sep|0.5fn>
-
-  <assign|par-sep|1.0fn>
+  <assign|par-sep|0.4fn>
 
   <\active*>
     <\src-comment>
       par-line-sep is "interline space"
     </src-comment>
   </active*>
-
-  <assign|XXXpar-line-sep|0.025fns>
 
   <assign|par-line-sep|0.025fns>
 
@@ -131,11 +123,35 @@
     </src-comment>
   </active*>
 
-  <assign|XXXpar-par-sep|0.5fns>
+  <assign|par-par-sep|0.6666fn>
 
-  <assign|XXXXpar-par-sep|0.25fn>
+  \;
 
-  <assign|par-par-sep|0.5fns>
+  <assign|section-vsep*|<macro|<vspace*|<value|par-par-sep>>>>
+
+  <assign|section-vsep|<macro|<vspace|0.0fns>>>
+
+  <assign|subsection-vsep*|<macro|<vspace*|<value|par-par-sep>>>>
+
+  <assign|subsection-vsep|<macro|<vspace|0.0fns>>>
+
+  <assign|subsubsection-vsep*|<macro|<vspace*|<value|par-par-sep>>>>
+
+  <assign|subsubsection-vsep|<macro|<vspace|0.0fns>>>
+
+  \;
+
+  <assign|paragraph-vsep*|<macro|<vspace*|0.0fns>>>
+
+  <inactive|<assign|XXparagraph-sep|<macro|<space|0.6666spc>>>>
+
+  <assign|subparagraph-vsep*|<macro|<vspace*|0.0fns>>>
+
+  <inactive|<assign|XXsubparagraph-sep|<macro|<space|0.6666spc>>>>
+
+  \;
+
+  <assign|zt-extra-surround-before|<vspace*|1fn>>
 
   <\active*>
     <\src-comment>
@@ -147,7 +163,7 @@
 
   <assign|legal-brief-footnote-size|<value|normal-size>>
 
-  <assign|XXXlegal-brief-footnote-size|<value|small>>
+  <inactive|<assign|XXXlegal-brief-footnote-size|<value|small>>>
 
   <assign|legal-brief-footnote-par-sep|0.25fn>
 
@@ -177,7 +193,9 @@
 
   <assign|chapter-display-numbers|<macro|true>>
 
-  <assign|chapter-title|<macro|name|<style-with|src-compact|none|<sectional-centered-bold|<vspace*|1.0fn><huge|<arg|name>><vspace|0.5fn>>>>>
+  <inactive|<assign|XXchapter-title|<macro|name|<style-with|src-compact|none|<sectional-centered-bold|<vspace*|1.0fn><huge|<arg|name>><vspace|0.5fn>>>>>>
+
+  <assign|chapter-title|<macro|name|<sectional-centered-bold|<vspace*|1.0fn><huge|<arg|name>><vspace|0.5fn>>>>
 
   \;
 
@@ -206,7 +224,7 @@
 
   <assign|redact|<macro|body|<active*|><with|hide-redactions|<value|hide-redacted>|<if|<value|hide-redactions>|<with|distorted-frequency|0.666|distorted-strength|6.66|gnawed-frequency|1.0|gnawed-strength|0.666|<gnawed|<distorted|<repeat|<style-with|src-compact|none|<arg|body>>|<with|font-series|bold|\<equiv\>>>>>>|<arg|body>>>>>
 
-  <assign|I_GIVE_UP_redact|<\macro|body>
+  <inactive|<assign|I_GIVE_UP_redact|<\macro|body>
     <\with|distorted-frequency|0.666|distorted-strength|6.66|gnawed-frequency|1.0|gnawed-strength|0.666>
       <style-with|src-compact|none|<datoms|<macro|x|<distorted|<repeat|<arg|x>|<with|font-series|bold|\<equiv\>>>>>|<phantom|<arg|body>>>>
 
@@ -214,7 +232,7 @@
     </with>
 
     \;
-  </macro>>
+  </macro>>>
 
   \;
 
@@ -232,11 +250,11 @@
     </src-comment>
   </active*>
 
-  <assign|XXXinclude-pdfpages|<macro|incl|<page-break*><blanc-page><shift|<include|<arg|incl>>|<plus|1l|-1in>|<plus|1b|1.5in>>>>
+  <inactive|<assign|XXXinclude-pdfpages|<macro|incl|<page-break*><blanc-page><shift|<include|<arg|incl>>|<plus|1l|-1in>|<plus|1b|1.5in>>>>>
 
-  <assign|XXXXinclude-pdfpages|<macro|incl|<include|<arg|incl>>>>
+  <inactive|<assign|XXXXinclude-pdfpages|<macro|incl|<include|<arg|incl>>>>>
 
-  <assign|XXXinclude-pdfpages|<value|include>>
+  <inactive|<assign|XXXinclude-pdfpages|<value|include>>>
 
   \;
 
@@ -272,41 +290,47 @@
 
   <assign|unicode-paragraphsign|<macro|<with|font|palatino|\<#00B6\>>>>
 
-  <assign|display-paragraph|<macro|nr|<if|<unequal|<subsubsection-nr>|0>|<subsubsection-prefix>|<if|<unequal|<subsection-nr>|0>|<subsection-prefix>|<if|<unequal|<section-nr>|0>|<section-prefix>>>><unicode-paragraphsign><space|0.2spc><arg|nr>>>
-
   <assign|P|<unicode-paragraphsign>>
 
   \;
 
-  <assign|paragraph-title|<macro|name|<style-with|src-compact|none|<sectional-short-bold|<vspace*|0.25fn><arg|name><paragraph-sep>>>>>
+  <inactive|<assign|display-paragraph-full|<macro|nr|<if|<unequal|<subsubsection-nr>|0>|<subsubsection-prefix>|<if|<unequal|<subsection-nr>|0>|<subsection-prefix>|<if|<unequal|<section-nr>|0>|<section-prefix>>>><unicode-paragraphsign><space|0.2spc><arg|nr>>>>
 
   \;
 
-  <assign|subparagraph-title|<macro|name|<style-with|src-compact|none|<sectional-short-bold|<vspace*|0.125fn><arg|name><subparagraph-sep>>>>>
+  <assign|display-paragraph|<macro|nr|<unicode-paragraphsign><space|0.2spc><arg|nr>>>
 
   \;
 
-  <assign|subsubparagraph-title|<macro|name|<style-with|src-compact|none|<sectional-short-bold|<vspace*|0.125fn><arg|name><subsubparagraph-sep>>>>>
+  <inactive|<assign|XXdisplay-part|<macro|nr|<number|<arg|nr>|Roman>>>>
+
+  <inactive|<assign|XXdisplay-section|<macro|nr|<if|<sectional-short-style>|<arg|nr>|<chapter-prefix><arg|nr>>>>>
+
+  <inactive|<assign|XXdisplay-section|<macro|nr|<if|<sectional-short-style>|<number|<arg|nr>|Roman>|<chapter-prefix><number|<arg|nr>|Roman>>>>>
+
+  <inactive|<assign|XXdisplay-subsection|<macro|nr|<section-prefix><number|<arg|nr>|Alpha>>>>
+
+  <inactive|<assign|XXdisplay-subsubsection|<macro|nr|<subsection-prefix><arg|nr>>>>
+
+  <inactive|<assign|XXdisplay-paragraph|<macro|nr|<subsubsection-prefix><arg|nr>>>>
+
+  <inactive|<assign|XXdisplay-subparagraph|<macro|nr|<paragraph-prefix><arg|nr>>>>
 
   \;
 
-  <assign|Xsection-title|<\macro|title>
-    <\sectional-centered-bold>
-      <vspace*|1fn><large|<arg|title>><vspace|0.3333fn>
-    </sectional-centered-bold>
-  </macro>>
+  <assign|section-title|<macro|title|<sectional-centered|<section-vsep*><huge|<with|font-shape|small-caps|<arg|title>>><section-vsep>>>>
 
-  <assign|Xsubsection-title|<macro|title|<sectional-centered-bold|<vspace*|0.75fn><arg|title><vspace|0.15fn>>>>
+  <assign|subsection-title|<macro|title|<sectional-centered|<subsection-vsep*><larger|<with|font-shape|small-caps|<arg|title>>><subsection-vsep>>>>
 
-  <assign|XXsubsubsection-title|<macro|title|<sectional-centered|<vspace*|0.5fn><arg|title><vspace|0.25fn>>>>
+  <assign|subsubsection-title|<macro|title|<sectional-centered|<subsubsection-vsep*><large|<with|font-shape|small-caps|<arg|title>>><subsubsection-vsep>>>>
 
-  <assign|Xsubsubsection-title|<macro|title|<sectional-centered-bold|<vspace*|0.5fn><arg|title><vspace|0.15fn>>>>
+  \;
 
-  <assign|ORIG-generic-section-title|<macro|name|<style-with|src-compact|none|<sectional-normal-bold|<vspace*|1.5fn><very-large|<arg|name>><vspace|0.5fn>>>>>
+  <assign|paragraph-title|<macro|name|<sectional-short-bold|<paragraph-vsep*><arg|name><paragraph-sep>>>>
 
-  <assign|ORIG-generic-subsection-title|<macro|name|<style-with|src-compact|none|<sectional-normal-bold|<vspace*|1fn><large|<arg|name>><vspace|0.3333fn>>>>>
+  <assign|subparagraph-title|<macro|name|<sectional-short-bold|<subparagraph-vsep*><arg|name><subparagraph-sep>>>>
 
-  <assign|ORIG-generic-subsubsection-title|<macro|name|<style-with|src-compact|none|<sectional-normal-bold|<vspace*|0.75fn><arg|name><vspace|0.25fn>>>>>
+  <inactive|<assign|XXXzbibliography-heading|<macro|<principal-section|<bibliography-text>>>>>
 
   <\active*>
     <\src-comment>
@@ -320,7 +344,7 @@
 
   <assign|subsection-clean|<macro|<reset-subsubsection><subsubsection-clean>>>
 
-  <assign|subsubsection-clean|<macro|<reset-paragraph><paragraph-clean>>>
+  <assign|subsubsection-clean|<macro|>>
 
   <assign|paragraph-clean|<macro|<reset-subparagraph><subparagraph-clean>>>
 
@@ -423,7 +447,7 @@
     </src-comment>
   </active*>
 
-  <assign|xxxhref|<macro|body|<hlink|<with|font-family|tt|language|verbatim|<arg|body>>|<arg|body>>>>
+  <inactive|<assign|xxxhref|<macro|body|<hlink|<with|font-family|tt|language|verbatim|<arg|body>>|<arg|body>>>>>
 
   <\active*>
     <\src-comment>
