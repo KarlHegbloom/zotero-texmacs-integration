@@ -422,17 +422,18 @@
 ;;;
 ;;; See: info:(guile-1.8) Guardians
 ;;;
-(define tp-guardian (make-guardian))
+;; (define tp-guardian (make-guardian))
 
-(define (tp-guardian-after-gc)
-  (do ((tp (tp-guardian) (tp-guardian)))
-      ((and tp (observer? tp)))
-    (when (and tp (observer? tp))
-      (tree-pointer-detach tp)))
-  #t)
+;; (define (tp-guardian-after-gc)
+;;   (do ((tp (tp-guardian) (tp-guardian)))
+;;       ((and tp (observer? tp)))
+;;     (when (and tp (observer? tp))
+;;       (tree-pointer-detach tp)))
+;;   #t)
 
-;;;??? does not run at all now.
-;(add-hook! after-gc-hook tp-guardian-after-gc)
+;; ;; If I enable the next line TeXmacs just spins the CPU forever.
+;; ;;
+;; ;;(add-hook! after-gc-hook tp-guardian-after-gc)
 
 
 ;;;;;;
@@ -834,8 +835,7 @@
     ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:  _GREEN_before_RESET_: _BOLD__YELLOW_zfieldID's =>_RESET_ ~s"
     ;;                         (map (lambda (zfield) (zfield-zfieldID zfield))
     ;;                              (tm-search clipboard-t is-zfield?)))
-    ;;(insert (tree-ref clipboard-t 1) 1)
-    (insert (tree-ref clipboard-t 1) 0) ;; ? cursor in front after ?
+    (insert (tree-ref clipboard-t 1) 1)
     (map (lambda (zfield)
            (set! (zfield-zfieldID zfield) (get-new-zfieldID)))
          (tm-search clipboard-t is-zfield?))
@@ -1829,7 +1829,7 @@
                 #:slot-set! (lambda (zfd tp)
                               (if (and tp (observer? tp))
                                   (begin
-                                    (tp-guardian tp)
+                                    ;; (tp-guardian tp)
                                     (slot-set! zfd '%tree-pointer tp))
                                   (begin
                                     (slot-set! zfd '%tree-pointer #f)))))
@@ -1858,7 +1858,10 @@
   )
 
 (define-method (clear-tree-pointer (zfd <zfield-data>))
-  (set! (tree-pointer zfd) #f))
+  (let ((tp (tree-pointer zfd)))
+    (set! (tree-pointer zfd) #f)
+    (when (and tp (observer? tp))
+      (tree-pointer-detach tp))))
 
 ;;}}}
 ;;{{{ define-class for <ztHrefFromCiteToBib-data>
@@ -1877,7 +1880,7 @@
                 #:slot-set! (lambda (zhd tp)
                               (if (and tp (observer? tp))
                                   (begin
-                                    (tp-guardian tp)
+                                    ;; (tp-guardian tp)
                                     (slot-set! zhd '%tree-pointer tp))
                                   (begin
                                     (slot-set! zhd '%tree-pointer #f)))))
@@ -1898,7 +1901,10 @@
 
 
 (define-method (clear-tree-pointer (zhd <ztHrefFromCiteToBib-data>))
-  (set! (tree-pointer zhd) #f))
+  (let ((tp (tree-pointer zhd)))
+    (set! (tree-pointer zhd) #f)
+    (when (and tp (observer? tp))
+      (tree-pointer-detach tp))))
 
 ;;}}}
 ;;{{{ define-class for <document-data>

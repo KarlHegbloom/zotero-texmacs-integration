@@ -102,10 +102,6 @@
   <assign|ztDebug|<macro|body|<extern|(lambda (body-t) (zt-format-debug
   "Debug:ztDebug: ~s\\n" (tree-\<gtr\>stree body-t)))|<arg|body>>>>
 
-  \;
-
-  <assign|XXXusepackage*|<macro|ign1|ign2|<concealed|<arg|ign1><arg|ign2>>>>
-
   <\active*>
     <\src-comment>
       In order to prevent the latex to texmacs conversion from mangling
@@ -557,23 +553,25 @@
 
   \;
 
+  <assign|zt-extra-surround-before|>
+
+  \;
+
   <assign|zt-option-zbib-font-size|0.84>
 
   <assign|zbibColumns|1>
 
-  <assign|zt-option-zbib-zt-wrap-with-page-break-before|false>
-
-  <assign|zt-option-zbib-zt-wrap-with-new-double-page-before|false>
-
-  <assign|zt-extra-surround-before|>
+  \;
 
   <assign|zbibliography-heading|<macro|<principal-section*|<bibliography-text>>>>
+
+  \;
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
     <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
       <tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zbibliography-heading>
 
-      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|<arg|fieldText>>
+      <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|dummy|<value|ztbibSubHeadingTextSize>|dummy|<value|ztbibSubHeadingVspace*>|<arg|fieldText>>
     </surround>
   </macro>>
 
