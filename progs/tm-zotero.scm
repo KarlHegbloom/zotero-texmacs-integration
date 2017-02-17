@@ -4752,12 +4752,11 @@ styles."
          (("(([  ]|\\hspace.[^}]+.)?\\(([  ]|\\hspace.[^}]+.)*\\))") ;; empty parentheses and space before them (but NOT period or space after).
           pre post)
          ;; (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
-         ;;  pre 2 post) ;; Category heading dummy entries. Replaces the entire
-         ;; line!
-         (("(.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+.*})}.*}%?)") ;;,regexp/newline)
-          pre 3 post) ;; Category heading dummy entries. Replaces the entire
-         ;; line!
-         (("(^.*ztbibItemText.*(000000000@#)?<(ztbib[A-Za-z]+)>(.*)</\\3>)")
+         ;;  pre 2 post)
+         ;; Category heading dummy entries. Replaces the entire line!
+         (("(^.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+\\{.*})}.*\\.?}%?)"); ,regexp/newline)
+          pre 3 post)
+         (("(^.*ztbibItemText.*(000000000@#)?<(ztbib[A-Za-z]+)>(.*)</\\3>.*\\.?}%?)")
           pre "\\" 3 "{" 4 "}" post)
          ;;
          ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
@@ -4833,15 +4832,15 @@ styles."
 
 
 (define (tm-zotero-regex-transform str_text)
-  ;;(tm-zotero-format-debug "tm-zotero-regex-transform called, str_text => ~s" str_text)
+  (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_called_RESET_, str_text => ~s" str_text)
   (let ((text str_text))
     (do ((rc tm-zotero-regex-replace-clauses (cdr rc)))
         ((null? rc)
-         ;;(tm-zotero-format-debug "tm-zotero-regex-transform returning, text => ~s" text)
+         (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_returning_RESET_, text => ~s" text)
          text)
       ;; each is applied in turn, so later ones can modify results of earlier
       ;; ones if you like.
-      ;;(tm-zotero-format-debug "tm-zotero-regex-transform:during:text: ~S" text)
+      (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:  _GREEN_during_WHITE_:  _GREEN_text_RESET_: ~s" text)
       (set! text (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))))))
 
 ;; (define (tm-zotero-regex-transform str_text)
@@ -4893,7 +4892,7 @@ styles."
   ;; (noop)
   (tm-zotero-set-message-and-system-wait ; try to force refresh so it is readable
    "Munging, transcoding, and parsing input..." please-wait)
-  ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_: called, str_text => ~s, is-note? => ~s, is-bib? => ~s" str_text is-note? is-bib?)
+  (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_: called, str_text => ~s, is-note? => ~s, is-bib? => ~s" str_text is-note? is-bib?)
   ;;
   ;; With a monkey-patched Juris-M / Zotero, even when the real outputFormat is
   ;; bbl rather than rtf, the integration.js doesn't know that, and wraps
@@ -4920,7 +4919,7 @@ styles."
                     "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
-    ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_: after let*. !!!")
+    (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_: after let*. !!!")
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
@@ -4938,7 +4937,7 @@ styles."
     ;; from propachi-texmacs/bootstrap.js monkeypatch VariableWrapper
     ;;
     (map (lambda (lnk)
-           ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
+           (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
            (tree-set! lnk (fixup-embedded-slink-as-url lnk)))
          (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib ztHref))))
     ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_before tree-simplify_RESET_")
@@ -4948,7 +4947,7 @@ styles."
     (buffer-pretend-saved b)
     (buffer-close b)
     (recall-message)
-    ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__GREEN_returning_RESET_ => ~s" (tree->stree t))
+    (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__GREEN_returning_RESET_ => ~s" (tree->stree t))
     t))
 
 ;;}}}
