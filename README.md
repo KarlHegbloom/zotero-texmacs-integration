@@ -11,6 +11,7 @@ RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zote
 [Juris-M / Zotero and TeXmacs Integration Screencasts Playlist](https://www.youtube.com/playlist?list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
 __NEW__ [Juris-M / Zotero and TeXmacs Integration Screencast 2017 02 17](https://www.youtube.com/watch?v=5Fy1Mw0GSKQ&index=1&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
+
 [Juris-M / Zotero and TeXmacs Integration Screencast 03](https://www.youtube.com/watch?v=LAjLk7rDGi8&index=1&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
 [Juris-M / Zotero and TeXmacs Integration Screencast 02](https://www.youtube.com/watch?v=74tzA2OCu4I&index=2&list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
