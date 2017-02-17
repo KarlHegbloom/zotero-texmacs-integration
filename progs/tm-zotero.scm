@@ -4751,8 +4751,14 @@ styles."
           pre post)
          (("(([  ]|\\hspace.[^}]+.)?\\(([  ]|\\hspace.[^}]+.)*\\))") ;; empty parentheses and space before them (but NOT period or space after).
           pre post)
-         (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
-          pre 2 post) ;; Category heading dummy entries. Replaces the entire line!
+         ;; (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
+         ;;  pre 2 post) ;; Category heading dummy entries. Replaces the entire
+         ;; line!
+         (("(.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+.*})}.*}%?)") ;;,regexp/newline)
+          pre 3 post) ;; Category heading dummy entries. Replaces the entire
+         ;; line!
+         (("(^.*ztbibItemText.*(000000000@#)?<(ztbib[A-Za-z]+)>(.*)</\\3>)")
+          pre "\\" 3 "{" 4 "}" post)
          ;;
          ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
          ;; encoded) these characters won't work right for some reason. The macros I'm replacing them with below expand to the same

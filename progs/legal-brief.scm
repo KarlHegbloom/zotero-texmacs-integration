@@ -30,7 +30,14 @@
   (let ((found #f))
     (cursor-after
      (go-start-paragraph)
-     (set! found (tree-in? (cursor-tree) '(paragraph subparagraph subsubparagraph))))
+     (set! found (tree-is? (cursor-tree) 'paragraph)))
+    found))
+
+(define-public (in-subparagraph?)
+  (let ((found #f))
+    (cursor-after
+     (go-start-paragraph)
+     (set! found (tree-is? (cursor-tree) 'subparagraph)))
     found))
 
 (tm-define (kbd-enter t shift?)
@@ -47,6 +54,17 @@
                  (not (inside? 'hybrid))
                  (not (is-zfield? t))
                  (in-legal-brief-style?)
+                 (in-subparagraph?)))
+  (when shift?
+    (go-end-paragraph))
+  (insert-return)
+  (insert '(subparagraph "")))
+
+(tm-define (kbd-enter t shift?)
+  (:require (and (not (inside? 'paragraph))
+                 (not (inside? 'hybrid))
+                 (not (is-zfield? t))
+                 (in-legal-brief-style?)
                  (in-paragraph?)))
   (when shift?
     (go-end-paragraph))
@@ -54,19 +72,13 @@
   (insert '(paragraph "")))
 
 
-
-;; (define-public (in-section?)
-;;   (let ((found #f))
-;;     (cursor-after
-;;      (go-start-paragraph)
-;;      (set! found (tree-in? (cursor-tree) '(section subsection subsubsection))))
-;;     found))
-
 (tm-define (kbd-enter t shift?)
   (:require (and (not (inside? 'hybrid))
                  (in-legal-brief-style?)
                  ;; (in-section?)
-                 (or (inside? 'section)
+                 (or (inside? 'part)
+                     (inside? 'chapter)
+                     (inside? 'section)
                      (inside? 'subsection)
                      (inside? 'subsubsection))))
   (go-end-line)

@@ -85,9 +85,29 @@
 
   \;
 
+  <assign|locus-color|black>
+
+  <assign|visited-color|black>
+
+  \;
+
+  <assign|bibliography-text|Table of Authorities>
+
+  <assign|appendix-text|Exhibit>
+
+  \;
+
   <assign|par-first|0fn>
 
   \;
+
+  <assign|sectional-short-style|<macro|true>>
+
+  <assign|heading-toc|<macro|name|<toc-normal-2|<arg|name>>>>
+
+  \;
+
+  <assign|chapter-display-numbers|<macro|true>>
 
   <assign|section-display-numbers|<macro|true>>
 
@@ -98,6 +118,12 @@
   <assign|paragraph-display-numbers|<macro|true>>
 
   <assign|subparagraph-display-numbers|<macro|true>>
+
+  \;
+
+  <assign|subsubsection-clean-resets-paragraph|false>
+
+  <assign|display-paragraph-always-use-long-form|false>
 
   <\active*>
     <\src-comment>
@@ -126,6 +152,20 @@
   <assign|par-par-sep|0.6666fn>
 
   \;
+
+  <assign|ztbibSubHeadingTextSize|1.2>
+
+  <assign|ztbibSubHeadingVspace*|0.6666fn>
+
+  \;
+
+  <assign|part-vsep*|<macro|<vspace*|<value|par-par-sep>>>>
+
+  <assign|part-vsep|<macro|<vspace|0.0fns>>>
+
+  <assign|chapter-vsep*|<macro|<vspace*|<value|par-par-sep>>>>
+
+  <assign|chapter-vsep|<macro|<vspace|0.0fns>>>
 
   <assign|section-vsep*|<macro|<vspace*|<value|par-par-sep>>>>
 
@@ -161,9 +201,9 @@
     </src-comment>
   </active*>
 
-  <assign|legal-brief-footnote-size|<value|normal-size>>
+  <assign|with-legal-brief-footnote-size|<macro|body|<with|font-size|<value|legal-brief-footnote-size>|<arg|body>>>>
 
-  <inactive|<assign|XXXlegal-brief-footnote-size|<value|small>>>
+  <assign|legal-brief-footnote-size|1>
 
   <assign|legal-brief-footnote-par-sep|0.25fn>
 
@@ -178,30 +218,6 @@
   <assign|par-fnote-sep|0.5fn>
 
   \;
-
-  <assign|locus-color|black>
-
-  <assign|visited-color|black>
-
-  \;
-
-  <assign|sectional-short-style|<macro|true>>
-
-  <assign|heading-toc|<macro|name|<toc-normal-2|<arg|name>>>>
-
-  \;
-
-  <assign|chapter-display-numbers|<macro|true>>
-
-  <inactive|<assign|XXchapter-title|<macro|name|<style-with|src-compact|none|<sectional-centered-bold|<vspace*|1.0fn><huge|<arg|name>><vspace|0.5fn>>>>>>
-
-  <assign|chapter-title|<macro|name|<sectional-centered-bold|<vspace*|1.0fn><huge|<arg|name>><vspace|0.5fn>>>>
-
-  \;
-
-  <assign|bibliography-text|Table of Authorities>
-
-  <assign|appendix-text|Exhibit>
 
   <\active*>
     <\src-comment>
@@ -274,6 +290,16 @@
     </padded>
   </macro>>
 
+  \;
+
+  \;
+
+  \;
+
+  <assign|ztbibSubHeading|<macro|name|<with|subheading-vspace|<value|ztbibSubHeadingVspace*>|font-size|<value|ztbibSubHeadingTextSize>|<compound|sectional-centered|<vspace*|<value|subheading-vspace>><with|font-shape|small-caps|<arg|name>>>>>>
+
+  \;
+
   <\active*>
     <\src-comment>
       Paragraphs with a paragraphsign before the paragraph number, and also
@@ -294,11 +320,19 @@
 
   \;
 
-  <inactive|<assign|display-paragraph-full|<macro|nr|<if|<unequal|<subsubsection-nr>|0>|<subsubsection-prefix>|<if|<unequal|<subsection-nr>|0>|<subsection-prefix>|<if|<unequal|<section-nr>|0>|<section-prefix>>>><unicode-paragraphsign><space|0.2spc><arg|nr>>>>
+  \;
+
+  <assign|display-paragraph-long|<macro|nr|<if|<unequal|<subsubsection-nr>|0>|<subsubsection-prefix>|<if|<unequal|<subsection-nr>|0>|<subsection-prefix>|<if|<unequal|<section-nr>|0>|<section-prefix>>>><unicode-paragraphsign><space|0.2spc><arg|nr>>>
+
+  <assign|display-paragraph-short|<macro|nr|<unicode-paragraphsign><space|0.2spc><arg|nr>>>
 
   \;
 
-  <assign|display-paragraph|<macro|nr|<unicode-paragraphsign><space|0.2spc><arg|nr>>>
+  <assign|display-paragraph|<macro|nr|<if|<or|<value|display-paragraph-always-use-long-form>|<value|subsubsection-clean-resets-paragraph>>|<display-paragraph-long|<arg|nr>>|<display-paragraph-short|<arg|nr>>>>>
+
+  \;
+
+  <assign|display-subparagraph|<macro|nr|<if|<unequal|<paragraph-nr>|0>|<paragraph-prefix>|<unicode-paragraphsign><space|0.2spc>0.><arg|nr>>>
 
   \;
 
@@ -318,6 +352,14 @@
 
   \;
 
+  \;
+
+  <assign|part-title|<macro|name|<sectional-centered-bold|<part-vsep*><really-huge|<with|font-shape|small-caps|<arg|name>>><part-vsep>>>>
+
+  <assign|chapter-title|<macro|name|<sectional-centered|<chapter-vsep*><really-huge|<with|font-shape|small-caps|<arg|name>>><chapter-vsep>>>>
+
+  \;
+
   <assign|section-title|<macro|title|<sectional-centered|<section-vsep*><huge|<with|font-shape|small-caps|<arg|title>>><section-vsep>>>>
 
   <assign|subsection-title|<macro|title|<sectional-centered|<subsection-vsep*><larger|<with|font-shape|small-caps|<arg|title>>><subsection-vsep>>>>
@@ -325,6 +367,8 @@
   <assign|subsubsection-title|<macro|title|<sectional-centered|<subsubsection-vsep*><large|<with|font-shape|small-caps|<arg|title>>><subsubsection-vsep>>>>
 
   \;
+
+  <inactive|<assign|paragraph-title|<macro|name|<with|dummy|<value|subsubsection-clean-resets-paragraph>|dummy|<value|display-paragraph-always-use-long-form>|<sectional-short-bold|<paragraph-vsep*><arg|name><paragraph-sep>>>>>>
 
   <assign|paragraph-title|<macro|name|<sectional-short-bold|<paragraph-vsep*><arg|name><paragraph-sep>>>>
 
@@ -335,6 +379,12 @@
   <\active*>
     <\src-comment>
       Must redefine these to make sure the numbering resets properly.
+
+      In order to facilitate pin citation of parts of legal documents, it is
+      recommended that the court-issued information be used, and that
+      documents paragraphs are numbered consequitivly from start of the
+      document to the end, and not reset per section, subsection, or
+      subsubsection.
     </src-comment>
   </active*>
 
@@ -344,7 +394,7 @@
 
   <assign|subsection-clean|<macro|<reset-subsubsection><subsubsection-clean>>>
 
-  <assign|subsubsection-clean|<macro|>>
+  <assign|subsubsection-clean|<macro|<if|<value|subsubsection-clean-resets-paragraph>|<reset-paragraph><paragraph-clean>|>>>
 
   <assign|paragraph-clean|<macro|<reset-subparagraph><subparagraph-clean>>>
 
@@ -518,7 +568,7 @@
   </active*>
 
   <assign|render-footnote*|<macro|sym|nr|body|<style-with|src-compact|none|<\float|footnote|>
-    <legal-brief-footnote-size|<with|par-sep|<value|legal-brief-footnote-par-sep>|par-line-sep|<value|legal-brief-footnote-par-line-sep>|par-par-sep|<value|legal-brief-footnote-par-par-sep>|par-mode|justify|par-left|0cm|par-right|0cm|font-shape|right|dummy|<value|par-fnote-sep>|dummy|<value|page-fnote-sep>|dummy|<value|page-fnote-barlen>|dummy|<value|page-fnote-barsep>|<style-with|src-compact|none|<surround|<locus|<id|<hard-id|<arg|body>>>|<link|hyperlink|<id|<hard-id|<arg|body>>>|<url|<merge|#footnr-|<arg|nr>>>>|<arg|sym>><footnote-sep>|<set-binding|<merge|footnote-|<arg|nr>>|<value|the-label>|body><right-flush>|<style-with|src-compact|none|<arg|body>>>>>>
+    <with-legal-brief-footnote-size|<with|par-sep|<value|legal-brief-footnote-par-sep>|par-line-sep|<value|legal-brief-footnote-par-line-sep>|par-par-sep|<value|legal-brief-footnote-par-par-sep>|par-mode|justify|par-left|0cm|par-right|0cm|font-shape|right|dummy|<value|legal-brief-footnote-size>|dummy|<value|par-fnote-sep>|dummy|<value|page-fnote-sep>|dummy|<value|page-fnote-barlen>|dummy|<value|page-fnote-barsep>|<style-with|src-compact|none|<surround|<locus|<id|<hard-id|<arg|body>>>|<link|hyperlink|<id|<hard-id|<arg|body>>>|<url|<merge|#footnr-|<arg|nr>>>>|<arg|sym>><footnote-sep>|<set-binding|<merge|footnote-|<arg|nr>>|<value|the-label>|body><right-flush>|<style-with|src-compact|none|<arg|body>>>>>>
   </float>>>>
 </body>
 
