@@ -11,7 +11,102 @@
 ;;
 ;;;
 (texmacs-module (legal-brief)
-  (:use (generic document-style)))
+  (:use (generic document-style))
+  (:use (utils library cursor))
+  (:use (tm-zotero))
+  )
+
+(texmacs-modes
+  (in-legal-brief-style% (style-has? "legal-brief-style")))
+
+(tm-define (lb-ext:is-in-legal-brief-style?)
+  (:secure)
+  (if (in-legal-brief-style?)
+      "true"
+      "false"))
+
+
+(define-public (in-paragraph? . t)
+  (let ((found #f)
+        (t (or (and (pair? t)
+                    (not (null? t))
+                    (tree? (car t))
+                    (car t))
+               (cursor-tree))))
+    (cursor-after
+     (tree-go-to t :start)
+     (go-start-paragraph)
+     (set! found (tree-is? (cursor-tree) 'paragraph)))
+    found))
+
+(define-public (in-subparagraph? . t)
+  (let ((found #f)
+        (t (or (and (pair? t)
+                    (not (null? t))
+                    (tree? (car t))
+                    (car t))
+               (cursor-tree))))
+    (cursor-after
+     (tree-go-to t :start)
+     (go-start-paragraph)
+     (set! found (tree-is? (cursor-tree) 'subparagraph)))
+    found))
+
+
+(tm-define (kbd-enter t shift?)
+  (:require (and (inside? 'paragraph)
+                 (not (inside? 'hybrid))
+                 (not (is-zfield? t))
+                 (in-legal-brief-style?)))
+  (go-end-paragraph)
+  (insert-return)
+  (insert '(paragraph "")))
+
+(tm-define (kbd-enter t shift?)
+  (:require (and (not (inside? 'paragraph))
+                 (not (inside? 'hybrid))
+                 (not (is-zfield? t))
+                 (in-legal-brief-style?)
+                 (in-subparagraph?)))
+  (when shift?
+    (go-end-paragraph))
+  (insert-return)
+  (insert '(subparagraph "")))
+
+(tm-define (kbd-enter t shift?)
+  (:require (and (not (inside? 'paragraph))
+                 (not (inside? 'hybrid))
+                 (not (is-zfield? t))
+                 (in-legal-brief-style?)
+                 (in-paragraph?)))
+  (when shift?
+    (go-end-paragraph))
+  (insert-return)
+  (insert '(paragraph "")))
+
+
+(tm-define (kbd-enter t shift?)
+  (:require (and (not (inside? 'hybrid))
+                 (in-legal-brief-style?)
+                 ;; (in-section?)
+                 (or (inside? 'part)
+                     (inside? 'chapter)
+                     (inside? 'section)
+                     (inside? 'subsection)
+                     (inside? 'subsubsection))))
+  (go-end-line)
+  (insert-return)
+  (insert '(paragraph "")))
+
+
+;; TODO Not tested yet.
+(tm-define (variant-circulate t forward?)
+  (:require (or (in-paragraph? t)
+                (in-subparagraph? t)))
+  (go-start-paragraph)
+  (tree-go-to (cursor-tree) 1)
+  (former (cursor-tree) forward?))
+
 
 ;;; LaTeX / Hybrid kbd commands:
 ;;;

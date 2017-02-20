@@ -35,13 +35,13 @@
   #:use-module (tm-zotero json builder)
   #:use-module (tm-zotero json parser)
   #:use-module (tm-zotero json syntax)
-  #:re-export (scm->json 
+  #:re-export (scm->json
                scm->json-string
                json->scm
                json-string->scm
                json-parser?
                json-parser-port
-               json 
+               json
                list->hash-table))
 
 ;; (define-syntax re-export-modules
@@ -51,7 +51,7 @@
 ;;        (module-use! (module-public-interface (current-module))
 ;;                     (resolve-interface '(mod ...)))
 ;;        ...))))
-;; 
+;;
 ;; (re-export-modules (json builder)
 ;;                    (json parser)
 ;;                    (json syntax))
