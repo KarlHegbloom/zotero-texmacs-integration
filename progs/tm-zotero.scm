@@ -2144,11 +2144,11 @@
   (zfd-Code-code-ht
    #:allocation #:virtual
    #:slot-ref (lambda (zfd)
-                (let ((ht (slot-ref zfd %zfd-Code-code-ht)))
+                (let ((ht (slot-ref zfd '%zfd-Code-code-ht)))
                   (if ht ht
                       (let ((new-ht (zfield-Code-code->scm
                                      (zfield-Code-code (zfd-tree zfd)))))
-                        (slot-set! zfd %zfd-Code-code-ht new-ht)))))
+                        (slot-set! zfd '%zfd-Code-code-ht new-ht)))))
    ;;
    ;; Access the hashtable via:
    ;;
@@ -2176,11 +2176,11 @@
    ;; trailing punctuation flag.
    ;;
    #:slot-set! (lambda (zfd new-ht)
-                 (let ((ht (slot-ref zfd %zfd-Code-code-ht))
+                 (let ((ht (slot-ref zfd '%zfd-Code-code-ht))
                        (has-stored-reference? (hash-ref new-ht "has-stored-reference?" #f)))
                    (when has-stored-reference?
                      (hash-remove! new-ht "has-stored-reference?"))
-                   (slot-set! zfd %zfd-Code-code-ht new-ht)
+                   (slot-set! zfd '%zfd-Code-code-ht new-ht)
                    (when ht
                      (set! (zfield-Code-code (zfd-tree zfd))
                            (string-append
@@ -4984,109 +4984,199 @@
   "Move links to their own line, in smaller text, so that long links
 will not overflow into the page margins. Keep punctuation before and after,
 including parentheses and <less> <gtr> around the link put there by some
-styles."
+styles. doi: forms are short, so they don't need to be put on their own line."
   ;;(tm-zotero-format-debug "move-link-to-own-line:called, lnk => ~s" lnk)
-  (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
-         (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt)))
-         (post-lnk-txt (tree-ref (tree-up lnk) (+ (tree-index lnk) 1)))
-         (post-lnk-str (and post-lnk-txt (tree->stree post-lnk-txt)))
-         (is-doi? (and (string? pre-lnk-str)
-                       (or (string-suffix? "doi:" pre-lnk-str)
-                           (string-suffix? "doi: " pre-lnk-str)
-                           (string-suffix? "doi: " pre-lnk-str)
-                           (string-suffix? "DOI:" pre-lnk-str)
-                           (string-suffix? "DOI: " pre-lnk-str)
-                           (string-suffix? "DOI: " pre-lnk-str)))))
+  (let* ((pre-lnk-t      (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
+         (pre-lnk-str   (and pre-lnk-t (tree->stree pre-lnk-t)))
+         (post-lnk-t     (tree-ref (tree-up lnk) (+ (tree-index lnk) 1)))
+         (post-lnk-str  (and post-lnk-t (tree->stree post-lnk-t)))
+         (is-short-doi? (and pre-lnk-str
+                             (string? pre-lnk-str)
+                             (or (string-suffix? "doi:"  pre-lnk-str)
+                                 (string-suffix? "doi: " pre-lnk-str)
+                                 (string-suffix? "doi: " pre-lnk-str)
+                                 (string-suffix? "DOI:"  pre-lnk-str)
+                                 (string-suffix? "DOI: " pre-lnk-str)
+                                 (string-suffix? "DOI: " pre-lnk-str)))))
     ;; (tm-zotero-format-debug "lnk before: ~s" lnk)
     ;; (tm-zotero-format-debug "pre-lnk-str: ~s" pre-lnk-str)
     ;; (tm-zotero-format-debug "post-lnk-str: ~s" post-lnk-str)
-    (unless is-doi?
+    (unless is-short-doi?
       ;; (tm-zotero-format-debug "is-doi? => #f")
-      (when (string? pre-lnk-str)
-        (cond
-          ((and (string? post-lnk-str)  ;; translation error hack hack hack
-                (string-suffix? "<" pre-lnk-str)
-                (string-prefix? ">" post-lnk-str))
-           (set! pre-lnk-str (substring pre-lnk-str
-                                        0
-                                        (- (string-length pre-lnk-str)
-                                           1)))
-           (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-           (set! post-lnk-str (substring post-lnk-str
-                                         1
-                                         (string-length post-lnk-str)))
-           (tree-set! post-lnk-txt (stree->tree post-lnk-str))
-           (tree-set! lnk (stree->tree
-                           `(concat (next-line)
-                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
-          ((and (string? post-lnk-str)
-                (string-suffix? "<less>" pre-lnk-str)
-                (string-prefix? "<gtr>" post-lnk-str))
-           (set! pre-lnk-str (substring pre-lnk-str
-                                        0
-                                        (- (string-length pre-lnk-str)
-                                           (string-length "<less>"))))
-           (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-           (set! post-lnk-str (substring post-lnk-str
-                                         (string-length "<gtr>")
-                                         (string-length post-lnk-str)))
-           (tree-set! post-lnk-txt (stree->tree post-lnk-str))
-           (tree-set! lnk (stree->tree
-                           `(concat (next-line)
-                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
-          ((and (string? post-lnk-str)  ;; translation error hack hack hack
-                (string-suffix? "<less>less<gtr>" pre-lnk-str)
-                (string-prefix? "<less>gtr<gtr>" post-lnk-str))
-           (set! pre-lnk-str (substring pre-lnk-str
-                                        0
-                                        (- (string-length pre-lnk-str)
-                                           (string-length "<less>less<gtr>"))))
-           (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-           (set! post-lnk-str (substring post-lnk-str
-                                         (string-length "<less>gtr<gtr>")
-                                         (string-length post-lnk-str)))
-           (tree-set! post-lnk-txt (stree->tree post-lnk-str))
-           (tree-set! lnk (stree->tree
-                           `(concat (next-line)
-                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
-          ((or (and (string-suffix? "DOI:http://doi.org/"     pre-lnk-str) "DOI:http://doi.org/")
-               (and (string-suffix? "doi:http://doi.org/"     pre-lnk-str) "doi:http://doi.org/")
-               (and (string-suffix? "http://doi.org/"         pre-lnk-str) "http://doi.org/")
-               (and (string-suffix? "DOI:https://doi.org/"    pre-lnk-str) "DOI:https://doi.org/")
-               (and (string-suffix? "doi:https://doi.org/"    pre-lnk-str) "doi:https://doi.org/")
-               (and (string-suffix? "https://doi.org/"        pre-lnk-str) "https://doi.org/")
-               (and (string-suffix? "DOI:http://dx.doi.org/"  pre-lnk-str) "DOI:http://dx.doi.org/")
-               (and (string-suffix? "doi:http://dx.doi.org/"  pre-lnk-str) "doi:http://dx.doi.org/")
-               (and (string-suffix? "http://dx.doi.org/"      pre-lnk-str) "http://dx.doi.org/")
-               (and (string-suffix? "DOI:https://dx.doi.org/" pre-lnk-str) "DOI:https://dx.doi.org/")
-               (and (string-suffix? "doi:https://dx.doi.org/" pre-lnk-str) "doi:https://dx.doi.org/")
-               (and (string-suffix? "https://dx.doi.org/"     pre-lnk-str) "https://dx.doi.org/")
-               )
-           => (lambda (lnstr)
+      (cond
+        ((and pre-lnk-str
+              (string? pre-lnk-str)
+              post-lnk-str
+              (string? post-lnk-str)
+              ;;
+              ;; For some CSL styles, the link does not light up over this prefix,
+              ;; which comes through as plain text. Only the doi number part
+              ;; that follows this is highlit as the display portion of a
+              ;; hyperlink. The goal is to keep this next to the doi link
+              ;; itself, but place it on it's own line with smaller font size
+              ;; so that longer links do not overrun the margins.
+              ;;
+              (do ((doi-suffix-ls '("DOI:http://doi.org/";lnk
+                                    "doi:http://doi.org/"
+                                    "http://doi.org/"
+                                    "DOI:https://doi.org/"
+                                    "doi:https://doi.org/"
+                                    "https://doi.org/"
+                                    "DOI:http://dx.doi.org/"
+                                    "doi:http://dx.doi.org/"
+                                    "http://dx.doi.org/"
+                                    "DOI:https://dx.doi.org/"
+                                    "doi:https://dx.doi.org/"
+                                    "https://dx.doi.org/"
+                                    "<DOI:http://doi.org/";lnk
+                                    "<doi:http://doi.org/"
+                                    "<http://doi.org/"
+                                    "<DOI:https://doi.org/"
+                                    "<doi:https://doi.org/"
+                                    "<https://doi.org/"
+                                    "<DOI:http://dx.doi.org/"
+                                    "<doi:http://dx.doi.org/"
+                                    "<http://dx.doi.org/"
+                                    "<DOI:https://dx.doi.org/"
+                                    "<doi:https://dx.doi.org/"
+                                    "<https://dx.doi.org/"
+                                    "<less>DOI:http://doi.org/";lnk
+                                    "<less>doi:http://doi.org/"
+                                    "<less>http://doi.org/"
+                                    "<less>DOI:https://doi.org/"
+                                    "<less>doi:https://doi.org/"
+                                    "<less>https://doi.org/"
+                                    "<less>DOI:http://dx.doi.org/"
+                                    "<less>doi:http://dx.doi.org/"
+                                    "<less>http://dx.doi.org/"
+                                    "<less>DOI:https://dx.doi.org/"
+                                    "<less>doi:https://dx.doi.org/"
+                                    "<less>https://dx.doi.org/"
+                                    "<less>less<gtr>DOI:http://doi.org/";lnk
+                                    "<less>less<gtr>doi:http://doi.org/"
+                                    "<less>less<gtr>http://doi.org/"
+                                    "<less>less<gtr>DOI:https://doi.org/"
+                                    "<less>less<gtr>doi:https://doi.org/"
+                                    "<less>less<gtr>https://doi.org/"
+                                    "<less>less<gtr>DOI:http://dx.doi.org/"
+                                    "<less>less<gtr>doi:http://dx.doi.org/"
+                                    "<less>less<gtr>http://dx.doi.org/"
+                                    "<less>less<gtr>DOI:https://dx.doi.org/"
+                                    "<less>less<gtr>doi:https://dx.doi.org/"
+                                    "<less>less<gtr>https://dx.doi.org/") (cdr doi-suffix-ls))
+                   (ret #f))
+                  ((or ret
+                       (null? doi-suffix-ls)) ret)
+                (when (string-suffix? (car doi-suffix-ls) pre-lnk-str)
+                  (set! ret (car doi-suffix-ls)))))
+         => (lambda (doi-suffix-str)
+              (let ((lg (do ((lgls '(("<" ">")
+                                     ("<less>" "<gtr>")
+                                     ("<less>less<gtr>" "<less>gtr<gtr>"))
+                                   (cdr lgls))
+                             (ret #f))
+                            ((or ret
+                                 (null? lgls)) ret)
+                          (when (and (string-prefix? (caar  lgls) doi-suffix-str)
+                                     (string-prefix? (cadar lgls) post-lnk-str))
+                            (set! ret (car lgls))))))
                 ;; Keep link next to the prefix text.
                 ;;(tm-zotero-format-debug "Keep link next to the prefix text.")
                 (set! pre-lnk-str (substring pre-lnk-str
                                              0
                                              (- (string-length pre-lnk-str)
-                                                (string-length lnstr))))
-                (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-                (tree-set! lnk (stree->tree
-                                `(concat (next-line)
-                                         (small (concat ,lnstr ,lnk)))))))
-          (#t
-           (tree-set! lnk (stree->tree `(concat (next-line) (small ,lnk))))))
-        (when (or (string-suffix? " " pre-lnk-str)
-                  (string-suffix? " " pre-lnk-str))
+                                                (string-length doi-suffix-str))))
+                (tree-set! pre-lnk-t (stree->tree pre-lnk-str))
+                (if lg
+                    (begin
+                      (tree-set! lnk (stree->tree
+                                      `(concat (next-line)
+                                               (small (concat (less-than-sign)
+                                                              ,(substring doi-suffix-str
+                                                                          (string-length (car lg))
+                                                                          (string-length doi-suffix-str))
+                                                              ,lnk
+                                                              (greater-than-sign))))))
+                      (set! post-lnk-str (substring post-lnk-str
+                                                    (string-length (cadr lg))
+                                                    (string-length post-lnk-str)))
+                      (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+                    (begin
+                      (tree-set! lnk (stree->tree
+                                      `(concat (next-line)
+                                               (small (concat ,doi-suffix-str ,lnk))))))))))
+        ;;
+        ;; TODO Some styles put "<" and ">" around the link text. Sometimes I've had
+        ;; weird things happen with those coming through to this part of the
+        ;; program, and that is why there are three forms below. Normally it
+        ;; ought to be fixed by the code that brings it to here, but sometimes
+        ;; when you have an academic or legal research writing deadline hanging
+        ;; hanging over you, it's faster to edit code that you are most familiar
+        ;; with in order to kludge around the problem, than it is to figure out
+        ;; what made it turn the "<" into "<less>", etc. when it did.
+        ;;
+        ((and pre-lnk-str
+              (string? pre-lnk-str)
+              post-lnk-str
+              (string? post-lnk-str)
+              (do ((lgls '(("<" ">")
+                           ("<less>" "<gtr>")
+                           ("<less>less<gtr>" "<less>gtr<gtr>"))
+                         (cdr lgls))
+                   (ret #f))
+                  ((or ret
+                       (null? lgls)) ret)
+                (when (and (string-suffix? (caar  lgls) pre-lnk-str)
+                           (string-prefix? (cadar lgls) post-lnk-str))
+                  (set! ret (car lgls)))))
+         => (lambda (lg)
+              (if lg
+                  (begin
+                    (set! pre-lnk-str (substring pre-lnk-str
+                                                 0
+                                                 (- (string-length pre-lnk-str)
+                                                    (string-length (car lg)))))
+                    (tree-set! pre-lnk-t (stree->tree pre-lnk-str))
+                    (tree-set! lnk (stree->tree
+                                    `(concat (next-line)
+                                             (small (concat (less-than-sign) ,lnk (greater-than-sign))))))
+                    (set! post-lnk-str (substring post-lnk-str
+                                                  (string-length (cadr lg))
+                                                  (string-length post-lnk-str)))
+                    (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+                  (begin
+                    (tree-set! lnk (stree->tree
+                                    `(concat (next-line)
+                                             (small ,lnk))))))))
+        ;;
+        ;; Nothing special to do regarding pre-lnk-str or post-lnk-str.
+        ;;
+        (else
+          (tree-set! lnk (stree->tree `(concat (next-line) (small ,lnk))))))
+      ;;
+      ;; Ensure no space at end of pre-lnk-str when lnk has been placed on
+      ;; it's own line.
+      ;;
+      (when (and (tm-find lnk (cut tm-is? <> 'next-line))
+                 pre-lnk-str
+                 (string? pre-lnk-str))
+        (while (or (string-suffix? " " pre-lnk-str)
+                   (string-suffix? " " pre-lnk-str))
           (set! pre-lnk-str (substring pre-lnk-str
                                        0
                                        (- (string-length pre-lnk-str)
                                           1)))
-          (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))))
-      (when (string? post-lnk-str)
-        (let pls ((strs (list "." ")." "," ";" ":")))
-          (cond
-           ((null? strs) #t)
-           ((string-prefix? (car strs) post-lnk-str)
+          (tree-set! pre-lnk-t (stree->tree pre-lnk-str))))
+      ;;
+      ;; Always ensure that trailing punctuation remains attached to the link
+      ;; rather than sitting at the start of the next line following the link.
+      ;;
+      (when (and post-lnk-str
+                 (string? post-lnk-str)
+                 (tm-find lnk (cut tm-is? <> 'next-line)))
+        (do ((strs (list "." "," ";" ":" ")." ")," ");" "):" ")") (cdr strs)))
+            ((null? strs) #t)
+          (when (string-prefix? (car strs) post-lnk-str)
             ;;(tm-zotero-format-debug "Punctuation: '~s'" (car strs))
             (tree-set! lnk (stree->tree
                             `(concat ,lnk
@@ -5096,18 +5186,27 @@ styles."
             (set! post-lnk-str (substring post-lnk-str
                                           (string-length (car strs))
                                           (string-length post-lnk-str)))
-            (tree-set! post-lnk-txt (stree->tree post-lnk-str))) ; Fall out of loop.
-           (#t (pls (cdr strs)))))
-        (when (and (> (string-length post-lnk-str) 1)
-                   (string? pre-lnk-str))
-          (tree-set! lnk (stree->tree `(concat ,lnk (next-line))))
-          (when (or (string-prefix? " " post-lnk-str)
-                    (string-prefix? " " post-lnk-str))
-            (set! post-lnk-str (substring post-lnk-str 1 (string-length post-lnk-str)))
-            (tree-set! post-lnk-txt (stree->tree post-lnk-str))))))
-    ;; (tm-zotero-format-debug "move-link-to-own-line returning, lnk => ~s" lnk)
-    )
-  lnk)
+            (tree-set! post-lnk-t (stree->tree post-lnk-str)))))
+      ;;
+      ;; No spaces at front of post-lnk-str when lnk has been moved to it's own line.
+      ;;
+      (when (and pre-lnk-str
+                 (string? pre-lnk-str)
+                 post-lnk-str
+                 (string? post-lnk-str)
+                 (tm-find lnk (cut tm-is? <> 'next-line)))
+        (while (and (> (string-length post-lnk-str) 1)
+                    (or (string-prefix? " " post-lnk-str)
+                        (string-prefix? " " post-lnk-str)))
+          (set! post-lnk-str (substring post-lnk-str
+                                        1
+                                        (string-length post-lnk-str)))
+          (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+        (when (> (string-length post-lnk-str) 0)
+          (tree-set! lnk (stree->tree `(concat ,lnk (next-line))))))
+      ;; (tm-zotero-format-debug "move-link-to-own-line returning, lnk => ~s" lnk)
+      ))
+    lnk)
 
 
 ;; (define (delete-one-space-to-left-of lnk)
@@ -5257,8 +5356,14 @@ styles."
           pre post)
          (("(([  ]|\\hspace.[^}]+.)?\\(([  ]|\\hspace.[^}]+.)*\\))") ;; empty parentheses and space before them (but NOT period or space after).
           pre post)
-         (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
-          pre 2 post) ;; Category heading dummy entries. Replaces the entire line!
+         ;; Category heading dummy entries. Replaces the entire line!
+         (("(^.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+\\{.*})}.*\\.?}%?)"); ,regexp/newline)
+          pre 3 post)
+         (("(^.*ztbibItemText.*(000000000@#)?<(ztbib[A-Za-z]+)>(.*)</\\3>.*\\.?}%?)")
+          pre "\\" 3 "{" 4 "}" post)
+         ;; (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
+         ;;  pre 2 post)
+         ;; Category heading dummy entries. Replaces the entire line!
          ;;
          ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
          ;; encoded) these characters won't work right for some reason. The macros I'm replacing them with below expand to the same
