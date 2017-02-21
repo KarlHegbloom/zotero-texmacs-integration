@@ -5727,5 +5727,4 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;; truncate-lines: t
 ;;; folded-file: t
 ;;; End:
-
 ;;;;;
