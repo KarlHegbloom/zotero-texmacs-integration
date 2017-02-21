@@ -54,9 +54,21 @@
         (ice-9 format)
         (ice-9 regex)
         (ice-9 common-list)
+        (ice-9 rw)
         (compat guile-2)
         (term ansi-color)
+        (ice-9 optargs)
         ))
+
+
+;;;;;;
+;;;
+;;; There has to be a way to define or set this via the normal prefs mechanism
+;;; after guessing a default. For now, hard-code the magic location.
+;;;
+(define tm-zotero-csl-styles-base-directory
+  "/home/karlheg/.juris-m/zotero/8l87vugc.default/zotero/styles")
+
 
 ;;;;;;
 ;;;
@@ -331,6 +343,32 @@
 (tm-define (get-refbinding key)
   (texmacs-exec `(get-binding ,key)))
 
+
+;;;;;;
+;;;
+;;; These are put into the initial environment by
+;;; set-init-env-for-zotero-document-prefs.
+;;;
+;;; For jm-indigobook.csl, they contain ("" "; " ".").
+;;;
+;;; The delimiter is what is written between multiple citations made within the
+;;; same zcite citation cluster. When the text of a zcite contains one or more
+;;; instances of the delimiter string, the zcite can be split into multiple
+;;; citations.
+;;;
+;;;   (Splitting also depends on json->scm of the zfield-Code-code; see
+;;;    definition of <zfield-data> and tm-zotero-ext:ensure-zfield-interned!.)
+;;;
+(define (zotero-style-citation-layout-prefix)
+  (get-refbinding "zotero-style-citation-layout-prefix"))
+
+(define (zotero-style-citation-layout-delimiter)
+  (get-refbinding "zotero-style-citation-layout-delimiter"))
+
+(define (zotero-style-citation-layout-suffix)
+  (get-refbinding "zotero-style-citation-layout-suffix"))
+
+
 ;;;;;;
 ;;;
 ;;; The noteIndex reference binding keys must have deterministic format so the
@@ -407,15 +445,15 @@
 ;;; and this uses member, and we need to compare using equal? to make it
 ;;; recurse through list structure.
 ;;;
-(define (uniq-equal? l)
-  (let loop ((acc '())
-             (l l))
-    (if (null? l)
-        (reverse! acc)
-        (loop (if (member (car l) acc)
-                  acc
-                  (cons (car l) acc))
-              (cdr l)))))
+;; (define (uniq-equal? l)
+;;   (let loop ((acc '())
+;;              (l l))
+;;     (if (null? l)
+;;         (reverse! acc)
+;;         (loop (if (member (car l) acc)
+;;                   acc
+;;                   (cons (car l) acc))
+;;               (cdr l)))))
 
 
 ;;;;;;
@@ -463,6 +501,15 @@
       (tree-pointer-less? (tree-pointer z*d1)
                           (tree-pointer z*d2))))
 
+(define (merge-<*-data>-ls! ls . *fd)
+  (merge! ls *fd <*-data>-less?))
+
+(define (remove-<*-data>-ls! ls *fd)
+  (set! ls
+        (list-filter ls
+                     (lambda (elt)
+                       (not (eq? *fd elt)))))
+  ls)
 
 
 (define (inside-footnote? t)
@@ -607,7 +654,11 @@
                  (is-zfield? zfield)))
   ;; (tm-zotero-format-debug "notify-activated:called...")
   (tm-zotero-set-message "zcite reactivated! Checking for modification...")
-  (let* ((origText (zfield-Code-origText zfield))
+  (let* ((documentID (get-documentID))
+         (dd (get-<document-data> documentID))
+         (zfieldID (zfield-zfieldID zfield))
+         (zfd (hash-ref (document-zfield-zfd-ht dd) zfieldID))
+         (origText (zfd-Code-code-properties-plainCitation zfd))
          (newText  (zfield-Text zfield))
          (is-modified? (if (string=? newText origText) "false" "true")))
     ;; (tm-zotero-format-debug "notify-activated: origText => ~s" origText)
@@ -632,23 +683,15 @@
 ;;; each time a zfield is encountered.
 ;;;
 
-;;;;;;
-;;;
-;;; This is flag that will be set while the clipboard-cut operation is taking
-;;; place, in an attempt to try and prevent the ztHrefFromCiteToBib fields
-;;; inside of a selection about to be cut from being interned again right after
-;;; uninterning them just prior to actually cutting the text out of the
-;;; document.
-;;;
-(define inside-tm-zotero-clipboard-cut #f)
 
 (define (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
   ;;(tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_called..._RESET_")
-  (let ((zhd-ht (get-document-ztbibItemRefs-ht documentID))
-        (zfieldID (zfield-zfieldID zfield))
-        (ztHref*-ls (tm-search
-                     zfield
-                     (cut tm-func? <> 'ztHrefFromCiteToBib))))
+  (let* ((dd (get-<document-data> documentID))
+         (zhd-ht (document-ztbibItemRefs-ht dd))
+         (zfieldID (zfield-zfieldID zfield))
+         (ztHref*-ls (tm-search
+                      zfield
+                      (cut tm-func? <> 'ztHrefFromCiteToBib))))
     (map (lambda (ztHref*)
            ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:  _GREEN_map lambda_WHITE_:ztHref* => ~s_RESET_"
            ;;                         (tree->stree ztHref*))
@@ -690,10 +733,11 @@
       ((fluid/is-during-tm-zotero-clipboard-cut? #t))
     ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_WHITE_:_GREEN_called_RESET_")
     (let* ((documentID (get-documentID))
-           (zfd-ht (get-document-zfield-zfd-ht documentID))
-           (zfd-ls (get-document-zfield-zfd-ls documentID))
-           (zb-zfd-ls (get-document-zbibliography-zfd-ls documentID))
-           (new-zfield-zfd (get-document-new-zfield-zfd documentID))
+           (dd (get-<document-data> documentID))
+           (zfd-ht (document-zfield-zfd-ht dd))
+           (zfd-ls (document-zfield-zfd-ls dd))
+           (zb-zfd-ls (document-zbibliography-zfd-ls dd))
+           (new-zfield-zfd (document-new-zfield-zfd dd))
            (selection-t (selection-tree))
            (copy-t (tree-copy selection-t))
            (c-zfields (tm-search copy-t is-zfield?)))
@@ -702,24 +746,6 @@
                   (zfd (hash-ref zfd-ht zfieldID #f)))
              (cond
                ((and zfd (not (eq? zfd new-zfield-zfd)))
-                ;;(tm-zotero-format-debug "clipboard-copy:zfd => ~s (~s)" zfd zfieldID)
-                ;; (hash-remove! zfd-ht zfieldID)
-                ;; (set-document-zfield-zfd-ls! documentID
-                ;;                              (list-filter zfd-ls
-                ;;                                           (lambda (elt)
-                ;;                                             (not (eq? elt zfd)))))
-                ;; (when (is-zbibliography? zfield)
-                ;;   ;;(tm-zotero-format-debug "clipboard-copy:is-zbibliography? => #t")
-                ;;   (set-document-zbiblioraphy-zfd-ls!
-                ;;    (list-filter zb-zfd-ls
-                ;;                 (lambda (elt)
-                ;;                   (not (eq? elt zfd))))))
-                ;; TODO Experiment + UTSL to find out if I need to do this
-                ;;      with tree-pointer. I am not sure if it sticks to the
-                ;;      tree while the tree is detached, or if it gets left
-                ;;      at the place where the selection tree has been cut
-                ;;      from. Also is it GC'd, or would it leak?
-                ;; (clear-tree-pointer zfd)
                 (unintern-ztHrefFromCiteToBib-for-cut documentID zfield))
                (zfd
                 (let ((tp (tree-pointer zfd))) ; is the new one???
@@ -735,7 +761,7 @@
                                (stree->tree
                                 '(strong "{?? New Citation ??}")))
                   (clear-tree-pointer zfd)
-                  (set-document-new-zfield-zfd! #f))))))
+                  (set! (document-new-zfield-zfd dd) #f))))))
          c-zfields)
       (clipboard-set which copy-t))
     ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_WHITE_:_GREEN_returning._RESET_")
@@ -752,14 +778,15 @@
     ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_WHITE_:_GREEN_called_RESET_, which => ~s" which)
     (let* (;;(dummy (tm-zotero-format-debug "clipboard-cut:documentID..."))
            (documentID (get-documentID))
+           (dd (get-<document-data> documentID))
            ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfd-ht..."))
-           (zfd-ht (get-document-zfield-zfd-ht documentID))
+           (zfd-ht (document-zfield-zfd-ht dd))
            ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfd-ls..."))
-           (zfd-ls (get-document-zfield-zfd-ls documentID))
+           (zfd-ls (document-zfield-zfd-ls dd))
            ;;(dummy (tm-zotero-format-debug "clipboard-cut:zb-zfd-ls..."))
-           (zb-zfd-ls (get-document-zbibliography-zfd-ls documentID))
+           (zb-zfd-ls (document-zbibliography-zfd-ls dd))
            ;;(dummy (tm-zotero-format-debug "clipboard-cut:new-zfield-zfd..."))
-           (new-zfield-zfd (get-document-new-zfield-zfd documentID))
+           (new-zfield-zfd (document-new-zfield-zfd dd))
            ;;(dummy (tm-zotero-format-debug "clipboard-cut:selection-t..."))
            (selection-t (selection-tree))
            ;;(dummy (tm-zotero-format-debug "clipboard-cut:selection-t => ~s" (tree->stree selection-t)))
@@ -772,16 +799,16 @@
                  ((and zfd (not (eq? zfd new-zfield-zfd)))
                   ;;(tm-zotero-format-debug "clipboard-cut:zfd => ~s (~s)" zfd zfieldID)
                   (hash-remove! zfd-ht zfieldID)
-                  (set-document-zfield-zfd-ls! documentID
-                                               (list-filter zfd-ls
-                                                            (lambda (elt)
-                                                              (not (eq? elt zfd)))))
+                  (set! (document-zfield-zfd-ls dd)
+                        (list-filter zfd-ls
+                                     (lambda (elt)
+                                       (not (eq? elt zfd)))))
                   (when (is-zbibliography? zfield)
                     ;;(tm-zotero-format-debug "clipboard-cut:is-zbibliography? => #t")
-                    (set-document-zbiblioraphy-zfd-ls! documentID
-                                                       (list-filter zb-zfd-ls
-                                                                    (lambda (elt)
-                                                                      (not (eq? elt zfd))))))
+                    (set! (document-zbiblioraphy-zfd-ls dd)
+                          (list-filter zb-zfd-ls
+                                       (lambda (elt)
+                                         (not (eq? elt zfd))))))
                   ;; TODO Experiment + UTSL to find out if I need to do this
                   ;;      with tree-pointer. I am not sure if it sticks to the
                   ;;      tree while the tree is detached, or if it gets left
@@ -803,7 +830,7 @@
                                  (stree->tree
                                   '(strong "{?? New Citation ??}")))
                     (clear-tree-pointer zfd)
-                    (set-document-new-zfield-zfd! #f))))))
+                    (set! (document-new-zfield-zfd dd) #f))))))
            zfields)
       (cpp-clipboard-cut "none")
       (when (not (== which "none"))
@@ -1139,11 +1166,18 @@
          (lambda (prefix attr-list)
            (let loop ((attr-list attr-list))
              (cond
-                  ((null? attr-list) #t)
-                  (#t (set-init-env (string-append prefix (symbol->string
-                                                           (caar attr-list)))
-                                    (cadar attr-list))
-                      (loop (cdr attr-list))))))))
+               ((null? attr-list) #t)
+               (else
+                 (let ((var (symbol->string (caar attr-list))))
+                   (set-init-env (string-append prefix var)
+                                 (cadar attr-list))
+                   (when (and (== prefix "zotero-style-")
+                              (== var "id"))
+                     (let ((psd (tm-zotero-get-citation-layout-prefix-delimiter-suffix (cadar attr-list))))
+                       (set-init-env (string-append prefix "citation-layout-prefix") (car psd))
+                       (set-init-env (string-append prefix "citation-layout-delimiter") (cadr psd))
+                       (set-init-env (string-append prefix "citation-layout-suffix") (caddr psd))))
+                   (loop (cdr attr-list)))))))))
     (let loop ((sxml (cdr (parse-xml str_dataString))))
       (cond
         ((null? sxml) #t)
@@ -1178,6 +1212,267 @@
            (set-init-env (string-append "zotero-pref-noteType"
                                         (sxml-attr (car sxml) 'value)) "true"))
          (loop (cdr sxml)))))))
+
+
+;; zotero-style-id => "http://juris-m.github.io/styles/jm-indigobook-in-text"
+;;
+;; To split a zcite field, find out the citation layout separator and suffix.
+;; Only split where the "formattedCitation" has separator characters, but know
+;; that for legal citations, when there are parallel citations, the split of
+;; the "citationItems" array must happen according to the count of
+;; \ztHrefFromCiteToBib{#zbibSysIDnnnn}, so that the multiple ones prior to the
+;; separator become part of the first new zcite and the remainder become part
+;; of the second new zcite, splitting the original one on the separator
+;; character.
+;;
+;; The examples below are for a single zcite citation cluster with a parallel
+;; legal citation with two publication sources followed by a citation to a
+;; book. The first is with the "Store references in document" pref turned off,
+;; and the second with it turned on, adding an "itemData" element to each of
+;; the "citationItems". For the purposes of splitting a zcite field into two,
+;; or merging two of them into one, the contents of each of the "citationItems"
+;; is irrelevant; all that matters as that the "citationItems" appear in the
+;; same order and number as the \ztHrefFromCiteToBib do in the
+;; "formattedCitation", and that a zcite is splittable only at the locations of
+;; the separator character in the "formattedCitation".
+;;
+;; {
+;;     "properties" :
+;;     {
+;;         "plainCitation" : "(concat (zttextit (concat (ztHrefFromCiteToBib \"#zbibSysID3187\" \"https://scholar.google.com/scholar_case?case=13669261267335843060\" \"Adam\") \"s \" (abbr \"v.\") \" State\")) \", 2005 UT \" (ztHrefFromCiteToBib \"#zbibSysID3187\" \"https://scholar.google.com/scholar_case?case=13669261267335843060\" \"62\") \", 123 \" (ztHrefFromCiteToBib \"#zbibSysID3564\" \"https://scholar.google.com/scholar_case?case=13669261267335843060\" \"P.3d\") \" 400 (2005); \" (zttextsc (concat (ztHrefFromCiteToBib \"#zbibSysID1711\" \"\" \"Chri\") \"stopher \" (abbr \"E.\") \" Smith\")) \", \" (zttextsc \"Courts and Trials: A Reference Handbook\") \" (Contemporary World Issues, 2003).\")",
+;;         "formattedCitation" : "{\\rtf \\zttextit{\\ztHrefFromCiteToBib{#zbibSysID3187}{\\path{https://scholar.google.com/scholar\\_case?case=13669261267335843060}}{Adam}s v. State}, 2005 UT \\ztHrefFromCiteToBib{#zbibSysID3187}{\\path{https://scholar.google.com/scholar\\_case?case=13669261267335843060}}{62}, 123 \\ztHrefFromCiteToBib{#zbibSysID3564}{\\path{https://scholar.google.com/scholar\\_case?case=13669261267335843060}}{P.3d} 400 (04#@UtahUtahX-X-X 01#@Sup. Ct.Sup. Ct.X-X-X 2005); \\zttextsc{\\ztHrefFromCiteToBib{#zbibSysID1711}{\\path{\\ztDefaultCiteURL}}{Chri}stopher E. Smith}, \\zttextsc{Courts and Trials: A Reference Handbook} (Contemporary World Issues, 2003).}"
+;;     },
+;;     "citationID" : "1Sku5kh8",
+;;     "citationItems" : [
+;;         {
+;;             "uris" : ["http://zotero.org/users/226074/items/3XE57ZJ9"],
+;;             "id" : 3187,
+;;             "uri" : ["http://zotero.org/users/226074/items/3XE57ZJ9"]
+;;         },
+;;         {
+;;             "uris" : ["http://zotero.org/users/226074/items/EQFFTEMX"],
+;;             "id" : 3564,
+;;             "uri" : ["http://zotero.org/users/226074/items/EQFFTEMX"]
+;;         },
+;;         {
+;;             "uris" : ["http://zotero.org/users/226074/items/CN4MK7FX"],
+;;             "id" : 1711,
+;;             "uri" : ["http://zotero.org/users/226074/items/CN4MK7FX"]
+;;         }]
+;; }
+;;
+;; {
+;;     "properties" :
+;;     {
+;;         "plainCitation" : "(concat (zttextit (concat \"Adams \" (abbr \"v.\") \" State\")) \", 2005 UT \" (ztHrefFromCiteToBib \"#zbibSysID3187\" \"https://scholar.google.com/scholar_case?case=13669261267335843060\" \"62\") \", 123 \" (ztHrefFromCiteToBib \"#zbibSysID3564\" \"https://scholar.google.com/scholar_case?case=13669261267335843060\" \"P.3d\") \" 400 (2005); \" (zttextsc (concat (ztHrefFromCiteToBib \"#zbibSysID1711\" \"\" \"Chri\") \"stopher \" (abbr \"E.\") \" Smith\")) \", \" (zttextsc \"Courts and Trials: A Reference Handbook\") \" (Contemporary World Issues, 2003).\")",
+;;         "formattedCitation" : "{\\rtf \\zttextit{Adams v. State}, 2005 UT \\ztHrefFromCiteToBib{#zbibSysID3187}{\\path{https://scholar.google.com/scholar\\_case?case=13669261267335843060}}{62}, 123 \\ztHrefFromCiteToBib{#zbibSysID3564}{\\path{https://scholar.google.com/scholar\\_case?case=13669261267335843060}}{P.3d} 400 (04#@UtahUtahX-X-X 01#@Sup. Ct.Sup. Ct.X-X-X 2005); \\zttextsc{\\ztHrefFromCiteToBib{#zbibSysID1711}{\\path{\\ztDefaultCiteURL}}{Chri}stopher E. Smith}, \\zttextsc{Courts and Trials: A Reference Handbook} (Contemporary World Issues, 2003).}"
+;;     },
+;;     "citationID" : "LgFZYRcC",
+;;     "schema" : "https://github.com/citation-style-language/schema/raw/master/csl-citation.json",
+;;     "citationItems" : [
+;;         {
+;;             "itemData" :
+;;             {
+;;                 "issued" :
+;;                 {
+;;                     "raw" : "September 23, 2005"
+;;                 },
+;;                 "type" : "legal_case",
+;;                 "authority" : "Supreme Court",
+;;                 "page" : "62",
+;;                 "volume" : "2005",
+;;                 "note" : "mlzsync1:0054{\"type\":\"case\",\"extrafields\":{\"jurisdiction\":\"us:ut\"}}",
+;;                 "title" : "Adams v. State",
+;;                 "URL" : "https://scholar.google.com/scholar_case?case=13669261267335843060",
+;;                 "container-title" : "UT"
+;;             },
+;;             "uris" : ["http://zotero.org/users/226074/items/3XE57ZJ9"],
+;;             "id" : 3187,
+;;             "uri" : ["http://zotero.org/users/226074/items/3XE57ZJ9"]
+;;         },
+;;         {
+;;             "itemData" :
+;;             {
+;;                 "issued" :
+;;                 {
+;;                     "raw" : "September 23, 2005"
+;;                 },
+;;                 "type" : "legal_case",
+;;                 "authority" : "Supreme Court",
+;;                 "page" : "400",
+;;                 "volume" : "123",
+;;                 "note" : "mlzsync1:0054{\"type\":\"case\",\"extrafields\":{\"jurisdiction\":\"us:ut\"}}{:jurisdiction: Utah}",
+;;                 "title" : "Adams v. State",
+;;                 "URL" : "https://scholar.google.com/scholar_case?case=13669261267335843060",
+;;                 "container-title" : "P. 3d"
+;;             },
+;;             "uris" : ["http://zotero.org/users/226074/items/EQFFTEMX"],
+;;             "id" : 3564,
+;;             "uri" : ["http://zotero.org/users/226074/items/EQFFTEMX"]
+;;         },
+;;         {
+;;             "itemData" :
+;;             {
+;;                 "author" : [
+;;                     {
+;;                         "given" : "",
+;;                         "isInstitution" : 1,
+;;                         "family" : "Christopher E. Smith"
+;;                     }],
+;;                 "issued" :
+;;                 {
+;;                     "raw" : "2003"
+;;                 },
+;;                 "type" : "book",
+;;                 "publisher" : "ABC-CLIO",
+;;                 "collection-title" : "Contemporary World Issues",
+;;                 "ISBN" : "978-1-57607-933-1",
+;;                 "note" : "00005",
+;;                 "title" : "Courts and Trials: A Reference Handbook"
+;;             },
+;;             "uris" : ["http://zotero.org/users/226074/items/CN4MK7FX"],
+;;             "id" : 1711,
+;;             "uri" : ["http://zotero.org/users/226074/items/CN4MK7FX"]
+;;         }]
+;; }
+;;
+
+(define (no-error-string-load str)
+  (catch #t
+    (lambda ()
+      (string-load str))
+    (lambda args
+      #f)))
+
+(define (get-csl-style-as-sxml style-id)
+  (let* ((style-id (if (string-index style-id (lambda (c) (eqv? c #\/)))
+                       (substring style-id
+                                  (string-index-right style-id
+                                                      (lambda (c) (eqv? c #\/)))
+                                  (string-length style-id))
+                       style-id))
+         (style-file-url (string-append tm-zotero-csl-styles-base-directory "/" style-id ".csl")))
+    (let* ((str (no-error-string-load style-file-url))
+           (sxml (or (and str (parse-xml str))
+                     '())))
+      ;;(tm-zotero-format-debug "tm-zotero-get-style-as-sxml:style-id => ~s" style-id)
+      ;;(tm-zotero-format-debug "tm-zotero-get-style-as-sxml:sxml =>\n~s" sxml)
+      ;;(tm-zotero-format-debug "tm-zotero-get-style-as-sxml:(car sxml) =>\n~s" (cadr sxml))
+      sxml)))
+
+
+(define (get-csl-style-citation-layout-prefix-delimiter-suffix style-id)
+  (let loop ((sxml (get-csl-style-as-sxml style-id)))
+    ;;(tm-zotero-format-debug "_GREEN_tm-zotero-get-citation-layout-prefix-delimiter-suffix_RESET_: top of outer loop, (car sxml) => ~s" (car sxml))
+    (cond
+      ((null? sxml) '("" "" ""))        ; default
+      ((or (string? (car sxml))
+           (and (pair? (car sxml))
+                (eq? (caar sxml) '*PI*)
+                (eq? (caar sxml) 'bibliography)
+                (eq? (caar sxml) 'info)
+                (eq? (caar sxml) 'locale)
+                (eq? (caar sxml) 'macro)
+                (eq? (caar sxml) '@))
+           (eq? (car sxml) '*TOP*))
+       (loop (cdr sxml)))
+      ((and (pair? (car sxml))
+            (eq? (caar sxml) 'style))
+       ;;(tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-get-citation-layout-prefix-delimiter-suffix_RESET_: found style, (cdar sxml) => ~s" (cdar sxml))
+       (loop (cdar sxml)))
+      ((eq? (caar sxml) 'citation)
+       ;;(tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-get-citation-layout-prefix-delimiter-suffix_RESET_: found citation, (cdar sxml) => ~s" (cdar sxml))
+       (loop (cdar sxml)))
+      ((eq? (caar sxml) 'layout)
+       ;;(tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-get-citation-layout-prefix-delimiter-suffix_RESET_: _BOLD__YELLOW_found citation layout_RESET_, @ => (cadar sxml) => ~s" (cadar sxml))
+       (let innerloop ((@ (or (and (pair? (cadar sxml))
+                                   (eq? (caadar sxml) '@)
+                                   (cadar sxml))
+                              '()))
+                       (prefix "")
+                       (delimiter "")
+                       (suffix ""))
+         ;;(tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-get-citation-layout-prefix-delimiter-suffix_RESET_: top of innerloop, @ => ~s" @)
+         (cond
+           ((null? @) (list prefix delimiter suffix))
+           ((or (eq? (car @) '@)
+                (string? (car @)))
+            (innerloop (cdr @) prefix delimiter suffix))
+           ((and (pair? (car @))
+                 (eq? (caar @) 'prefix))
+            (innerloop (cdr @) (cadar @) delimiter suffix))
+           ((and (pair? (car @))
+                 (eq? (caar @) 'delimiter))
+            (innerloop (cdr @) prefix (cadar @) suffix))
+           ((and (pair? (car @))
+                 (eq? (caar @) 'suffix))
+            (innerloop (cdr @) prefix delimiter (cadar @)))
+           (else
+             (innerloop (cdr @) prefix delimiter suffix)))))
+      (else
+        (loop (cdr sxml))))))
+
+
+(define (compile-cache-of-citation-layout-prefix-delimiter-suffix)
+  (map (lambda (style-id)
+         (cons style-id
+               (get-csl-style-citation-layout-prefix-delimiter-suffix style-id)))
+       (map symbol->string
+            '(academy-of-management-review acm-sigchi-proceedings acm-sigchi-proceedings-extended-abstract-format acm-siggraph acm-sig-proceedings acm-sig-proceedings-long-author-list acs-nano acta-anaesthesiologica-scandinavica acta-anaesthesiologica-taiwanica acta-naturae acta-neurochirurgica acta-ophthalmologica acta-palaeontologica-polonica acta-pharmaceutica acta-pharmaceutica-sinica-b acta-philosophica acta-polytechnica acta-psychiatrica-scandinavica acta-societatis-botanicorum-poloniae acta-universitatis-agriculturae-sueciae administrative-science-quarterly advanced-engineering-materials advanced-functional-materials advanced-materials advances-in-alzheimers-disease advances-in-complex-systems african-journal-of-emergency-medicine african-zoology aging-cell aging aids aix-marseille-universite-departement-d-etudes-asiatiques alexandria-journal-of-medicine allergology-international allergy alternatives-to-animal-experimentation ambio ameghiniana american-anthropological-association american-association-for-cancer-research american-association-of-petroleum-geologists american-chemical-society-author-date american-chemical-society american-chemical-society-page-first american-chemical-society-with-titles american-chemical-society-with-titles-doi-no-et-al american-chemical-society-with-titles-no-et-al american-chemical-society-with-titles-page-first american-chemical-society-with-titles-sentence-case american-chemical-society-with-titles-sentence-case-doi american-fisheries-society american-geophysical-union american-heart-association american-institute-of-aeronautics-and-astronautics american-institute-of-physics american-journal-of-agricultural-economics american-journal-of-archaeology american-journal-of-botany american-journal-of-climate-change american-journal-of-clinical-pathology american-journal-of-epidemiology american-journal-of-health-behavior american-journal-of-medical-genetics american-journal-of-neuroradiology american-journal-of-orthodontics-and-dentofacial-orthopedics american-journal-of-plant-sciences american-journal-of-political-science american-journal-of-primatology american-journal-of-respiratory-and-critical-care-medicine american-journal-of-science american-journal-of-surgical-pathology american-journal-of-translational-research american-marketing-association american-medical-association-alphabetical american-medical-association american-medical-association-no-et-al american-medical-association-no-url american-meteorological-society american-mineralogist american-physics-society american-physiological-society american-phytopathological-society american-political-science-association american-society-for-microbiology american-society-for-pharmacology-and-experimental-therapeutics american-society-of-civil-engineers american-society-of-mechanical-engineers american-sociological-association american-veterinary-medical-association amphibia-reptilia anabases analytical-sciences anesthesia-and-analgesia anesthesiology angewandte-chemie angiologia animal-migration animal-welfare annalen-des-naturhistorischen-museums-in-wien annales annals-of-applied-biology annals-of-biomedical-engineering annals-of-botany annals-of-neurology annals-of-oncology annals-of-the-association-of-american-geographers annual-review-of-astronomy-and-astrophysics annual-review-of-medicine annual-review-of-nuclear-and-particle-science annual-reviews-alphabetical annual-reviews-author-date annual-reviews annual-reviews-without-titles antarctic-science anticancer-research antiquity apa-5th-edition apa-annotated-bibliography apa apa-cv apa-fr-provost apa-fr-universite-de-montreal apa-no-ampersand apa-no-doi-no-issue apa-old-doi-prefix apa-single-spaced apa-tr applied-spectroscopy aquatic-conservation aquatic-invasions aquatic-living-resources arachne arachnology archaeometry archeologie-medievale archives-of-physical-medicine-and-rehabilitation archiv-fur-die-civilistische-praxis archiv-fur-geschichte-der-philosophie archivos-de-la-sociedad-espanola-de-oftalmologia archivum-latinitatis-medii-aevi arctic-antarctic-and-alpine-research artery-research art-history arthritis-and-rheumatism arzneimitteltherapie asa-cssa-sssa asaio-journal asia-and-the-pacific-policy-studies asian-studies-review associacao-brasileira-de-normas-tecnicas associacao-brasileira-de-normas-tecnicas-eceme associacao-brasileira-de-normas-tecnicas-ipea associacao-brasileira-de-normas-tecnicas-note associacao-brasileira-de-normas-tecnicas-ufjf associacao-brasileira-de-normas-tecnicas-ufmg-face-full associacao-brasileira-de-normas-tecnicas-ufmg-face-initials associacao-brasileira-de-normas-tecnicas-ufpr associacao-brasileira-de-normas-tecnicas-ufrgs associacao-brasileira-de-normas-tecnicas-ufs associacao-brasileira-de-normas-tecnicas-usp-fmvz associacao-nacional-de-pesquisa-e-ensino-em-transportes association-de-science-regionale-de-langue-francaise association-for-computational-linguistics association-for-computing-machinery atencion-primaria ausonius-editions austral-ecology australian-critical-care australian-guide-to-legal-citation australian-historical-studies australian-journal-of-earth-sciences australian-journal-of-grape-and-wine-research australian-veterinary-journal austrian-legal avian-conservation-and-ecology avian-diseases avian-pathology aviation-space-and-environmental-medicine babes-bolyai-university-faculty-of-orthodox-theology beltz-padagogik bibtex bioarchaeology-international bioarchaeology-of-the-near-east biochemical-journal biochemical-society-transactions biochemistry biochimica-et-biophysica-acta bioelectromagnetics bioessays bioinformatics biologia biological-and-pharmaceutical-bulletin biological-journal-of-the-linnean-society biological-psychiatry biological-reviews biology-of-reproduction biomed-central biomed-research-international biometrics bioorganic-and-medicinal-chemistry-letters biophysical-journal biopolymers bioresources biosocieties biotechniques biotechnology-and-bioengineering biotropica biuletyn-polskiego-towarzystwa-jezykoznawczego blood bluebook2 bluebook-inline bluebook-law-review bmj body-and-society boreal-environment-research brain brazilian-journal-of-infectious-diseases briefings-in-bioinformatics british-ecological-society british-journal-of-anaesthesia british-journal-of-cancer british-journal-of-dermatology british-journal-of-haematology british-journal-of-industrial-relations british-journal-of-pharmacology british-journal-of-political-science british-journal-of-surgery budownictwo-i-architektura-pl building-structure bulletin-de-la-societe-entomologique-de-france bulletin-de-la-societe-prehistorique-francaise bulletin-of-faculty-of-pharmacy-cairo-university bulletin-of-marine-science byzantina-symmeikta cahiers-d-ethnomusicologie cahiers-du-centre-gustave-glotz california-agriculture campus-adventiste-du-saleve-faculte-adventiste-de-theologie canadian-geotechnical-journal canadian-journal-of-dietetic-practice-and-research canadian-journal-of-earth-sciences canadian-journal-of-economics canadian-journal-of-fisheries-and-aquatic-sciences canadian-journal-of-physics canadian-journal-of-public-health canadian-journal-of-soil-science canadian-public-policy carcinogenesis cardiocore catholic-biblical-association cell cell-numeric cell-research cell-transplantation cellular-and-molecular-bioengineering cellular-reprogramming centaurus centre-de-recherche-sur-les-civilisations-de-l-asie-orientale cerebral-cortex ceska-zemedelska-univerzita-v-praze-fakulta-agrobiologie-potravinovych-a-prirodnich-zdroju changer-d-epoque chemical-and-pharmaceutical-bulletin chemical-senses chest chicago-annotated-bibliography chicago-author-date-basque chicago-author-date chicago-author-date-de chicago-author-date-fr chicago-figures chicago-fullnote-bibliography chicago-fullnote-bibliography-fr chicago-fullnote-bibliography-no-ibid chicago-library-list chicago-note-bibliography chicago-note-biblio-no-ibid chimia chinese-gb7714-1987-numeric chinese-gb7714-2005-author-date chinese-gb7714-2005-numeric chinese-journal-of-aeronautics chroniques-des-activites-archeologiques-de-l-ecole-francaise-de-rome circulation cirugia-cardiovascular cirugia-espanola cladistics clara-architecture-recherche clay-minerals clays-and-clay-minerals clinica-e-investigacion-en-arteriosclerosis clinical-gastroenterology-and-hepatology clinical-hemorheology-and-microcirculation clinical-infectious-diseases clinical-journal-of-sport-medicine clinical-nuclear-medicine clinical-orthopaedics-and-related-research clinical-otolaryngology clinical-pharmacology-and-therapeutics clio-medica cns-and-neurological-disorders-drug-targets cold-spring-harbor-laboratory-press collection-de-l-ecole-francaise-de-rome-full-note collection-de-l-ecole-francaise-de-rome-note collection-du-centre-jean-berard collections-electroniques-de-l-inha-author-date collections-electroniques-de-l-inha-full-note college-montmorency colombian-journal-of-anesthesiology comision-economica-para-america-latina-y-el-caribe communication-et-langages comparative-population-studies computer-und-recht conservation-biology conservation-letters conservation-physiology copeia copernicus-publications coral-reefs corrosion council-of-science-editors-alphabetical council-of-science-editors-author-date council-of-science-editors cranfield-university-numeric creativity-and-innovation-management critical-care-medicine cuadernos-de-filologia-clasica cultivos-tropicales cultural-studies-of-science-education culture-medicine-and-psychiatry current-gene-therapy current-opinion current-pharmaceutical-design current-proteomics current-protocols currents-in-biblical-research current-topics-in-medicinal-chemistry cytometry database data-science-journal de-buck decision-sciences demographic-research der-moderne-staat deutsche-gesellschaft-fur-psychologie deutsche-medizinische-wochenschrift deutsches-archaologisches-institut deutsche-sprache development-policy-review diagnostico-prenatal dialisis-y-trasplante diatom-research die-bachelorarbeit-samac-et-al-in-text die-bachelorarbeit-samac-et-al-note din-1505-2-alphanumeric din-1505-2 din-1505-2-numeric-alphabetical din-1505-2-numeric diplo disability-and-rehabilitation discovery-medicine dna-research documents-d-archeologie-francaise drug-development-research drugs-of-today drug-testing-and-analysis ear-and-hearing early-christianity early-medieval-europe earthquake-engineering-and-structural-dynamics earth-surface-processes-and-landforms ecclesial-practices ecole-pratique-des-hautes-etudes-sciences-historiques-et-philologiques ecological-entomology ecology-and-society ecology ecology-letters ecology-of-freshwater-fish economic-commission-for-latin-america-and-the-caribbean economie-et-statistique ecoscience ecosistemas ecosystems elementa el-profesional-de-la-informacion elsevier-harvard2 elsevier-harvard elsevier-harvard-without-titles elsevier-vancouver elsevier-without-titles elsevier-with-titles-alphabetical elsevier-with-titles embo-reports emerald-harvard emu-austral-ornithology endocrine-press endocrinologia-y-nutricion endoscopia eneuro enfermeria-clinica enfermeria-intensiva engineering-in-life-sciences ens-de-lyon-centre-d-ingenierie-documentaire entomologia-experimentalis-et-applicata entomological-society-of-america environmental-and-engineering-geoscience environmental-chemistry environmental-conservation environmental-health-perspectives environmental-microbiology environmental-toxicology-and-chemistry environment-and-planning environment-and-urbanization environnement-risques-et-sante epidemiologie-et-sante-animale equine-veterinary-education equine-veterinary-journal ergoscience escuela-nacional-de-antropologia-e-historia-author-date escuela-nacional-de-antropologia-e-historia-full-note escuela-nacional-de-antropologia-e-historia-short-note ethics-book-reviews ethnobiology-and-conservation ethnologie-francaise ets-ecole-de-technologie-superieure europace european-cells-and-materials european-journal-of-clinical-microbiology-and-infectious-diseases european-journal-of-emergency-medicine european-journal-of-endocrinology european-journal-of-human-genetics european-journal-of-immunology european-journal-of-information-systems european-journal-of-international-law european-journal-of-neuroscience european-journal-of-ophthalmology european-journal-of-paediatric-neurology european-journal-of-pain european-journal-of-political-research european-journal-of-soil-science european-journal-of-surgical-oncology european-journal-of-ultrasound european-journal-of-vascular-and-endovascular-surgery european-respiratory-journal european-retail-research european-society-of-cardiology european-union-interinstitutional-style-guide evidence-based-complementary-and-alternative-medicine evolution-and-development evolutionary-anthropology evolutionary-ecology-research evolution exercer experimental-dermatology eye fachhochschule-kiel-fachbereich-medien fachhochschule-vorarlberg-author-date fachhochschule-vorarlberg-note facial-plastic-surgery-clinics-of-north-america family-business-review ferdinand-porsche-fern-fachhochschule fertility-and-sterility finanzarchiv fine-focus first-monday fish-and-fisheries flavour-and-fragrance-journal florida-entomologist foerster-geisteswissenschaft fold-and-r food-and-agriculture-organization-of-the-united-nations forensic-science-review forest-science free-radical-research freie-universitat-berlin-geographische-wissenschaften french1 french2 french3 french4 french-politics freshwater-biology freshwater-science friedrich-schiller-university-jena-faculty-of-medicine frontiers frontiers-in-ecology-and-the-environment frontiers-in-optics frontiers-in-physics frontiers-medical-journals future-science-group g3 gallia gastroenterology gastrointestinal-endoscopy-clinics-of-north-america gastrointestinal-intervention geistes-und-kulturwissenschaften-heilmann geneses genes-to-cells genetics-and-molecular-biology genetics genome-biology-and-evolution geoarchaeology geobiology geochemical-perspectives-letters geochimica-et-cosmochimica-acta geochronometria geografie-sbornik-cgs geological-magazine geology geopolitics georg-august-universitat-gottingen-institut-fur-ethnologie-und-ethnologische-sammlung gesellschaft-fur-popularmusikforschung gewerblicher-rechtsschutz-und-urheberrecht global-change-biology global-ecology-and-biogeography glossa gost-r-7-0-5-2008 gost-r-7-0-5-2008-numeric-alphabetical gost-r-7-0-5-2008-numeric grasas-y-aceites hamburg-school-of-food-science hand harvard1 harvard7de harvard-anglia-ruskin-university harvard-bournemouth-university harvard-cape-peninsula-university-of-technology harvard-cardiff-university-biosi harvard-cardiff-university harvard-cite-them-right harvard-coventry-university harvard-cranfield-university harvard-deakin-university harvard-de-montfort-university harvard-dublin-city-university harvard-dundalk-institute-of-technology harvard-durham-university-business-school harvard-edge-hill-university harvard-european-archaeology harvard-fachhochschule-salzburg harvard-gesellschaft-fur-bildung-und-forschung-in-europa harvard-imperial-college-london harvard-institut-fur-praxisforschung-de harvard-kings-college-london harvard-leeds-beckett-university harvard-leeds-metropolitan-university harvard-limerick harvard-london-south-bank-university harvard-manchester-business-school harvard-manchester-metropolitan-university harvard-melbourne-polytechnic harvard-newcastle-university harvard-north-west-university harvard-oxford-brookes-university-faculty-of-health-and-life-sciences harvard-pontificia-universidad-catolica-del-ecuador harvard-southampton-solent-university harvard-staffordshire-university harvard-stellenbosch-university harvard-swinburne-university-of-technology harvard-theologisches-seminar-adelshofen harvard-the-university-of-melbourne harvard-the-university-of-northampton harvard-the-university-of-sheffield-school-of-east-asian-studies harvard-the-university-of-sheffield-town-and-regional-planning harvard-universiti-teknologi-malaysia harvard-universiti-tunku-abdul-rahman harvard-university-for-the-creative-arts harvard-university-of-abertay-dundee harvard-university-of-bath harvard-university-of-birmingham harvard-university-of-brighton-school-of-environment-and-technology harvard-university-of-cape-town harvard-university-of-exeter-geography harvard-university-of-gloucestershire harvard-university-of-greenwich harvard-university-of-kent harvard-university-of-leeds harvard-university-of-sunderland harvard-university-of-technology-sydney harvard-university-of-the-west-of-england harvard-university-of-the-west-of-scotland harvard-university-of-westminster harvard-university-of-wolverhampton harvard-university-of-worcester harvard-york-st-john-university haute-ecole-pedagogique-fribourg hawaii-international-conference-on-system-sciences-proceedings health-and-social-care-in-the-community health-economics health-economics-policy-and-law health-education-research health-policy-and-planning health-reform-observer-observatoire-des-reformes-de-sante health-services-research heart-failure-clinics heart-rhythm hematology-oncology-clinics-of-north-america hepatology heredity herpetologica high-altitude-medicine-and-biology hiob-ludolf-centre-for-ethiopian-studies hiob-ludolf-centre-for-ethiopian-studies-with-url-doi hipertension-y-riesgo-vascular histoire-at-politique histoire-et-mesure histopathology history-and-theory history-of-the-human-sciences hochschule-fur-wirtschaft-und-recht-berlin hong-kong-journal-of-radiology human-brain-mapping human-mutation human-reproduction human-reproduction-update human-resource-management-journal human-wildlife-interactions humboldt-state-university-environmental-resources-engineering hydrobiologia hydrological-processes hydrological-sciences-journal hypertension-research hypotheses-in-the-life-sciences ices-journal-of-marine-science idojaras-quarterly-journal-of-the-hungarian-meteorological-service ie-comunicaciones ieee ieee-with-url igaku-toshokan iica-catie im-gesprach immunological-reviews indian-journal-of-medical-research indoor-air infectio infectious-disease-clinics-of-north-america inflammatory-bowel-diseases infoclio-de infoclio-fr-nocaps infoclio-fr-smallcaps information-systems-journal ingenieria-agricola institute-for-operations-research-and-the-management-sciences institute-of-physics-harvard institute-of-physics-numeric institut-national-de-la-recherche-scientifique-sciences-sociales institut-national-de-sante-publique-du-quebec-napp institut-national-de-sante-publique-du-quebec-topo instituto-de-pesquisas-tecnologicas instituto-superior-de-teologia-de-las-islas-canarias institut-teknologi-bandung-tesis-magister interaction-design-and-architectures interdisziplinare-zeitschrift-fur-technologie-und-lernen international-atomic-energy-agency international-brazilian-journal-of-urology international-conference-on-information-systems-development international-development-policy international-journal-of-audiology international-journal-of-cancer international-journal-of-climatology international-journal-of-electronic-commerce international-journal-of-epidemiology international-journal-of-exercise-science international-journal-of-food-science-and-technology international-journal-of-geriatric-psychiatry international-journal-of-humanoid-robotics international-journal-of-infectious-diseases international-journal-of-lexicography international-journal-of-nuclear-security international-journal-of-obstetric-anesthesia international-journal-of-occupational-medicine-and-environmental-health international-journal-of-oral-and-maxillofacial-surgery international-journal-of-osteoarchaeology international-journal-of-plant-sciences international-journal-of-quantum-chemistry international-journal-of-radiation-oncology-biology-physics international-journal-of-spatial-data-infrastructures-research international-journal-of-sports-medicine international-journal-of-wildland-fire international-labour-organization international-microbiology international-organization international-pig-veterinary-society-congress-proceedings international-studies-association international-union-of-crystallography inter-research-science-center inter-ro invertebrate-biology investigative-radiology invisu ios-press-books irish-historical-studies iso690-author-date-cs iso690-author-date-en iso690-author-date-es iso690-author-date-fr iso690-author-date-fr-no-abstract iso690-author-date-sk iso690-full-note-sk iso690-note-cs iso690-note-fr iso690-numeric-brackets-cs iso690-numeric-cs iso690-numeric-en iso690-numeric-fr iso690-numeric-lt iso690-numeric-sk israel-medical-association-journal ithaque ius-ecclesiae jacc-cardiovascular-imaging jahrbuch-der-osterreichischen-byzantinischen-gesellschaft jahrbuch-fur-evangelikale-theologie javnost-the-public jm-chicago-fullnote-bibliography jm-chicago-fullnote-bibliography-polyglot jm-chinese-gb7714-2005-numeric jm-diritto-pubblico-comparato-ed-europeo jm-harvard-australian-national-university jm-indigobook-catsort-bib jm-indigobook jm-indigobook-law-review jm-oscola jm-taylor-and-francis-chicago-author-date jm-turabian-fullnote-bibliography-eu-multi jm-turabian-fullnote-bibliography-nl-multi journal-for-the-history-of-astronomy journal-fur-kunstgeschichte journalistica journal-of-adolescent-health journal-of-aerosol-medicine-and-pulmonary-drug-delivery journal-of-alzheimers-disease journal-of-analytical-toxicology journal-of-animal-physiology-and-animal-nutrition journal-of-animal-science journal-of-antimicrobial-chemotherapy journal-of-applied-animal-science journal-of-applied-clinical-medical-physics journal-of-applied-ecology journal-of-applied-entomology journal-of-applied-philosophy journal-of-archaeological-research journal-of-atrial-fibrillation journal-of-avian-biology journal-of-basic-microbiology journal-of-biogeography journal-of-biological-chemistry journal-of-biomedical-materials-research-part-a journal-of-bone-and-mineral-research journal-of-brachial-plexus-and-peripheral-nerve-injury journal-of-burn-care-and-research journal-of-business-logistics journal-of-cardiothoracic-and-vascular-anesthesia journal-of-cellular-and-molecular-medicine journal-of-chemistry-and-chemical-engineering journal-of-chemometrics journal-of-child-and-adolescent-psychopharmacology journal-of-clinical-oncology journal-of-clinical-rheumatology journal-of-clinical-sleep-medicine journal-of-combinatorics journal-of-common-market-studies journal-of-computational-chemistry journal-of-consumer-research journal-of-crohns-and-colitis journal-of-crohns-and-colitis-supplements journal-of-dairy-science journal-of-dental-research journal-of-elections-public-opinion-and-parties journal-of-endodontics journal-of-european-public-policy journal-of-evolutionary-biology journal-of-experimental-botany journal-of-field-ornithology journal-of-finance journal-of-fish-biology journal-of-fish-diseases journal-of-food-protection journal-of-forensic-sciences journal-of-frailty-and-aging journal-of-genetic-engineering-and-biotechnology journal-of-geriatric-psychiatry-and-neurology journal-of-glaciology journal-of-hearing-science journal-of-hospital-infection journal-of-human-evolution journal-of-hypertension journal-of-industrial-and-engineering-chemistry journal-of-industrial-ecology journal-of-infection journal-of-infectious-diseases journal-of-information-technology journal-of-institutional-and-theoretical-economics journal-of-instrumentation journal-of-integrated-omics journal-of-interactive-marketing journal-of-internal-medicine journal-of-international-business-studies journal-of-international-economic-law journal-of-investigative-dermatology journal-of-korean-neurosurgical-society journal-of-lipid-research journal-of-magnetic-resonance-imaging journal-of-mammalogy journal-of-management journal-of-management-information-systems journal-of-materials-research journal-of-mechanical-science-and-technology journal-of-medical-genetics journal-of-medical-internet-research journal-of-minimally-invasive-gynecology journal-of-molecular-endocrinology journal-of-morphology journal-of-music-technology-and-education journal-of-nanoscience-and-nanotechnology journal-of-natural-history journal-of-neurochemistry journal-of-neurological-disorders journal-of-neurophysiology journal-of-neuroscience-and-neuroengineering journal-of-neurosurgery journal-of-neurotrauma journal-of-nutrition journal-of-oral-and-maxillofacial-surgery journal-of-orthopaedic-research journal-of-orthopaedics-trauma-and-rehabilitation journal-of-orthopaedic-trauma journal-of-paleontology journal-of-peace-research journal-of-peptide-science journal-of-perinatal-medicine journal-of-petrology journal-of-pharmacy-and-pharmacology journal-of-phycology journal-of-physical-therapy-science journal-of-plant-nutrition-and-soil-science journal-of-pollination-ecology journal-of-polymer-science-part-a-polymer-chemistry journal-of-product-innovation-management journal-of-psychiatric-and-mental-health-nursing journal-of-psychiatry-and-neuroscience journal-of-reconstructive-microsurgery journal-of-retailing journal-of-rheumatology journal-of-roman-archaeology-a journal-of-roman-archaeology-b journal-of-science-and-medicine-in-sport journal-of-separation-science journal-of-shoulder-and-elbow-surgery journal-of-simulation journal-of-sleep-research journal-of-social-archaeology journal-of-spinal-disorders-and-techniques journal-of-sport-and-health-science journal-of-strength-and-conditioning-research journal-of-studies-on-alcohol-and-drugs journal-of-systematic-palaeontology journal-of-the-air-and-waste-management-association journal-of-the-american-academy-of-audiology journal-of-the-american-academy-of-orthopaedic-surgeons journal-of-the-american-association-of-laboratory-animal-science journal-of-the-american-ceramic-society journal-of-the-american-college-of-cardiology journal-of-the-american-college-of-surgeons journal-of-the-american-society-of-brewing-chemists journal-of-the-american-society-of-nephrology journal-of-the-american-water-resources-association journal-of-the-association-for-information-systems journal-of-the-brazilian-chemical-society journal-of-the-electrochemical-society journal-of-thermal-spray-technology journal-of-the-royal-anthropological-institute journal-of-thrombosis-and-haemostasis journal-of-tropical-ecology journal-of-tropical-life-science journal-of-universal-computer-science journal-of-urban-and-environmental-engineering journal-of-vegetation-science journal-of-vertebrate-paleontology journal-of-visualized-experiments journal-of-water-sanitation-and-hygiene-for-development journal-of-wildlife-diseases journal-of-zoo-and-wildlife-medicine journal-of-zoo-biology journal-of-zoology juristische-schulung juristische-zitierweise karger-journals-author-date karger-journals kidney-international kidney-research-and-clinical-practice kindheit-und-entwicklung knee-surgery-sports-traumatology-arthroscopy kolner-zeitschrift-fur-soziologie-und-sozialpsychologie kommunikation-und-recht korean-journal-of-anesthesiology kritische-ausgabe kth-royal-institute-of-technology-school-of-computer-science-and-communication kth-royal-institute-of-technology-school-of-computer-science-and-communication-sv land-degradation-and-development landes-bioscience-journals language language-in-society latin-american-perspectives latin-american-research-review law-and-society-review leidraad-voor-juridische-auteurs le-mouvement-social les-journees-de-la-recherche-avicole les-journees-de-la-recherche-porcine le-tapuscrit-author-date le-tapuscrit-note lethaia lettres-et-sciences-humaines-fr leviathan limnology-and-oceanography liver-international lluelles lluelles-no-ibid london-south-bank-university-numeric lund-university-school-of-economics-and-management macromolecular-reaction-engineering magnetic-resonance-in-medicine magnetic-resonance-materials-in-physics-biology-and-medicine maison-de-l-orient-et-de-la-mediterranee mammal-review manchester-university-press mastozoologia-neotropical mathematics-and-computers-in-simulation mcdonald-institute-monographs mcgill-en mcgill-fr medecine-sciences media-culture-and-society medical-dosimetry medical-history medical-physics medicinal-research-reviews medicine-and-science-in-sports-and-exercise medicinskiy-akademicheskiy-zhurnal melbourne-school-of-theology memorias-do-instituto-oswaldo-cruz mercatus-center metallurgical-and-materials-transactions meteoritics-and-planetary-science meteorological-applications methods-in-ecology-and-evolution methods-of-information-in-medicine metropolitiques microbial-drug-resistance microscopy-and-microanalysis middle-east-critique mind-and-language mineralogical-magazine mis-quarterly modern-humanities-research-association-author-date modern-humanities-research-association modern-language-association-6th-edition-note modern-language-association-8th-edition modern-language-association modern-language-association-underline modern-language-association-with-url modern-phytomorphology mohr-siebeck-recht molecular-and-cellular-proteomics molecular-biology-and-evolution molecular-biology-of-the-cell molecular-ecology molecular-metabolism molecular-microbiology molecular-plant-microbe-interactions molecular-plant-pathology molecular-psychiatry-letters molecular-therapy mondes-en-developpement moore-theological-college moorlands-college multidisciplinary-digital-publishing-institute multiple-sclerosis-journal mutagenesis mycologia myrmecological-news nano-biomedicine-and-engineering national-archives-of-australia national-institute-of-health-research national-institute-of-technology-karnataka national-library-of-medicine-grant-proposals national-science-foundation-grant-proposals nature nature-neuroscience-brief-communications nature-no-et-al nature-no-superscript nature-publishing-group-vancouver navigation nccr-mediality nehet nephrology-dialysis-transplantation neue-juristische-wochenschrift neuroimaging-clinics-of-north-america neurologia-argentina neurologia neurology neurology-india neuropsychopharmacology neurorehabilitation-and-neural-repair neuroreport neurosurgery-clinics-of-north-america new-harts-rules-the-oxford-style-guide new-phytologist new-solutions new-testament-studies new-zealand-plant-protection new-zealand-veterinary-journal nordic-pulp-and-paper-research-journal norma-portuguesa-405 northeastern-naturalist nowa-audiofonologia nuclear-receptor-signaling nucleic-acids-research obesity occupational-medicine oikos oncotarget onderstepoort-journal-of-veterinary-research ophthalmology optometry-and-vision-science oral-diseases organization ornitologia-neotropical orthopedic-clinics-of-north-america oryx oscola oscola-no-ibid osterreichische-zeitschrift-fur-politikwissenschaft owbarth-verlag oxford-art-journal oxford-centre-for-mission-studies-harvard oxford-studies-in-ancient-philosophy oxford-studies-on-the-roman-economy oxford-the-university-of-new-south-wales oxford-university-press-humsoc oxford-university-press-scimed-author-date oxford-university-press-scimed-numeric padagogische-hochschule-fachhochschule-nordwestschweiz padagogische-hochschule-heidelberg padagogische-hochschule-vorarlberg pain palaeontologia-electronica palaeontology palaeovertebrata palaios paleobiology parasitology past-and-present pediatric-allergy-and-immunology pediatric-anesthesia pediatric-blood-and-cancer pediatric-physical-therapy pediatric-research peerj periodontology-2000 permafrost-and-periglacial-processes perspectives-on-politics petit-chicago-author-date pharmacoepidemiology-and-drug-safety philippika philosophia-scientiae philosophiques phycological-research phyllomedusa physiological-and-biochemical-zoology pisa-university-press plant-and-cell-physiology plant-biology plant-cell-and-environment plant-pathology plant-physiology plos pnas podzemna-voda polish-legal political-studies politische-vierteljahresschrift pontifical-athenaeum-regina-apostolorum pontifical-biblical-institute pontifical-gregorian-university population population-space-and-place postepy-higieny-i-medycyny-doswiadczalnej poultry-science pour-reussir-note preslia presses-universitaires-de-rennes-archeologie-et-culture presses-universitaires-de-rennes primary-care-clinics-in-office-practice proceedings-of-the-royal-society-b proinflow protein-engineering-design-and-selection protein-science proteomics psychiatric-clinics-of-north-america psychiatric-services psychiatry-and-clinical-neurosciences psychological-medicine psychosomatic-medicine psychosomatics public-health-nutrition quaderni-degli-avogadro-colloquia radiochimica-acta radiographics radiography radiologic-clinics-of-north-america radiology radiopaedia r-and-d-management rapid-communications-in-mass-spectrometry recent-patents-on-drug-delivery-and-formulation reports-of-practical-oncology-and-radiotherapy reproduction reproduction-in-domestic-animals restoration-ecology reviews-of-modern-physics-with-titles revista-argentina-de-antropologia-biologica revista-brasileira-de-ciencia-do-solo revista-chilena-de-derecho-y-tecnologia revista-ciencias-tecnicas-agropecuarias revista-da-sociedade-brasileira-de-medicina-tropical revista-de-biologia-tropical revista-de-filologia-espanola revista-fave-seccion-ciencias-agrarias revista-latinoamericana-de-recursos-naturales revista-noesis revista-virtual-de-quimica revue-archeologique revue-archeologique-du-centre-de-la-france revue-de-medecine-veterinaire revue-des-nouvelles-technologies-de-l-information revue-dhistoire-moderne-et-contemporaine revue-francaise-de-sociologie rhodora risk-analysis rofo romanian-humanities rose-school rossiiskii-fiziologicheskii-zhurnal-imeni-i-m-sechenova royal-society-of-chemistry rtf-scan sage-harvard sage-vancouver-brackets sage-vancouver scandinavian-journal-of-infectious-diseases scandinavian-journal-of-medicine-and-science-in-sports scandinavian-journal-of-rheumatology scandinavian-journal-of-work-environment-and-health scandinavian-political-studies science-and-technology-for-the-built-environment scienceasia science-china-life-sciences science science-translational-medicine science-without-titles scientia-agriculturae-bohemica scrinium seminaire-saint-sulpice-ecole-theologie seminars-in-pediatric-neurology service-medical-de-l-assurance-maladie sexual-development sexual-health sheffield-hallam-university-history sist02 small sociedade-brasileira-de-computacao societe-archeologique-de-bordeaux societe-nationale-des-groupements-techniques-veterinaires society-for-american-archaeology society-for-general-microbiology society-for-historical-archaeology society-for-laboratory-automation-and-screening society-of-automotive-engineers-technical-papers-numeric society-of-biblical-literature-fullnote-bibliography socio-economic-review sociology-of-health-and-illness soil-biology-and-biochemistry soil-science-and-plant-nutrition solutions south-african-journal-of-animal-science south-african-journal-of-enology-and-viticulture south-african-journal-of-geology soziale-welt sozialpadagogisches-institut-berlin-walter-may sozialwissenschaften-heilmann soziologie spandidos-publications spanish-legal spectroscopy-letters spie-bios spie-journals spie-proceedings spip-cite springer-basic-author-date springer-basic-author-date-no-et-al springer-basic-brackets springer-basic-brackets-no-et-al-alphabetical springer-basic-brackets-no-et-al springer-fachzeitschriften-medizin-psychologie springer-humanities-author-date springer-humanities-brackets springer-lecture-notes-in-computer-science-alphabetical springer-lecture-notes-in-computer-science springer-mathphys-author-date springer-mathphys-brackets springer-physics-author-date springer-physics-brackets springerprotocols springer-socpsych-author-date springer-socpsych-brackets springer-vancouver-author-date springer-vancouver-brackets springer-vancouver statistika-statistics-and-economy-journal stavebni-obzor stem-cells-and-development stem-cells st-patricks-college strategic-management-journal stroke structural-control-and-health-monitoring studia-bas studii-teologice stuttgart-media-university style-manual-australian-government sunway-college-johor-bahru surgical-clinics-of-north-america surgical-neurology-international surgical-pathology-clinics svensk-exegetisk-arsbok swedish-legal systematic-and-applied-microbiology systematic-biology taxon taylor-and-francis-chicago-author-date taylor-and-francis-chicago-f taylor-and-francis-council-of-science-editors-author-date taylor-and-francis-harvard-x taylor-and-francis-national-library-of-medicine taylor-and-francis-numeric-q technische-universitat-dresden-betriebswirtschaftslehre-logistik-author-date technische-universitat-dresden-erziehungswissenschaften-author-date technische-universitat-dresden-finanzwirtschaft-und-finanzdienstleistungen-author-date technische-universitat-dresden-finanzwirtschaft-und-finanzdienstleistungen-author-date-with-short-titles technische-universitat-dresden-finanzwirtschaft-und-finanzdienstleistungen-note technische-universitat-dresden-historische-musikwissenschaft-note technische-universitat-dresden-kunstgeschichte-note technische-universitat-dresden-medienwissenschaft-und-neuere-deutsche-literatur-note technische-universitat-dresden-medizin technische-universitat-dresden-wirtschaftswissenschaften technische-universitat-munchen-controlling technische-universitat-munchen-unternehmensfuhrung technische-universitat-wien teologia-catalunya terra-nova tgm-wien-diplom the-accounting-review the-american-journal-of-cardiology the-american-journal-of-gastroenterology the-american-journal-of-human-genetics the-american-journal-of-pathology the-american-journal-of-psychiatry the-american-naturalist the-astrophysical-journal the-auk the-biological-bulletin the-bone-and-joint-journal the-british-journal-of-cardiology the-british-journal-of-psychiatry the-british-journal-of-sociology the-chemical-society-of-japan the-company-of-biologists the-design-journal the-egyptian-heart-journal the-embo-journal the-faseb-journal the-febs-journal the-geological-society-of-america the-geological-society-of-london the-historical-journal the-holocene the-institute-of-electronics-information-and-communication-engineers the-institution-of-engineering-and-technology the-international-journal-of-developmental-biology the-international-journal-of-psychoanalysis the-isme-journal the-journal-of-adhesive-dentistry the-journal-of-clinical-investigation the-journal-of-comparative-neurology the-journal-of-eukaryotic-microbiology the-journal-of-hellenic-studies the-journal-of-immunology the-journal-of-infection-in-developing-countries the-journal-of-juristic-papyrology the-journal-of-neuropsychiatry-and-clinical-neurosciences the-journal-of-neuroscience the-journal-of-pain the-journal-of-parasitology the-journal-of-peasant-studies the-journal-of-physiology the-journal-of-pure-and-applied-chemistry-research the-journal-of-roman-studies the-journal-of-the-acoustical-society-of-america the-journal-of-the-torrey-botanical-society the-journal-of-urology the-journal-of-wildlife-management the-journals-of-gerontology-series-a the-lancet the-lichenologist the-national-medical-journal-of-india the-neuroscientist the-new-england-journal-of-medicine theologie-und-philosophie the-oncologist the-open-university-a251 the-open-university-harvard the-open-university-m801 the-open-university-numeric the-open-university-numeric-superscript the-optical-society theory-culture-and-society the-plant-cell the-plant-journal the-review-of-financial-studies the-rockefeller-university-press the-saudi-journal-for-dental-research the-scandinavian-journal-of-clinical-and-laboratory-investigation the-world-journal-of-biological-psychiatry thieme-e-journals-vancouver thomson-reuters-legal-tax-and-accounting-australia thrombosis-and-haemostasis tissue-engineering toxicological-sciences traces traffic traffic-injury-prevention transactions-of-the-american-philological-association transactions-of-the-materials-research-society-of-japan transboundary-and-emerging-diseases transplantation transportation-research-record tree-physiology trends-journals triangle tropical-animal-health-and-production turabian-fullnote-bibliography ugeskrift-for-laeger ultrasound-in-medicine-and-biology unified-style-linguistics united-nations-conference-on-trade-and-development universidad-autonoma-cidudad-juarez-estilo-latino-humanistico universidade-de-sao-paulo-instituto-de-matematica-e-estatistica universidade-estadual-do-oeste-do-parana-programa-institucional-de-bolsas-de-iniciacao-cientifica universidad-evangelica-del-paraguay universita-cattolica-del-sacro-cuore universita-di-bologna-lettere universita-pontificia-salesiana universita-pontificia-salesiana-it universitas-negeri-semarang-fakultas-matematika-dan-ilmu-pengetahuan-alam universitat-bremen-institut-fur-politikwissenschaft universitat-freiburg-geschichte universitat-heidelberg-historisches-seminar universitat-mainz-geographisches-institut universitatsmedizin-gottingen universite-de-liege-histoire universite-de-picardie-jules-verne-ufr-de-medecine universite-de-sherbrooke-departement-de-geomatique universite-de-sherbrooke-faculte-d-education universite-du-quebec-a-montreal universiteit-utrecht-onderzoeksgids-geschiedenis universite-laval-departement-des-sciences-historiques universite-laval-departement-dinformation-et-de-communication universite-laval-faculte-de-theologie-et-de-sciences-religieuses universite-libre-de-bruxelles-histoire university-college-dublin-school-of-history-and-archives university-college-lillebaelt-apa university-college-lillebaelt-harvard university-college-lillebaelt-vancouver university-of-helsinki-faculty-of-theology university-of-new-england-australia-note university-of-south-australia-harvard-2011 university-of-south-australia-harvard-2013 university-of-zabol uppsala-universitet-historia uppsala-universitet-institutionen-for-biologisk-grundutbildning urban-habitats urban-studies urological-science u-schylku-starozytnosci user-modeling-and-user-adapted-interaction us-geological-survey uspekhi-gerontologii utah-geological-survey vancouver-author-date vancouver-brackets vancouver-brackets-no-et-al vancouver-brackets-only-year-no-issue vancouver vancouver-fr-ca vancouver-imperial-college-london vancouver-superscript-brackets-only-year vancouver-superscript vancouver-superscript-only-year veterinary-medicine-austria veterinary-pathology veterinary-radiology-and-ultrasound veterinary-record victoria-university-harvard vienna-legal vietnam-ministry-of-education-and-training-en vietnam-ministry-of-education-and-training-vi vigiliae-christianae vilnius-gediminas-technical-university vingtieme-siecle vodohospodarske-technicko-ekonomicke-informace vodohospodarske-technicko-ekonomicke-informace-en water-alternatives waterbirds water-environment-research water-science-and-technology weed-science-society-of-america west-european-politics wetlands wheaton-college-phd-in-biblical-and-theological-studies who-europe-harvard who-europe-numeric wiley-vch-books wireless-communications-and-mobile-computing wirtschaftsuniversitat-wien-handel-und-marketing wirtschaftsuniversitat-wien-master-management wirtschaftsuniversitat-wien-wirtschaftspadagogik wissenschaftlicher-industrielogistik-dialog world-applied-sciences-journal world-congress-on-engineering-asset-management world-journal-of-gastroenterology world-mycotoxin-journal world-organisation-for-animal-health-scientific-and-technical-review world-politcs worlds-poultry-science-journal xenotransplantation yeast zastosowania-komputerow-w-elektrotechnice zdravniski-vestnik zeitschrift-fur-deutsche-philologie zeitschrift-fur-internationale-beziehungen zeitschrift-fur-kunstgeschichte zeitschrift-fur-medienwissenschaft zeitschrift-fur-padagogik zeitschrift-fur-religionswissenschaft-author-date zeitschrift-fur-religionswissenschaft-note zeitschrift-fur-soziologie zeitschrift-fur-theologie-und-kirche zeszyty-prawnicze-bas zookeys zoological-journal-of-the-linnean-society zootaxa zwitscher-maschine))))
+
+;; Run this from a Scheme session inside a document like:
+;; (use-modules (tm-zotero))
+;; (tm-zotero-save-cache-of-citation-layout-prefix-delimiter-suffix)
+;; ;; there will be a long wait...
+;;
+;; Now move the new cache-of-citation-layout-prefix-delimiter-suffix.json to
+;; the prog directory next to this tm-zotero.scm.
+;;
+(define-public (tm-zotero-save-cache-of-citation-layout-prefix-delimiter-suffix)
+  (let* ((cache-alist (compile-cache-of-citation-layout-prefix-delimiter-suffix))
+         (cache-ht (make-hash-table))
+         (outfile (open-file "cache-of-citation-layout-prefix-delimiter-suffix.json" "w")))
+    (do ((al cache-alist (cdr al)))
+        ((null? al))
+      ;;(tm-zotero-format-debug "_BOLD__RED_tm-zotero-save-cache-of-citation-layout-prefix-delimiter-suffix_RESET_: ~s ~s" (caar al) (cdar al))
+      (hash-set! cache-ht (caar al) (cdar al)))
+    (scm->json cache-ht outfile #:pretty #t)
+    (close outfile)))
+
+;; Because it's next to this scm file, it's in the scheme %load-path.
+;;
+(define-public (tm-zotero-read-cache-of-citation-layout-prefix-delimiter-suffix)
+  (let* ((infile (open-file
+                  (%search-load-path
+                   "cache-of-citation-layout-prefix-delimiter-suffix.json")
+                  "r"))
+         (ht (json->scm infile)))
+    ht))
+
+
+;;;;;;
+;;;
+;;; hash table, style-id => (prefix delimiter suffix), three strings,
+;;; i.e., "jm-indigobook" => '("" "; " ".")
+;;;
+(define style-id%citation-layout-prefix-delimiter-suffix #f)
+
+;;;;;;
+;;;
+;;; Called from set-init-env-for-zotero-document-prefs.
+;;;
+(define-public (tm-zotero-get-citation-layout-prefix-delimiter-suffix style-id)
+  (when (not style-id%citation-layout-prefix-delimiter-suffix)
+    (set! style-id%citation-layout-prefix-delimiter-suffix
+          (tm-zotero-read-cache-of-citation-layout-prefix-delimiter-suffix)))
+  (let ((style-id (if (string-index style-id (lambda (c) (eqv? c #\/)))
+                      (substring style-id
+                                 (string-index-right style-id
+                                                     (lambda (c) (eqv? c #\/)))
+                                 (string-length style-id))
+                      style-id)))
+    (or (hash-ref style-id%citation-layout-prefix-delimiter-suffix style-id #f)
+        (get-csl-style-citation-layout-prefix-delimiter-suffix style-id))))
 
 ;;}}}
 
@@ -1420,6 +1715,10 @@
 ;;; document-prefs checkbox is checked for storing that information inside of
 ;;; the document.
 ;;;
+;;;  The string begins with "ITEM " followed by a stringified JSON dictionary,
+;;;  when "Store references inside document" is not checked, and when it is,
+;;;  the string begins with "ITEM CSL_CITATION ".
+;;;
 (define zfield-Code-code-t
   (letrec ((ref-impl
             (lambda (zfield)
@@ -1479,6 +1778,7 @@
      (let ((code-t (zfield-Code-code-t zfield)))
        (tree-assign code-t
                     (stree->tree str))))))
+
 
 ;;;;;;
 ;;;
@@ -1800,56 +2100,179 @@
   ;; document and so none of the <zfield-data> that it will process will have
   ;; an empty zfieldID.
   ;;
-  ;;;;;
   (the-zfieldID-of #:init-value "")
-  ;; (zfd-zfield-Code #:init-value "") ; redundant, just look in in the zfield
-  ;; for it.
-  ;; (zfd-zfield-noteIndex #:allocation #:virtual
-  ;;                       #:slot-ref (lambda (zfd)
-  ;;                                    (zfield-NoteIndex
-  ;;                                     (slot-ref zfd 'zfieldID)))
-  ;;                       #:slot-set!
-  ;;                       (lambda (zfd val) ; run-time programmer error
-  ;;                         (texmacs-error
-  ;;                          "tm-zotero:<zfield-data>"
-  ;;                          "No setter for read-only #:virtual zfd-zfield-noteIndex")))
-  ;;;;;
-  ;;
-  ;; The remainder is information required internally by this plugin.
-  ;;
+
   ;;;;;
   ;;
   ;; TeXmacs tree-pointer, locating the zfield's tree, for fast access with no
   ;; searching the document. They are of type <observer>.
   ;;
   (%tree-pointer #:init-value #f)
-  (tree-pointer #:allocation #:virtual
-                #:slot-ref (lambda (zfd)
-                            (slot-ref zfd '%tree-pointer))
-                #:slot-set! (lambda (zfd tp)
-                              (if (and tp (observer? tp))
-                                  (begin
-                                    ;; (tp-guardian tp)
-                                    (slot-set! zfd '%tree-pointer tp))
-                                  (begin
-                                    (slot-set! zfd '%tree-pointer #f)))))
-  (zfd-tree #:allocation #:virtual
-            #:slot-ref (lambda (zfd)
-                         (let ((tp (tree-pointer zfd)))
-                           (if (and tp
-                                    (observer? tp))
-                               (tree-pointer->tree tp)
-                               #f)))
-            #:slot-set! (lambda (zfd t)
-                          (if (and t (tree? t))
-                              (begin
-                                (set! (tree-pointer zfd) (tree->tree-pointer t))
-                                (slot-set! zfd 'the-zfieldID-of (zfield-zfieldID t)))
-                              (begin
-                                (set! (tree-pointer zfd) #f)
-                                (slot-set! zfd 'the-zfieldID-of #f)))))
-  ;; String, original unmodified text for comparison
-  (zfd-orig-text #:init-value "")
+  (tree-pointer
+   #:allocation #:virtual
+   #:slot-ref (lambda (zfd)
+                (slot-ref zfd '%tree-pointer))
+   #:slot-set! (lambda (zfd tp)
+                 (if (and tp (observer? tp))
+                     (begin
+                       (tp-guardian tp)
+                       (slot-set! zfd '%tree-pointer tp))
+                     (begin
+                       (slot-set! zfd '%tree-pointer #f)))))
+  (zfd-tree
+   #:allocation #:virtual
+   #:slot-ref (lambda (zfd)
+                (let ((tp (tree-pointer zfd)))
+                  (if (and tp
+                           (observer? tp))
+                      (tree-pointer->tree tp)
+                      #f)))
+   #:slot-set! (lambda (zfd t)
+                 (if (and t (tree? t))
+                     (begin
+                       (set! (tree-pointer zfd) (tree->tree-pointer t))
+                       (slot-set! zfd 'the-zfieldID-of (zfield-zfieldID t)))
+                     (begin
+                       (set! (tree-pointer zfd) #f)
+                       (slot-set! zfd 'the-zfieldID-of #f)))))
+  ;; Hash table, the result of safe-json-string->scm of the zfield-Code-code
+  (%zfd-Code-code-ht #:init-value #f)
+  (zfd-Code-code-ht
+   #:allocation #:virtual
+   #:slot-ref (lambda (zfd)
+                (let ((ht (slot-ref zfd '%zfd-Code-code-ht)))
+                  (if ht ht
+                      (let ((new-ht (zfield-Code-code->scm
+                                     (zfield-Code-code (zfd-tree zfd)))))
+                        (slot-set! zfd '%zfd-Code-code-ht new-ht)))))
+   ;;
+   ;; Access the hashtable via:
+   ;;
+   ;;  (let ((ht (zfd-Code-code-ht zfd)))...
+   ;;
+   ;; ... then modify it via hash-set! or whatever, then set
+   ;; it back with:
+   ;;
+   ;;  (set! (zfd-Code-code-ht zfd) ht)
+   ;;
+   ;; ... to cause the modifications to be serialized as the
+   ;; zfield code that is sent to Juris-M / Zotero during the
+   ;; editor integration protocol exchange.
+   ;;
+   ;; It should not be set by this means unless you want the
+   ;; zfield-Code-code to be updated. e.g., for when a
+   ;; multiple citation zcite is split into multiple zcite's,
+   ;; so that the zfield-Code-code is properly house-kept
+   ;; along with that editor-managed modification so that the
+   ;; interface with Zotero will not become confused.
+   ;;
+   ;; Other useful information available here is, for each
+   ;; citation, the prefix string, suffix string, locator
+   ;; string, the suppress author flag, and the suppress
+   ;; trailing punctuation flag.
+   ;;
+   #:slot-set! (lambda (zfd new-ht)
+                 (let ((ht (slot-ref zfd '%zfd-Code-code-ht))
+                       (has-stored-reference? (hash-ref new-ht "has-stored-reference?" #f)))
+                   (when has-stored-reference?
+                     (hash-remove! new-ht "has-stored-reference?"))
+                   (slot-set! zfd '%zfd-Code-code-ht new-ht)
+                   (when ht
+                     (set! (zfield-Code-code (zfd-tree zfd))
+                           (string-append
+                            (if has-stored-reference?
+                                "ITEM CSL_CITATION "
+                                "ITEM ")
+                            (safe-scm->json-string new-ht)))))))
+  ;;
+  ;;
+  ;;
+  (zfd-Code-code-citationID
+   #:allocation #:virtual
+   #:slot-ref (lambda (zfd)
+                (let* ((citationID (hash-ref (zfd-Code-code-ht zfd) "citationID" "")))
+                  citationID))
+   #:slot-set! (lambda (zfd citationID)
+                 (let* ((ht (zfd-Code-code-ht zfd)))
+                   (hash-set! ht "citationID" citationID)
+                   ;; trigger re-serialize of zfield-Code-code.
+                   (set! (zfd-Code-code-ht zfd) ht))))
+  ;;
+  ;; String, original unmodified text for comparison; but see conversion done
+  ;; by (set! (zfield-Code-code zfield) ...)
+  ;;
+  (zfd-Code-code-properties-plainCitation
+   #:allocation #:virtual
+   #:slot-ref (lambda (zfd)
+                (let* ((properties (hash-ref (zfd-Code-code-ht zfd) "properties" #f))
+                       (plainCitation (or (and properties (hash-ref properties "plainCitation" ""))
+                                          "")))
+                  plainCitation))
+   #:slot-set! (lambda (zfd plainCitation)
+                 (let* ((ht (zfd-Code-code-ht zfd))
+                        (properties (hash-ref ht "properties" #f)))
+                   (when properties
+                     (hash-set! properties "plainCitation" plainCitation)
+                     ;; trigger re-serialize of zfield-Code-code.
+                     (set! (zfd-Code-code-ht zfd) ht)))))
+  ;;
+  ;; String, original formatted citation delivered by Zotero
+  ;;
+  (zfd-Code-code-properties-formattedCitation
+   #:allocation #:virtual
+   #:slot-ref (lambda (zfd)
+               (let* ((properties (hash-ref (zfd-Code-code-ht zfd) "properties" #f))
+                      (formattedCitation (or (and properties (hash-ref properties "formattedCitation" ""))
+                                             "")))
+                 formattedCitation))
+   #:slot-set! (lambda (zfd formattedCitation)
+                 (let* ((ht (zfd-Code-code-ht zfd))
+                        (properties (hash-ref ht "properties" #f)))
+                   (when properties
+                     (hash-set! properties "formattedCitation" formattedCitation)
+                     ;; trigger re-serialize of zfield-Code-code.
+                     (set! (zfd-Code-code-ht zfd) ht)))))
+  ;;
+  ;;
+  ;;
+  (zfd-Code-code-properties-suppress-trailing-punctuation
+   #:allocation #:virtual
+   #:slot-ref (lambda (zfd)
+                (let* ((properties (hash-ref (zfd-Code-code-ht zfd) "properties" #f))
+                       (suppress-trailing-punctuation
+                        (or (and properties
+                                 (hash-ref properties "suppress-trailing-punctuation" #f))
+                            #f)))
+                  suppress-trailing-punctuation))
+   #:slot-set! (lambda (zfd suppress-trailing-punctuation)
+                 (let* ((ht (zfd-Code-code-ht zfd))
+                        (properties (hash-ref ht "properties" #f)))
+                   (when properties
+                     (hash-set! properties "suppress-trailing-punctuation" suppress-trailing-punctuation)
+                     ;; trigger re-serialize of zfield-Code-code
+                     (set! (zfd-Code-code-ht zfd) ht)))))
+  ;;
+  ;; List of citationItems, each a hash; Though there are interesting keys in
+  ;; them, for things like the sysID ("id"), as well as the "prefix", "suffix",
+  ;; and "locator", for the most part, at least for as much as citation cluster
+  ;; splitting, the type and contents of the items of this list is unimportant,
+  ;; only the preservation of the right ones and in the correct order for each
+  ;; of the ciations after splitting one into two.
+  ;;
+  ;; TODO At some point, I want to be able to edit the prefix and suffix text
+  ;;      in-line, and have that reflected in the editCitation dialog when it
+  ;;      is opened.
+  ;;
+  (zfd-Code-code-citationItems-ls
+   #:allocation #:virtual
+   #:slot-ref (lambda (zfd)
+                (let* ((citationItems-ls (hash-ref (zfd-Code-code-ht zfd) "citationItems" '())))
+                  citationItems-ls))
+   #:slot-set! (lambda (zfd citationItems-ls)
+                 (let ((ht (zfd-Code-code-ht zfd)))
+                   (hash-set! ht "citationItems" citationItems-ls)
+                   (set! (zfd-Code-code-ht zfd) ht))))
+  ;;
   ;;;
   ;;
   ;; TODO Do these need time stamps for change-dependency trigger/track?
@@ -1863,6 +2286,89 @@
     (when (and tp (observer? tp))
       (tree-pointer-detach tp))))
 
+
+(define (zfield-Code-code->scm code_str)
+  (if (or (== "TEMP" code_str)
+          (== "BIBL" code_str))
+      #f
+      (let* ((is-bibl?  (string-prefix? "BIBL " code_str))
+             (has-item? (string-prefix? "ITEM " code_str))
+             (has-stored-reference? (not (not (string-prefix? "ITEM CSL_CITATION " code_str))))
+             (code_str (substring code_str (if has-stored-reference? 18 5) (string-length code_str)))
+             (scm (safe-json-string->scm code_str)))
+        (when has-stored-reference?
+          (hash-set! scm "has-stored-reference?" #t))
+        (tm-zotero-format-debug "_BOLD__GREEN_zfield-Code-code->scm_RESET_:scm =>\n~a\n" (safe-scm->json-string scm #:pretty #t))
+        scm)))
+
+(define citationItem-prefix
+  (make-procedure-with-setter
+   ;; ref
+   (lambda (citationItem)
+     (when (hash-table? citationItem)
+       (hash-ref citationItem "prefix" "")))
+   ;; set!
+   (lambda (citationItem prefix)
+     (when (hash-table? citationItem)
+       (hash-set! citationItem "prefix" prefix)))))
+
+
+(define citationItem-suffix
+  (make-procedure-with-setter
+   ;; ref
+   (lambda (citationItem)
+     (when (hash-table? citationItem)
+       (hash-ref citationItem "suffix" "")))
+   ;; set!
+   (lambda (citationItem suffix)
+     (when (hash-table? citationItem)
+       (hash-set! citationItem "suffix" suffix)))))
+
+
+;; When label is blank, it generally means the same thing as "page" whenever
+;; locator is set. Otherwise it might be any one of the several locator
+;; strings:
+;;
+(define zotero-csl-locator-strings
+  '("book" "chapter" "column" "figure" "folio" "line" "note" "opus"
+    "page" "paragraph" "part" "section" "verse" "issue" "volume"))
+;;
+(define citationItem-label
+  (make-procedure-with-setter
+   ;; ref
+   (lambda (citationItem)
+     (when (hash-table? citationItem)
+       (hash-ref citationItem "label" "")))
+   ;; set!
+   (lambda (citationItem label)
+     (when (hash-table? citationItem)
+       (hash-set! citationItem "label" label)))))
+
+
+(define citationItem-locator
+  (make-procedure-with-setter
+   ;; ref
+   (lambda (citationItem)
+     (when (hash-table? citationItem)
+       (hash-ref citationItem "locator" "")))
+   ;; set!
+   (lambda (citationItem locator)
+     (when (hash-table? citationItem)
+       (hash-set! citationItem "locator" locator)))))
+
+
+(define citationItem-suppress-author
+  (make-procedure-with-setter
+   ;; ref
+   (lambda (citationItem)
+     (when (hash-table? citationItem)
+       (hash-ref citationItem "suppress-author" #f)))
+   ;; set!
+   (lambda (citationItem suppress-author)
+     (when (hash-table? citationItem)
+       (hash-set! citationItem "suppress-author" suppress-author)))))
+
+
 ;;}}}
 ;;{{{ define-class for <ztHrefFromCiteToBib-data>
 
@@ -1874,26 +2380,28 @@
   (the-sysID-of #:init-value "")
   ;; TeXmacs tree-pointer
   (%tree-pointer #:init-value #f)
-  (tree-pointer #:allocation #:virtual
-                #:slot-ref (lambda (zhd)
-                            (slot-ref zhd '%tree-pointer))
-                #:slot-set! (lambda (zhd tp)
-                              (if (and tp (observer? tp))
-                                  (begin
-                                    ;; (tp-guardian tp)
-                                    (slot-set! zhd '%tree-pointer tp))
-                                  (begin
-                                    (slot-set! zhd '%tree-pointer #f)))))
-  (zhd-tree #:allocation #:virtual
-            #:slot-ref (lambda (zhd)
-                         (let ((tp (tree-pointer zhd)))
-                           (if (and tp (observer? tp))
-                               (tree-pointer->tree tp)
-                               #f)))
-            #:slot-set! (lambda (zhd t)
-                          (if (and t (tree? t))
-                              (set! (tree-pointer zhd) (tree->tree-pointer t))
-                              (set! (tree-pointer zhd) #f)))))
+  (tree-pointer
+   #:allocation #:virtual
+   #:slot-ref (lambda (zhd)
+                (slot-ref zhd '%tree-pointer))
+   #:slot-set! (lambda (zhd tp)
+                 (if (and tp (observer? tp))
+                     (begin
+                       (tp-guardian tp)
+                       (slot-set! zhd '%tree-pointer tp))
+                     (begin
+                       (slot-set! zhd '%tree-pointer #f)))))
+  (zhd-tree
+   #:allocation #:virtual
+   #:slot-ref (lambda (zhd)
+                (let ((tp (tree-pointer zhd)))
+                  (if (and tp (observer? tp))
+                      (tree-pointer->tree tp)
+                      #f)))
+   #:slot-set! (lambda (zhd t)
+                 (if (and t (tree? t))
+                     (set! (tree-pointer zhd) (tree->tree-pointer t))
+                     (set! (tree-pointer zhd) #f)))))
 
 
 (define-method (the-ref-label-of (zhd <ztHrefFromCiteToBib-data>))
@@ -1910,6 +2418,7 @@
 ;;{{{ define-class for <document-data>
 
 (define-class-with-accessors-keywords <document-data> ()
+  (documentID #:init-value #f)
   ;;
   ;; TODO This undo marking thing needs to be looked over because in
   ;;      zotero/chrome/content/zotero/xpcom/integration.js inside of
@@ -2002,7 +2511,7 @@
 
 (define (get-<document-data> documentID)
   (or (hash-ref <document-data>-ht documentID #f)
-      (let ((dd (make-instance <document-data>)))
+      (let ((dd (make-instance <document-data> #:documentID documentID)))
         (set-<document-data>! documentID dd)
         dd)))
 
@@ -2018,7 +2527,7 @@
   (let* ((dd (get-<document-data> documentID))
          (new-zfield-zfd (and dd (document-new-zfield-zfd dd)))
          (zfd-ls (and dd (document-zfield-zfd-ls dd)))
-         (zhd-ht (and dd (get-document-ztbibItemRefs-ht documentID)))
+         (zhd-ht (and dd (document-ztbibItemRefs-ht dd)))
          ;; see: tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!
          (zhd-ls (and zhd-ht
                       (map (cut hash-ref zhd-ht <> #f)
@@ -2063,6 +2572,7 @@
 (define-method (get-document-new-zfield-zfd (documentID <string>))
   (document-new-zfield-zfd (get-<document-data> documentID)))
 
+
 (define-method (set-document-new-zfield-zfd! (documentID <string>) zfd-or-f)
   (if (or (== (class-of zfd-or-f) <zfield-data>)
           (== zfd-or-f #f))
@@ -2072,29 +2582,31 @@
 
 
 (define (zfield-is-document-new-zfield? documentID zfield-or-zfieldID)
-  (let* ((zfieldID (or (and (string? zfield-or-zfieldID)
-                            zfield-or-zfieldID)
-                       (zfield-zfieldID zfield-or-zfieldID)))
-         (zfd (get-document-new-zfield-zfd documentID))
+  (let* ((dd  (get-<document-data> documentID))
+         (zfd (document-new-zfield-zfd dd))
          (new-zfieldID (or (and zfd
                                 (the-zfieldID-of zfd))
                            "")))
     ;; (tm-zotero-format-debug "zfield-is-document-new-zfield?: new-zfieldID => ~s, zfieldID => ~s" new-zfieldID zfieldID)
     (if zfd
-        (string=? zfieldID new-zfieldID)
+        (string=? new-zfieldID (or (and (string? zfield-or-zfieldID)
+                                        zfield-or-zfieldID)
+                                   (zfield-zfieldID zfield-or-zfieldID)))
         #f)))
 
 ;;;
 ;;; Called from the document-mark-cancel-error-cleanup-hook
 ;;;
 (define (cleanup-document-new-zfieldID! documentID)
-  (and-with zfd (get-document-new-zfield-zfd documentID)
-    (hash-remove! (get-document-zfield-zfd-ht documentID)
-                  (the-zfieldID-of zfd))
-    (document-remove!-<zfield-data> zfd)
-    (when (is-zbibliography? (zfd-tree zfd))
-      (document-remove!-zbibliography-zfd zfd))
-    (set-document-new-zfield-zfd! documentID #f)))
+  (let* ((dd (get-<document-data> documentID)))
+    (and-with zfd (document-new-zfield-zfd dd)
+      (hash-remove! (document-zfield-zfd-ht dd)
+                    (the-zfieldID-of zfd))
+      (document-remove!-<zfield-data> documentID zfd)
+      (when (is-zbibliography? (zfd-tree zfd))
+        (document-remove!-zbibliography-zfd zfd))
+      (set! (document-new-zfield-zfd dd) #f))))
+
 
 ;;}}}
 
@@ -2116,6 +2628,10 @@
   (set! (document-zfield-zfd-ht (get-<document-data> documentID))
         (make-hash-table)))
 
+(define (get-document-<zfield-data>-by-zfieldID documentID zfieldID)
+  (hash-ref (get-document-zfield-zfd-ht documentID) zfieldID #f))
+
+
 ;;}}}
 ;;{{{ document-zbibliography-zfd-ls
 
@@ -2130,18 +2646,17 @@
   (set! (document-zbibliography-zfd-ls (get-<document-data> documentID))
         (list)))
 
-(define (document-merge!-zbibliography-zfd zfd)
-  (let* ((documentID (get-documentID))
-         (zbl (get-document-zbibliography-zfd-ls documentID)))
-    (set! (document-zbibliography-zfd-ls (get-<document-data> documentID))
-          (merge! zbl (list zfd) <*-data>-less?))))
+(define (document-merge!-zbibliography-zfd documentID zfd)
+  (let* ((dd  (get-<document-data> documentID))
+         (zbl (document-zbibliography-zfd-ls dd)))
+    (set! (document-zbibliography-zfd-ls dd)
+          (merge-<*-data>-ls! zbl zfd))))
 
-(define (document-remove!-zbibliography-zfd zfd)
-  (let* ((documentID (get-documentID))
-         (zbl (get-document-zbibliography-zfd-ls documentID)))
-    (set! (document-zbibliography-zfd-ls (get-<document-data> documentID))
-          (list-filter zbl (lambda (elt)
-                             (not (eq? zfd elt)))))))
+(define (document-remove!-zbibliography-zfd documentID zfd)
+  (let* ((dd  (get-<document-data> documentID))
+         (zbl (document-zbibliography-zfd-ls dd)))
+    (set! (document-zbibliography-zfd-ls dd)
+          (remove-<*-data>-ls! zbl zfd))))
 
 ;;}}}
 ;;{{{ document-ztbibItemRefs-ht
@@ -2199,39 +2714,22 @@
   (tree-pointer->tree
    (get-document-zfield-tree-pointer-by-zfieldID documentID zfieldID)))
 
-(define (go-to-document-zfield-by-zfieldID documentID zfieldID)
-  (tree-go-to (get-document-zfield-by-zfieldID documentID zfieldID) 1))
+;; (define (go-to-document-zfield-by-zfieldID documentID zfieldID)
+;;   (tree-go-to (get-document-zfield-by-zfieldID documentID zfieldID) 1))
 
 
-(define (get-document-zfield-orig-text-by-zfieldID documentID zfieldID)
-  (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
-    (if zfd
-        (zfd-orig-text zfd)
-        "")))
+;; (define (get-document-zfield-orig-text-by-zfieldID documentID zfieldID)
+;;   (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
+;;     (if zfd
+;;         (zfd-Code-code-properties-plainCitation zfd)
+;;         "")))
 
-(define (set-document-zfield-orig-text-by-zfieldID! documentID zfieldID str)
-  (set! (zfd-orig-text (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
-        str))
-
-;;}}}
-
-;;{{{ document-zfield-text-user-modified?
-
-(define (document-zfield-text-user-modified? documentID zfieldID)
-  (let* ((zfield        (get-document-zfield-by-zfieldID documentID zfieldID))
-         (zfield-Tt (and zfield (zfield-Text-t zfield)))
-         ;; from the document tree itself
-         (text          (or (and zfield-Tt
-                                 (zfield-Text zfield))
-                            ""))
-         ;; from the <zfield-data>
-         (orig-text (or (get-document-zfield-orig-text-by-zfieldID documentID zfieldID)
-                        "")))
-    ;; See: definition for activate and disactivate...
-    (not
-     (string=? text orig-text))))         ; => #t if text was modified by user.
+;; (define (set-document-zfield-orig-text-by-zfieldID! documentID zfieldID str)
+;;   (set! (zfd-Code-code-properties-plainCitation (get-document-<zfield-data>-by-zfieldID documentID zfieldID))
+;;         str))
 
 ;;}}}
+
 
 ;;{{{ document-merge!-<zfield-data>, document-remove!-<zfield-data>
 ;;;
@@ -2244,21 +2742,22 @@
 ;;;      study project for me... right now I need to get this to work so I can
 ;;;      use it.
 ;;;
-(define (document-merge!-<zfield-data> zfd)
-  (let* ((documentID (get-documentID))
-         (zfl (get-document-zfield-zfd-ls documentID)))
-    (set! (document-zfield-zfd-ls (get-<document-data> documentID))
-          (merge! zfl (list zfd) <*-data>-less?))))
+(define (document-merge!-<zfield-data> documentID . zfd)
+  (let* ((dd (get-<document-data> documentID)))
+    (set! (document-zfield-zfd-ls dd)
+          (merge! (document-zfield-zfd-ls dd)
+                  zfd
+                  <*-data>-less?))))
 
 ;;;
 ;;; This removes a <zfield-data> from the <zfield-data>-ls.
 ;;;
-(define (document-remove!-<zfield-data> zfd)
-  (let* ((documentID (get-documentID))
-         (zfl (get-document-zfield-zfd-ls documentID)))
-    (set-document-zfield-zfd-ls! documentID
-                                 (list-filter zfl (lambda (elt)
-                                                    (not (eq? zfd elt)))))))
+(define (document-remove!-<zfield-data> documentID zfd)
+  (let* ((dd  (get-<document-data> documentID)))
+    (set! (document-zfield-zfd-ls dd)
+          (list-filter (document-zfield-zfd-ls dd)
+                       (lambda (elt)
+                         (not (eq? zfd elt)))))))
 
 ;;}}}
 
@@ -2402,7 +2901,9 @@
         (begin
           ;; (tm-zotero-format-debug "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!:    _BOLD__RED_returning, is-new? => #t_RESET_")
           "")
-        (let ((zfd (get-document-<zfield-data>-by-zfieldID documentID zfieldID)))
+        (let* ((dd     (get-<document-data> documentID))
+               (zfd-ht (document-zfield-zfd-ht dd))
+               (zfd    (hash-ref zfd-ht zfieldID #f)))
           (if zfd
               (begin
                 ;; then we're done, it's already interned.
@@ -2419,13 +2920,23 @@
               ;;
               (begin
                 (and-with zfield (tree-search-upwards zfieldID-t zfield-tags)
-                  (set! zfd (make-instance <zfield-data> #:zfd-tree zfield))
-                  (hash-set! (get-document-zfield-zfd-ht documentID) zfieldID zfd)
-                  (document-merge!-<zfield-data> zfd)
+                  ;; Set %zfd-Code-code-ht directly here, not via the virtual
+                  ;; zfd-Code-code-ht setter. This is initialization. There's
+                  ;; no need for it to reserialize the %zfd-Code-code-ht into
+                  ;; the zfield-Code-code unless this hash table is modified
+                  ;; and it is desired for that modification to be serialized
+                  ;; and thus sent as modified to Zotero next time it asks for
+                  ;; that field's zfield-Code-code.
+                  (set! zfd
+                        (make-instance <zfield-data>
+                                       #:zfd-tree zfield
+                                       #:%zfd-Code-code-ht
+                                       (zfield-Code-code->scm
+                                        (zfield-Code-code zfield))))
+                  (hash-set! zfd-ht zfieldID zfd)
+                  (document-merge!-<zfield-data> documentID zfd)
                   (when (is-zbibliography? zfield)
-                    (document-merge!-zbibliography-zfd zfd)))
-                ;; (tm-zotero-format-debug
-                ;;  "_YELLOW_%tm-zotero-ext:ensure-zfield-interned!:    _RED_returning. _BOLD_Interned new zfield._RESET_")
+                    (document-merge!-zbibliography-zfd documentID zfd)))
                 ""))))))
 
 
@@ -2677,7 +3188,9 @@
 ;;;
 (tm-define (tm-zotero-ext:document-has-zbibliography?)
   (:secure)
-  (let ((zbibliography-zfd-ls (get-document-zbibliography-zfd-ls (get-documentID))))
+  (let* ((documentID           (get-documentID))
+         (dd                   (get-<document-data> documentID))
+         (zbibliography-zfd-ls (document-zbibliography-zfd-ls dd)))
     (if (and (pair? zbibliography-zfd-ls)
              (nnull? zbibliography-zfd-ls))
         "true"
@@ -2689,30 +3202,9 @@
 ;;;
 ;;; The arguments to these are always of class <tree>, because it is handed to
 ;;; these ext functions by the typesetter, and that's what it works with and
-;;; what it gives us.
+;;; what it gives us. These are typically to appear inside of the expansion of
+;;; the thing it's asking if it's inside of.
 ;;;
-(tm-define (tm-zotero-ext:is-zcite? zfieldID-t)
-  (:secure)
-  (if (is-zcite?
-       (get-document-zfield-by-zfieldID (tree->stree zfieldID-t)))
-      "true"
-      "false"))
-
-(tm-define (tm-zotero-ext:is-zbibliography? zfieldID-t)
-  (:secure)
-  (if (is-zbibliography?
-       (get-document-zfield-by-zfieldID (tree->stree zfieldID-t)))
-      "true"
-      "false"))
-
-(tm-define (tm-zotero-ext:is-zfield? zfieldID-t)
-  (:secure)
-  (if (is-zfield?
-       (get-document-zfield-by-zfieldID (tree->stree zfieldID-t)))
-      "true"
-      "false"))
-
-
 
 (tm-define (tm-zotero-ext:inside-footnote? zfieldID-t)
   (:secure)
@@ -3126,10 +3618,10 @@
       (list (format #f "ERR: Invalid JSON: ~s\n" str) '()))))
 
 
-(define (safe-scm->json-string scm)
+(define* (safe-scm->json-string scm #:key (escape #f) (pretty #f))
   (catch #t
     (lambda ()
-      (scm->json-string scm))
+      (scm->json-string scm #:escape escape #:pretty pretty))
     (lambda args
       (tm-zotero-format-error "_BOLD__RED_ERR: Exception caught from scm->json-string:_RESET_ ~s\n" args)
       (tm-zotero-format-error "_BOLD__RED_ERR:_RESET_ scm => ~s\n" scm)
@@ -3359,8 +3851,9 @@
 ;;;   See: (utils library tree) try-modification
 ;;;
 (define (call-zotero-integration-command cmd)
-  (let ((documentID (get-documentID)))
-    (when (not (get-document-active-mark-nr documentID)) ;; one at a time only
+  (let* ((documentID (get-documentID))
+         (dd (get-<document-data> documentID)))
+    (when (not (document-active-mark-nr dd)) ;; one at a time only
       (let ((zp (get-tm-zotero-socket-port))
             (mark-nr (mark-new)))       ; for "atomic undo" on failure
         (if (and (port? zp)
@@ -3372,7 +3865,7 @@
                      #f))) ;; Firefox or Zotero Standalone not running?
             (begin
               ;; Set up the "undo" transaction:
-              (set-document-active-mark-nr! documentID mark-nr)
+              (set! (document-active-mark-nr dd) mark-nr)
               (mark-start mark-nr)
               (archive-state)
               ;; Listen for incoming commands.
@@ -3385,7 +3878,8 @@
 
 (define (tm-zotero-add str-kind)
   (let* ((documentID (get-documentID))
-         (new-zfield-zfd (get-document-new-zfield-zfd documentID)))
+         (dd (get-<document-data> documentID))
+         (new-zfield-zfd (document-new-zfield-zfd dd)))
     (unless new-zfield-zfd              ; one at a time only
       (cond
         ((== str-kind "citation")
@@ -3454,7 +3948,7 @@
 ;;; For now it ignores the protocol version.
 ;;;
 (define (tm-zotero-Application_getActiveDocument tid pv)
-  ;;(tm-zotero-set-message "Processing command: Application_getActiveDocument...")
+  (tm-zotero-set-message "Processing command: Application_getActiveDocument...")
   ;;(tm-zotero-format-debug "zotero-Application_getActiveDocument:called...")
   (tm-zotero-write tid (safe-scm->json-string (list pv (get-documentID)))))
 
@@ -3523,7 +4017,7 @@
 ;;;
 (define (tm-zotero-Document_displayAlert tid documentID str_dialogText int_icon
                                          int_buttons)
-  ;;(tm-zotero-set-message "Processing command: Document_displayAlert...")
+  (tm-zotero-set-message "Processing command: Document_displayAlert...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_displayAlert:called...")
   (let ((stree_dialogText (tree->stree
                            (tm-zotero-UTF-8-str_text->texmacs str_dialogText #f #f))))
@@ -3541,7 +4035,7 @@
 ;;; ["Document_activate", [documentID]] -> null
 ;;;
 (define (tm-zotero-Document_activate tid documentID)
-  ;;(tm-zotero-set-message "Processing command: Document_activate...")
+  (tm-zotero-set-message "Processing command: Document_activate...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_activate:called...")
   (wait-update-current-buffer)
   (tm-zotero-write tid (safe-scm->json-string '())))
@@ -3554,7 +4048,7 @@
 ;;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
 ;;;
 (define (tm-zotero-Document_canInsertField tid documentID str_fieldType)
-  ;;(tm-zotero-set-message "Processing command: Document_canInsertField...")
+  (tm-zotero-set-message "Processing command: Document_canInsertField...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_canInsertField:called...")
   (let ((ret (not
               (not
@@ -3581,7 +4075,7 @@
 ;;; ["Document_getDocumentData", [documentID]] -> str_dataString
 ;;;
 (define (tm-zotero-Document_getDocumentData tid documentID)
-  ;;(tm-zotero-set-message "Processing command: Document_getDocumentData...")
+  (tm-zotero-set-message "Processing command: Document_getDocumentData...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_getDocumentData:called...")
   (tm-zotero-write tid (safe-scm->json-string (get-env-zoteroDocumentData))))
 
@@ -3594,7 +4088,7 @@
 ;;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
 ;;;
 (define (tm-zotero-Document_setDocumentData tid documentID str_dataString)
-  ;;(tm-zotero-set-message "Processing command: Document_setDocumentData...")
+  (tm-zotero-set-message "Processing command: Document_setDocumentData...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_setDocumentData:called...")
   (set-env-zoteroDocumentData! str_dataString)
   (tm-zotero-write tid (safe-scm->json-string '())))
@@ -3618,7 +4112,7 @@
 ;;;   str_fieldType is ignored for now.
 ;;;
 (define (tm-zotero-Document_cursorInField tid documentID str_fieldType)
-  ;;(tm-zotero-set-message "Processing command: Document_cursorInField...")
+  (tm-zotero-set-message "Processing command: Document_cursorInField...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_cursorInField:called...")
   (let ((ret (if (focus-is-zfield?)
                  (begin
@@ -3639,6 +4133,7 @@
 
 ;;}}}
 ;;{{{ Document_insertField
+
 ;;;
 ;;; Inserts a new field at the current cursor position.
 ;;;
@@ -3677,9 +4172,10 @@
 (define (tm-zotero-Document_insertField tid documentID
                                         str_fieldType
                                         int_noteType)
-  ;;(tm-zotero-set-message "Processing command: Document_insertField...")
+  (tm-zotero-set-message "Processing command: Document_insertField...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_insertField:called...")
-  (let* ((new-zfield-zfd (get-document-new-zfield-zfd documentID))
+  (let* ((dd (get-<document-data> documentID))
+         (new-zfield-zfd (document-new-zfield-zfd dd))
          (new-zfieldID (and new-zfield-zfd
                             (the-zfieldID-of new-zfield-zfd)))
          (new-zfield (and new-zfield-zfd
@@ -3694,7 +4190,7 @@
           ;; while waiting for Zotero transactions to take place...
           (tree-go-to new-zfield 1)
           ;; clear document-new-zfield-zfd
-          (set-document-new-zfield-zfd! documentID #f)
+          (set! (document-new-zfield-zfd dd) #f)
           ;;
           ;; Add it to the <document-data>-*
           ;;
@@ -3704,10 +4200,10 @@
           ;; sure that it's in the list for the about to happen call for the
           ;; list of fields via Document_getFields.
           ;;
-          (hash-set! (get-document-zfield-zfd-ht documentID) new-zfieldID new-zfield-zfd)
-          (document-merge!-<zfield-data> new-zfield-zfd)
+          (hash-set! (document-zfield-zfd-ht dd) new-zfieldID new-zfield-zfd)
+          (document-merge!-<zfield-data> documentID new-zfield-zfd)
           (when (is-zbibliography? new-zfield)
-            (document-merge!-zbibliography-zfd new-zfield-zfd))
+            (document-merge!-zbibliography-zfd documentID new-zfield-zfd))
           ;; Report success to Zotero.
           (tm-zotero-write tid (safe-scm->json-string
                                 (list new-zfieldID ""
@@ -3732,7 +4228,7 @@
 ;;;  that the BIBL field is also sent as one of the fields in this list.
 ;;;
 (define (tm-zotero-Document_getFields tid documentID str_fieldType)
-  ;;(tm-zotero-set-message "Processing command: Document_getFields...")
+  (tm-zotero-set-message "Processing command: Document_getFields...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_getFields:called...")
   (let ((ret
          (let loop ((zfield-zfd-ls (get-document-zfield-zfd-ls documentID)) ; list of <zfield-data>.
@@ -3782,7 +4278,7 @@
 ;;; TeXmacs?  Better to make a new flag; and just ignore this one?
 ;;;
 (define (tm-zotero-Document_convert tid . args)
-  ;;(tm-zotero-set-message "Processing command: Document_convert...")
+  (tm-zotero-set-message "Processing command: Document_convert...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_convert:called...")
   (tm-zotero-write tid (safe-scm->json-string '())))
 
@@ -4207,7 +4703,7 @@
          tid documentID
          firstLineIndent bodyIndent lineSpacing entrySpacing
          arrayList tabStopCount)
-  ;;(tm-zotero-set-message "Processing command: Document_setBibliographyStyle...")
+  (tm-zotero-set-message "Processing command: Document_setBibliographyStyle...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_setBibliographyStyle:called...")
   (set-init-env "zotero-BibliographyStyle_firstLineIndent"
                 (tm-zotero-firstLineIndent->tmlen firstLineIndent))
@@ -4231,7 +4727,7 @@
 ;;; connector. It appears to do nothing there either.
 ;;;
 (define (tm-zotero-Document_cleanup tid documentID)
-  ;;(tm-zotero-set-message "Processing command: Document_cleanup...")
+  (tm-zotero-set-message "Processing command: Document_cleanup...")
   (tm-zotero-format-debug "STUB:tm-zotero-Document_cleanup: ~s" documentID)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
@@ -4267,18 +4763,22 @@
 ;;; ["Field_delete", [documentID, fieldID]] -> null
 ;;;
 (define (tm-zotero-Field_delete tid documentID zfieldID)
-  ;; (tm-zotero-set-message
-  ;;  (string-append "Processing command: Field_delete " zfieldID "..."))
+  (tm-zotero-set-message
+   (string-append "Processing command: Field_delete " zfieldID "..."))
   ;;(tm-zotero-format-debug "tm-zotero-Field_delete:called...")
-  (let* ((zfd (hash-ref (get-document-zfield-zfd-ht documentID) zfieldID))
-         (zfield (and zfd (zfd-tree zfd)))
-         (code (and zfield (zfield-Code-code zfield)))
-         (text (and zfield (zfield-Text zfield))))
-    (when zfield
-      (hash-remove! (get-document-zfield-zfd-ht documentID) zfieldID)
-      (document-remove!-<zfield-data> zfd)
+  (let* ((dd (get-<document-data> documentID))
+         (zfd-ht (document-zfield-zfd-ht dd))
+         (zfd (hash-ref zfd-ht zfieldID))
+         (zfield (zfd-tree zfd)))
+    (with-fluids
+        ((fluid/is-during-tm-zotero-clipboard-cut? #t))
+      (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
+      (hash-remove! zfd-ht zfieldID)
+      (set! (document-zfield-zfd-ls dd)
+            (remove-<*-data>-ls! (document-zfield-zfd-ls dd) zfd))
       (when (is-zbibliography? zfield)
-        (document-remove!-zbibliography-zfd zfd))
+        (set! (document-zbibliography-zfd-ls dd)
+              (remove-<*-data>-ls! (document-zbibliography-zfd-ls dd) zfd)))
       (clear-tree-pointer zfd)
       (tree-set! zfield "")))
   (tm-zotero-write tid (safe-scm->json-string '())))
@@ -4295,10 +4795,13 @@
 ;;; light blue box, after it.... (writing this comment prior to testing. FLW.)
 ;;;
 (define (tm-zotero-Field_select tid documentID zfieldID)
-  ;; (tm-zotero-set-message
-  ;;  (string-append "Processing command: Field_select " zfieldID "..."))
+  (tm-zotero-set-message
+   (string-append "Processing command: Field_select " zfieldID "..."))
   ;;(tm-zotero-format-debug "tm-zotero-Field_select:called...")
-  (go-to-document-zfield-by-zfieldID documentID zfieldID)
+  (let* ((dd     (get-<document-data> documentID))
+         (zfd-ht (document-zfield-zfd-ht dd))
+         (zfd    (hash-ref zfd-ht zfieldID)))
+    (tree-go-to (zfd-tree zfd) 1))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
@@ -4307,10 +4810,15 @@
 ;;; ["Field_removeCode", [documentID, fieldID]] -> null
 ;;;
 (define (tm-zotero-Field_removeCode tid documentID zfieldID)
-  ;; (tm-zotero-set-message
-  ;;  (string-append "Processing command: Field_removeCode " zfieldID "..."))
+  (tm-zotero-set-message
+   (string-append "Processing command: Field_removeCode " zfieldID "..."))
   ;;(tm-zotero-format-debug "tm-zotero-Field_removeCode:called...")
-  (set! (zfield-Code-code (get-document-zfield-by-zfieldID documentID zfieldID)) "")
+  (let* ((dd     (get-<document-data> documentID))
+         (zfd-ht (document-zfield-zfd-ht dd))
+         (zfd    (hash-ref zfd-ht zfieldID))
+         (zfield (zfd-tree zfd)))
+    (set! (zfield-Code-code zfield) "")
+    (set! (%zfd-Code-code-ht zfd) #f))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
@@ -4478,109 +4986,199 @@
   "Move links to their own line, in smaller text, so that long links
 will not overflow into the page margins. Keep punctuation before and after,
 including parentheses and <less> <gtr> around the link put there by some
-styles."
+styles. doi: forms are short, so they don't need to be put on their own line."
   ;;(tm-zotero-format-debug "move-link-to-own-line:called, lnk => ~s" lnk)
-  (let* ((pre-lnk-txt (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
-         (pre-lnk-str (and pre-lnk-txt (tree->stree pre-lnk-txt)))
-         (post-lnk-txt (tree-ref (tree-up lnk) (+ (tree-index lnk) 1)))
-         (post-lnk-str (and post-lnk-txt (tree->stree post-lnk-txt)))
-         (is-doi? (and (string? pre-lnk-str)
-                       (or (string-suffix? "doi:" pre-lnk-str)
-                           (string-suffix? "doi: " pre-lnk-str)
-                           (string-suffix? "doi: " pre-lnk-str)
-                           (string-suffix? "DOI:" pre-lnk-str)
-                           (string-suffix? "DOI: " pre-lnk-str)
-                           (string-suffix? "DOI: " pre-lnk-str)))))
+  (let* ((pre-lnk-t      (tree-ref (tree-up lnk) (- (tree-index lnk) 1)))
+         (pre-lnk-str   (and pre-lnk-t (tree->stree pre-lnk-t)))
+         (post-lnk-t     (tree-ref (tree-up lnk) (+ (tree-index lnk) 1)))
+         (post-lnk-str  (and post-lnk-t (tree->stree post-lnk-t)))
+         (is-short-doi? (and pre-lnk-str
+                             (string? pre-lnk-str)
+                             (or (string-suffix? "doi:"  pre-lnk-str)
+                                 (string-suffix? "doi: " pre-lnk-str)
+                                 (string-suffix? "doi: " pre-lnk-str)
+                                 (string-suffix? "DOI:"  pre-lnk-str)
+                                 (string-suffix? "DOI: " pre-lnk-str)
+                                 (string-suffix? "DOI: " pre-lnk-str)))))
     ;; (tm-zotero-format-debug "lnk before: ~s" lnk)
     ;; (tm-zotero-format-debug "pre-lnk-str: ~s" pre-lnk-str)
     ;; (tm-zotero-format-debug "post-lnk-str: ~s" post-lnk-str)
-    (unless is-doi?
+    (unless is-short-doi?
       ;; (tm-zotero-format-debug "is-doi? => #f")
-      (when (string? pre-lnk-str)
-        (cond
-          ((and (string? post-lnk-str)  ;; translation error hack hack hack
-                (string-suffix? "<" pre-lnk-str)
-                (string-prefix? ">" post-lnk-str))
-           (set! pre-lnk-str (substring pre-lnk-str
-                                        0
-                                        (- (string-length pre-lnk-str)
-                                           1)))
-           (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-           (set! post-lnk-str (substring post-lnk-str
-                                         1
-                                         (string-length post-lnk-str)))
-           (tree-set! post-lnk-txt (stree->tree post-lnk-str))
-           (tree-set! lnk (stree->tree
-                           `(concat (next-line)
-                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
-          ((and (string? post-lnk-str)
-                (string-suffix? "<less>" pre-lnk-str)
-                (string-prefix? "<gtr>" post-lnk-str))
-           (set! pre-lnk-str (substring pre-lnk-str
-                                        0
-                                        (- (string-length pre-lnk-str)
-                                           (string-length "<less>"))))
-           (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-           (set! post-lnk-str (substring post-lnk-str
-                                         (string-length "<gtr>")
-                                         (string-length post-lnk-str)))
-           (tree-set! post-lnk-txt (stree->tree post-lnk-str))
-           (tree-set! lnk (stree->tree
-                           `(concat (next-line)
-                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
-          ((and (string? post-lnk-str)  ;; translation error hack hack hack
-                (string-suffix? "<less>less<gtr>" pre-lnk-str)
-                (string-prefix? "<less>gtr<gtr>" post-lnk-str))
-           (set! pre-lnk-str (substring pre-lnk-str
-                                        0
-                                        (- (string-length pre-lnk-str)
-                                           (string-length "<less>less<gtr>"))))
-           (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-           (set! post-lnk-str (substring post-lnk-str
-                                         (string-length "<less>gtr<gtr>")
-                                         (string-length post-lnk-str)))
-           (tree-set! post-lnk-txt (stree->tree post-lnk-str))
-           (tree-set! lnk (stree->tree
-                           `(concat (next-line)
-                                    (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
-          ((or (and (string-suffix? "DOI:http://doi.org/"     pre-lnk-str) "DOI:http://doi.org/")
-               (and (string-suffix? "doi:http://doi.org/"     pre-lnk-str) "doi:http://doi.org/")
-               (and (string-suffix? "http://doi.org/"         pre-lnk-str) "http://doi.org/")
-               (and (string-suffix? "DOI:https://doi.org/"    pre-lnk-str) "DOI:https://doi.org/")
-               (and (string-suffix? "doi:https://doi.org/"    pre-lnk-str) "doi:https://doi.org/")
-               (and (string-suffix? "https://doi.org/"        pre-lnk-str) "https://doi.org/")
-               (and (string-suffix? "DOI:http://dx.doi.org/"  pre-lnk-str) "DOI:http://dx.doi.org/")
-               (and (string-suffix? "doi:http://dx.doi.org/"  pre-lnk-str) "doi:http://dx.doi.org/")
-               (and (string-suffix? "http://dx.doi.org/"      pre-lnk-str) "http://dx.doi.org/")
-               (and (string-suffix? "DOI:https://dx.doi.org/" pre-lnk-str) "DOI:https://dx.doi.org/")
-               (and (string-suffix? "doi:https://dx.doi.org/" pre-lnk-str) "doi:https://dx.doi.org/")
-               (and (string-suffix? "https://dx.doi.org/"     pre-lnk-str) "https://dx.doi.org/")
-               )
-           => (lambda (lnstr)
+      (cond
+        ((and pre-lnk-str
+              (string? pre-lnk-str)
+              post-lnk-str
+              (string? post-lnk-str)
+              ;;
+              ;; For some CSL styles, the link does not light up over this prefix,
+              ;; which comes through as plain text. Only the doi number part
+              ;; that follows this is highlit as the display portion of a
+              ;; hyperlink. The goal is to keep this next to the doi link
+              ;; itself, but place it on it's own line with smaller font size
+              ;; so that longer links do not overrun the margins.
+              ;;
+              (do ((doi-suffix-ls '("DOI:http://doi.org/";lnk
+                                    "doi:http://doi.org/"
+                                    "http://doi.org/"
+                                    "DOI:https://doi.org/"
+                                    "doi:https://doi.org/"
+                                    "https://doi.org/"
+                                    "DOI:http://dx.doi.org/"
+                                    "doi:http://dx.doi.org/"
+                                    "http://dx.doi.org/"
+                                    "DOI:https://dx.doi.org/"
+                                    "doi:https://dx.doi.org/"
+                                    "https://dx.doi.org/"
+                                    "<DOI:http://doi.org/";lnk
+                                    "<doi:http://doi.org/"
+                                    "<http://doi.org/"
+                                    "<DOI:https://doi.org/"
+                                    "<doi:https://doi.org/"
+                                    "<https://doi.org/"
+                                    "<DOI:http://dx.doi.org/"
+                                    "<doi:http://dx.doi.org/"
+                                    "<http://dx.doi.org/"
+                                    "<DOI:https://dx.doi.org/"
+                                    "<doi:https://dx.doi.org/"
+                                    "<https://dx.doi.org/"
+                                    "<less>DOI:http://doi.org/";lnk
+                                    "<less>doi:http://doi.org/"
+                                    "<less>http://doi.org/"
+                                    "<less>DOI:https://doi.org/"
+                                    "<less>doi:https://doi.org/"
+                                    "<less>https://doi.org/"
+                                    "<less>DOI:http://dx.doi.org/"
+                                    "<less>doi:http://dx.doi.org/"
+                                    "<less>http://dx.doi.org/"
+                                    "<less>DOI:https://dx.doi.org/"
+                                    "<less>doi:https://dx.doi.org/"
+                                    "<less>https://dx.doi.org/"
+                                    "<less>less<gtr>DOI:http://doi.org/";lnk
+                                    "<less>less<gtr>doi:http://doi.org/"
+                                    "<less>less<gtr>http://doi.org/"
+                                    "<less>less<gtr>DOI:https://doi.org/"
+                                    "<less>less<gtr>doi:https://doi.org/"
+                                    "<less>less<gtr>https://doi.org/"
+                                    "<less>less<gtr>DOI:http://dx.doi.org/"
+                                    "<less>less<gtr>doi:http://dx.doi.org/"
+                                    "<less>less<gtr>http://dx.doi.org/"
+                                    "<less>less<gtr>DOI:https://dx.doi.org/"
+                                    "<less>less<gtr>doi:https://dx.doi.org/"
+                                    "<less>less<gtr>https://dx.doi.org/") (cdr doi-suffix-ls))
+                   (ret #f))
+                  ((or ret
+                       (null? doi-suffix-ls)) ret)
+                (when (string-suffix? (car doi-suffix-ls) pre-lnk-str)
+                  (set! ret (car doi-suffix-ls)))))
+         => (lambda (doi-suffix-str)
+              (let ((lg (do ((lgls '(("<" ">")
+                                     ("<less>" "<gtr>")
+                                     ("<less>less<gtr>" "<less>gtr<gtr>"))
+                                   (cdr lgls))
+                             (ret #f))
+                            ((or ret
+                                 (null? lgls)) ret)
+                          (when (and (string-prefix? (caar  lgls) doi-suffix-str)
+                                     (string-prefix? (cadar lgls) post-lnk-str))
+                            (set! ret (car lgls))))))
                 ;; Keep link next to the prefix text.
                 ;;(tm-zotero-format-debug "Keep link next to the prefix text.")
                 (set! pre-lnk-str (substring pre-lnk-str
                                              0
                                              (- (string-length pre-lnk-str)
-                                                (string-length lnstr))))
-                (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))
-                (tree-set! lnk (stree->tree
-                                `(concat (next-line)
-                                         (small (concat ,lnstr ,lnk)))))))
-          (#t
-           (tree-set! lnk (stree->tree `(concat (next-line) (small ,lnk))))))
-        (when (or (string-suffix? " " pre-lnk-str)
-                  (string-suffix? " " pre-lnk-str))
+                                                (string-length doi-suffix-str))))
+                (tree-set! pre-lnk-t (stree->tree pre-lnk-str))
+                (if lg
+                    (begin
+                      (tree-set! lnk (stree->tree
+                                      `(concat (next-line)
+                                               (small (concat (less-than-sign)
+                                                              ,(substring doi-suffix-str
+                                                                          (string-length (car lg))
+                                                                          (string-length doi-suffix-str))
+                                                              ,lnk
+                                                              (greater-than-sign))))))
+                      (set! post-lnk-str (substring post-lnk-str
+                                                    (string-length (cadr lg))
+                                                    (string-length post-lnk-str)))
+                      (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+                    (begin
+                      (tree-set! lnk (stree->tree
+                                      `(concat (next-line)
+                                               (small (concat ,doi-suffix-str ,lnk))))))))))
+        ;;
+        ;; TODO Some styles put "<" and ">" around the link text. Sometimes I've had
+        ;; weird things happen with those coming through to this part of the
+        ;; program, and that is why there are three forms below. Normally it
+        ;; ought to be fixed by the code that brings it to here, but sometimes
+        ;; when you have an academic or legal research writing deadline hanging
+        ;; hanging over you, it's faster to edit code that you are most familiar
+        ;; with in order to kludge around the problem, than it is to figure out
+        ;; what made it turn the "<" into "<less>", etc. when it did.
+        ;;
+        ((and pre-lnk-str
+              (string? pre-lnk-str)
+              post-lnk-str
+              (string? post-lnk-str)
+              (do ((lgls '(("<" ">")
+                           ("<less>" "<gtr>")
+                           ("<less>less<gtr>" "<less>gtr<gtr>"))
+                         (cdr lgls))
+                   (ret #f))
+                  ((or ret
+                       (null? lgls)) ret)
+                (when (and (string-suffix? (caar  lgls) pre-lnk-str)
+                           (string-prefix? (cadar lgls) post-lnk-str))
+                  (set! ret (car lgls)))))
+         => (lambda (lg)
+              (if lg
+                  (begin
+                    (set! pre-lnk-str (substring pre-lnk-str
+                                                 0
+                                                 (- (string-length pre-lnk-str)
+                                                    (string-length (car lg)))))
+                    (tree-set! pre-lnk-t (stree->tree pre-lnk-str))
+                    (tree-set! lnk (stree->tree
+                                    `(concat (next-line)
+                                             (small (concat (less-than-sign) ,lnk (greater-than-sign))))))
+                    (set! post-lnk-str (substring post-lnk-str
+                                                  (string-length (cadr lg))
+                                                  (string-length post-lnk-str)))
+                    (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+                  (begin
+                    (tree-set! lnk (stree->tree
+                                    `(concat (next-line)
+                                             (small ,lnk))))))))
+        ;;
+        ;; Nothing special to do regarding pre-lnk-str or post-lnk-str.
+        ;;
+        (else
+          (tree-set! lnk (stree->tree `(concat (next-line) (small ,lnk))))))
+      ;;
+      ;; Ensure no space at end of pre-lnk-str when lnk has been placed on
+      ;; it's own line.
+      ;;
+      (when (and (tm-find lnk (cut tm-is? <> 'next-line))
+                 pre-lnk-str
+                 (string? pre-lnk-str))
+        (while (or (string-suffix? " " pre-lnk-str)
+                   (string-suffix? " " pre-lnk-str))
           (set! pre-lnk-str (substring pre-lnk-str
                                        0
                                        (- (string-length pre-lnk-str)
                                           1)))
-          (tree-set! pre-lnk-txt (stree->tree pre-lnk-str))))
-      (when (string? post-lnk-str)
-        (let pls ((strs (list "." ")." "," ";" ":")))
-          (cond
-           ((null? strs) #t)
-           ((string-prefix? (car strs) post-lnk-str)
+          (tree-set! pre-lnk-t (stree->tree pre-lnk-str))))
+      ;;
+      ;; Always ensure that trailing punctuation remains attached to the link
+      ;; rather than sitting at the start of the next line following the link.
+      ;;
+      (when (and post-lnk-str
+                 (string? post-lnk-str)
+                 (tm-find lnk (cut tm-is? <> 'next-line)))
+        (do ((strs (list "." "," ";" ":" ")." ")," ");" "):" ")") (cdr strs)))
+            ((null? strs) #t)
+          (when (string-prefix? (car strs) post-lnk-str)
             ;;(tm-zotero-format-debug "Punctuation: '~s'" (car strs))
             (tree-set! lnk (stree->tree
                             `(concat ,lnk
@@ -4590,18 +5188,27 @@ styles."
             (set! post-lnk-str (substring post-lnk-str
                                           (string-length (car strs))
                                           (string-length post-lnk-str)))
-            (tree-set! post-lnk-txt (stree->tree post-lnk-str))) ; Fall out of loop.
-           (#t (pls (cdr strs)))))
-        (when (and (> (string-length post-lnk-str) 1)
-                   (string? pre-lnk-str))
-          (tree-set! lnk (stree->tree `(concat ,lnk (next-line))))
-          (when (or (string-prefix? " " post-lnk-str)
-                    (string-prefix? " " post-lnk-str))
-            (set! post-lnk-str (substring post-lnk-str 1 (string-length post-lnk-str)))
-            (tree-set! post-lnk-txt (stree->tree post-lnk-str))))))
-    ;; (tm-zotero-format-debug "move-link-to-own-line returning, lnk => ~s" lnk)
-    )
-  lnk)
+            (tree-set! post-lnk-t (stree->tree post-lnk-str)))))
+      ;;
+      ;; No spaces at front of post-lnk-str when lnk has been moved to it's own line.
+      ;;
+      (when (and pre-lnk-str
+                 (string? pre-lnk-str)
+                 post-lnk-str
+                 (string? post-lnk-str)
+                 (tm-find lnk (cut tm-is? <> 'next-line)))
+        (while (and (> (string-length post-lnk-str) 1)
+                    (or (string-prefix? " " post-lnk-str)
+                        (string-prefix? " " post-lnk-str)))
+          (set! post-lnk-str (substring post-lnk-str
+                                        1
+                                        (string-length post-lnk-str)))
+          (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+        (when (> (string-length post-lnk-str) 0)
+          (tree-set! lnk (stree->tree `(concat ,lnk (next-line))))))
+      ;; (tm-zotero-format-debug "move-link-to-own-line returning, lnk => ~s" lnk)
+      ))
+    lnk)
 
 
 ;; (define (delete-one-space-to-left-of lnk)
@@ -4751,13 +5358,14 @@ styles."
           pre post)
          (("(([  ]|\\hspace.[^}]+.)?\\(([  ]|\\hspace.[^}]+.)*\\))") ;; empty parentheses and space before them (but NOT period or space after).
           pre post)
-         ;; (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
-         ;;  pre 2 post)
          ;; Category heading dummy entries. Replaces the entire line!
          (("(^.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+\\{.*})}.*\\.?}%?)"); ,regexp/newline)
           pre 3 post)
          (("(^.*ztbibItemText.*(000000000@#)?<(ztbib[A-Za-z]+)>(.*)</\\3>.*\\.?}%?)")
           pre "\\" 3 "{" 4 "}" post)
+         ;; (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
+         ;;  pre 2 post)
+         ;; Category heading dummy entries. Replaces the entire line!
          ;;
          ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
          ;; encoded) these characters won't work right for some reason. The macros I'm replacing them with below expand to the same
@@ -4832,16 +5440,17 @@ styles."
 
 
 (define (tm-zotero-regex-transform str_text)
-  (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_called_RESET_, str_text => ~s" str_text)
+  ;;(tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_called_RESET_, str_text => ~s" str_text)
   (let ((text str_text))
     (do ((rc tm-zotero-regex-replace-clauses (cdr rc)))
         ((null? rc)
-         (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_returning_RESET_, text => ~s" text)
+         ;;(tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_returning_RESET_, text => ~s" text)
          text)
       ;; each is applied in turn, so later ones can modify results of earlier
       ;; ones if you like.
-      (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:  _GREEN_during_WHITE_:  _GREEN_text_RESET_: ~s" text)
+      ;;(tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:  _GREEN_during_WHITE_:  _GREEN_text_RESET_: ~s" text)
       (set! text (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))))))
+
 
 ;; (define (tm-zotero-regex-transform str_text)
 ;;   (let loop ((str_text str_text)
@@ -4919,7 +5528,7 @@ styles."
                     "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
-    (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_: after let*. !!!")
+    ;;(tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_: after let*. !!!")
     (buffer-set-body b t) ;; This is magical.
     (buffer-pretend-autosaved b)
     (buffer-pretend-saved b)
@@ -4937,7 +5546,7 @@ styles."
     ;; from propachi-texmacs/bootstrap.js monkeypatch VariableWrapper
     ;;
     (map (lambda (lnk)
-           (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
+           ;;(tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
            (tree-set! lnk (fixup-embedded-slink-as-url lnk)))
          (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib ztHref))))
     ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_before tree-simplify_RESET_")
@@ -4947,7 +5556,7 @@ styles."
     (buffer-pretend-saved b)
     (buffer-close b)
     (recall-message)
-    (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__GREEN_returning_RESET_ => ~s" (tree->stree t))
+    ;;(tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__GREEN_returning_RESET_ => ~s" (tree->stree t))
     t))
 
 ;;}}}
@@ -5014,32 +5623,25 @@ styles."
 ;;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;;
 (define (tm-zotero-Field_setText tid documentID zfieldID str_text isRich)
-  ;; (tm-zotero-set-message
-  ;;  (string-append "Processing command: Field_setText " zfieldID "..."))
+  (tm-zotero-set-message
+   (string-append "Processing command: Field_setText " zfieldID "..."))
   (tm-zotero-format-debug "tm-zotero-Field_setText:called...")
-  (let* ((zfield   (get-document-zfield-by-zfieldID documentID zfieldID))
-         (is-note? (and zfield (zfield-IsNote? zfield)))
-         (is-bib?  (and zfield (zfield-IsBib? zfield)))
+  (let* ((dd       (get-<document-data> documentID))
+         (zfd-ht   (document-zfield-zfd-ht dd))
+         (zfd      (hash-ref zfd-ht zfieldID))
+         (zfield   (zfd-tree zfd))
+         (is-note? (zfield-IsNote? zfield))
+         (is-bib?  (zfield-IsBib? zfield))
          (tmtext
           (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)))
-    ;;;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Text-t")
-    ;;; It was crashing here at the destructor for tree-pointer. I think it's
-    ;;; the tree-pointers on the ztHrefFromCiteToBib tags.
-    ;;;;(set! (zfield-Text-t zfield) tmtext)
-    ;;
   (with-fluids
       ((fluid/is-during-tm-zotero-clipboard-cut? #t))
-    ;; (begin
-    ;;   (set! inside-tm-zotero-clipboard-cut #t) ;; TODO fluid-ref
     ;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to unintern-ztHrefFromCiteToBib-for-cut")
     (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
     ;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Text-t")
-    (set! (zfield-Text-t zfield) tmtext))
-    ;; (set! inside-tm-zotero-clipboard-cut #f))
-    ;;(tm-zotero-format-debug "tm-zotero-Field_setText: about to set zfield-Code-origText")
-    (set! (zfield-Code-origText zfield) tmtext)
-    (set! (zfield-Code-is-modified?-flag zfield) "false")
-    (tm-zotero-write tid (safe-scm->json-string '()))))
+    (set! (zfield-Text-t zfield) tmtext)
+    (set! (zfield-Code-is-modified?-flag zfield) "false"))
+  (tm-zotero-write tid (safe-scm->json-string '()))))
 
 ;;}}}
 ;;{{{ Field_getText
@@ -5049,14 +5651,18 @@ styles."
 ;;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;;
 (define (tm-zotero-Field_getText tid documentID zfieldID)
-  ;; (tm-zotero-set-message
-  ;;  (string-append "Processing command: Field_getText " zfieldID "..."))
+  (tm-zotero-set-message
+   (string-append "Processing command: Field_getText " zfieldID "..."))
   ;; (tm-zotero-format-debug "tm-zotero-Field_getText:called...")
-  (tm-zotero-write tid (safe-scm->json-string
-                        (string-convert (zfield-Text
-                                         (get-document-zfield-by-zfieldID documentID zfieldID))
-                                        "Cork"
-                                        "UTF-8"))))
+  (let* ((dd     (get-<document-data> documentID))
+         (zfd-ht (document-zfield-zfd-ht dd))
+         (zfd    (hash-ref zfd-ht zfieldID))
+         (zfield (zfd-tree zfd)))
+    (tm-zotero-write tid
+                     (safe-scm->json-string
+                      (string-convert (zfield-Text zfield)
+                                      "Cork"
+                                      "UTF-8")))))
 
 ;;}}}
 ;;{{{ Field_setCode
@@ -5066,11 +5672,17 @@ styles."
 ;;; ["Field_setCode", [documentID, fieldID, str_code]] -> null
 ;;;
 (define (tm-zotero-Field_setCode tid documentID zfieldID str_code)
-  ;; (tm-zotero-set-message
-  ;;  (string-append "Processing command: Field_setCode " zfieldID "..."))
+  (tm-zotero-set-message
+   (string-append "Processing command: Field_setCode " zfieldID "..."))
   ;; (tm-zotero-format-debug "tm-zotero-Field_setCode:called...")
-  (set! (zfield-Code-code (get-document-zfield-by-zfieldID documentID zfieldID))
-        str_code)
+  (let* ((dd     (get-<document-data> documentID))
+         (zfd    (hash-ref (document-zfield-zfd-ht dd) zfieldID))
+         (zfield (zfd-tree zfd))
+         (scm    (zfield-Code-code->scm str_code)))
+    (set! (zfield-Code-code zfield) str_code)
+    (set! (%zfd-Code-code-ht zfd) scm)
+    ;;(tm-zotero-format-debug "_GREEN_tm-zotero-Field_setCode_RESET_: scm =>\n~s\n" (safe-scm->json-string scm #:pretty #t))
+    )
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
@@ -5081,13 +5693,14 @@ styles."
 ;;; ["Field_getCode", [documentID, fieldID]] -> str_code
 ;;;
 (define (tm-zotero-Field_getCode tid documentID zfieldID)
-  ;; (tm-zotero-set-message
-  ;;  (string-append "Processing command: Field_getCode " zfieldID "..."))
+  (tm-zotero-set-message
+   (string-append "Processing command: Field_getCode " zfieldID "..."))
   ;; (tm-zotero-format-debug "tm-zotero-Field_getCode:called...")
-  (tm-zotero-write tid
-                   (safe-scm->json-string
-                    (zfield-Code-code
-                     (get-document-zfield-by-zfieldID documentID zfieldID)))))
+  (let* ((dd     (get-<document-data> documentID))
+         (zfd-ht (document-zfield-zfd-ht dd))
+         (zfd    (hash-ref zfd-ht zfieldID))
+         (zfield (zfd-tree zfd)))
+    (tm-zotero-write tid (safe-scm->json-string (zfield-Code-code zfield)))))
 
 ;;}}}
 ;;{{{ Field_convert
@@ -5099,8 +5712,8 @@ styles."
 ;;;
 (define (tm-zotero-Field_convert tid documentID
                                  zfieldID str_fieldType int_noteType)
-  ;; (tm-zotero-set-message
-  ;;  (string-append "Processing command: Field_convert " zfieldID "..."))
+  (tm-zotero-set-message
+   (string-append "Processing command: Field_convert " zfieldID "..."))
   (tm-zotero-format-debug "STUB:zotero-Field_convert: ~s ~s ~s ~s"
                    documentID zfieldID
                    str_fieldType int_noteType)
