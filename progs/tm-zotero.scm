@@ -804,7 +804,7 @@
                                        (not (eq? elt zfd)))))
                   (when (is-zbibliography? zfield)
                     ;;(tm-zotero-format-debug "clipboard-cut:is-zbibliography? => #t")
-                    (set! (document-zbiblioraphy-zfd-ls dd)
+                    (set! (document-zbibliography-zfd-ls dd)
                           (list-filter zb-zfd-ls
                                        (lambda (elt)
                                          (not (eq? elt zfd))))))
@@ -872,7 +872,6 @@
     ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_RESET_:  _GREEN_after_RESET_: _BOLD__YELLOW_clipboard-t =>_RESET_\n~y"
     ;;                         (tree->stree clipboard-t))
     ))
-
 
 ;;}}}
 
@@ -5726,4 +5725,5 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;; truncate-lines: t
 ;;; folded-file: t
 ;;; End:
+
 ;;;;;
