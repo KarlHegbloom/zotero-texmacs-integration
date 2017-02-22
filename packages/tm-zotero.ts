@@ -547,13 +547,33 @@
 
   <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|zt-zfieldID|<arg|fieldID>|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>>
 
-  <drd-props|XXXrender-zcite|accessible|1>
+  <inactive|<drd-props|XXXrender-zcite|accessible|1>>
 
   <drd-props|zcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|disable-writability|2|unaccessible|2>
 
   \;
 
+  <\active*>
+    <\src-comment>
+      These macros do not transform their contents, but instead exist in
+      order to wrap their contents and put a handle on those contents. This
+      is for splitting and joining of zcite.
+    </src-comment>
+  </active*>
+
+  <assign|zsubcite|<value|identity>>
+
+  <assign|zciteprefix|<value|identity>>
+
+  <assign|zcitedelimiter|<value|identity>>
+
+  <assign|zcitesuffix|<value|identity>>
+
+  \;
+
   <assign|zt-extra-surround-before|>
+
+  <assign|zt-extra-surround-after|>
 
   \;
 
@@ -568,7 +588,7 @@
   \;
 
   <assign|zbibliography|<\macro|fieldID|fieldCode|fieldText>
-    <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<right-flush>>
+    <\surround|<case|<equal|2|<value|zbibPageBefore>>|<new-dpage*>|<equal|1|<value|zbibPageBefore>>|<page-break*>|><zt-extra-surround-before><set-binding|<merge|zotero|<arg|fieldID>|-noteIndex>|0>|<zt-extra-surround-after><right-flush>>
       <tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zbibliography-heading>
 
       <with|font-size|<value|zt-option-zbib-font-size>|par-left|0tab|par-first|0tab|par-no-first|true|zt-not-inside-zbibliography|false|par-columns|<value|zbibColumns>|dummy|<value|ztbibSubHeadingVspace*>|dummy|<value|zt-link-BibToURL>|dummy|<value|zt-render-bibItemRefsLists>|dummy|<value|zbibPageBefore>|dummy|<value|ztbibSubHeadingTextSize>|dummy|<value|ztbibSubHeadingVspace*>|<arg|fieldText>>

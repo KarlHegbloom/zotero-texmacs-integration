@@ -13,6 +13,7 @@
 ;;;
 ;;;;;;
 
+
 ;;{{{ Module definition and uses, routines from other parts of TeXmacs
 
 ;;;
@@ -54,7 +55,6 @@
         (ice-9 format)
         (ice-9 regex)
         (ice-9 common-list)
-        (ice-9 rw)
         (compat guile-2)
         (term ansi-color)
         (ice-9 optargs)
@@ -64,7 +64,11 @@
 ;;;;;;
 ;;;
 ;;; There has to be a way to define or set this via the normal prefs mechanism
-;;; after guessing a default. For now, hard-code the magic location.
+;;; after guessing a default. For now, I'm hard-coding the magic location. I
+;;; will then build and ship a cache hash-table from the complete set of styles
+;;; cloned from https://github.com/citation-style-language/styles.git plus the
+;;; ones for Juris-M myles, and my own customized indigobook with categorizied
+;;; table of authorities.
 ;;;
 (define tm-zotero-csl-styles-base-directory
   "/home/karlheg/.juris-m/zotero/8l87vugc.default/zotero/styles")
@@ -135,6 +139,7 @@
 (define wait-update-current-buffer (@@ (generic document-edit) wait-update-current-buffer))
 
 ;;}}}
+
 ;;{{{ Error and debugging printouts
 
 ;;;;;;
@@ -158,6 +163,8 @@
 ;;; your ulimit stack or heap limits.
 ;;;
 (debug-set! stack 0)
+
+
 
 (define color-code-rx
   (map (lambda (elt)
@@ -310,6 +317,39 @@
                              "_RESET_\n")))
                           (cdr args)))))))
 
+
+;;}}}
+;;{{{ Status line messages and system-wait messages.
+
+(define right-message "Juris-M / Zotero <---> TeXmacs Integration")
+
+;;;;;;
+;;;
+;;; These strings might ultimately (inside the C++) end up going through a
+;;; language translation table lookup, so I'm using the same strings that are
+;;; found throughout the TeXmacs scheme sources. ☺
+;;;
+(define please-wait "please wait")
+(define soon-ready "(soon ready)")
+
+(define (prefix-message message)
+  (string-append "tm-zotero: " message))
+
+
+(define (tm-zotero-set-message message . timeout)
+  (if (nnull? timeout)
+      (set-temporary-message (prefix-message message) right-message (car timeout))
+      (set-temporary-message (prefix-message message) right-message 1000)))
+
+(define (tm-zotero-system-wait message arg)
+  (system-wait (prefix-message message) arg))
+
+(define (tm-zotero-set-message-and-system-wait message arg . timeout)
+  (if (nnull? timeout)
+      (tm-zotero-set-message message (car timeout))
+      (tm-zotero-set-message message))
+  (tm-zotero-system-wait message arg))
+
 ;;}}}
 
 ;;;;;;
@@ -359,14 +399,22 @@
 ;;;   (Splitting also depends on json->scm of the zfield-Code-code; see
 ;;;    definition of <zfield-data> and tm-zotero-ext:ensure-zfield-interned!.)
 ;;;
+
+(define %zotero-style-citation-layout-prefix "")
+(define %zotero-style-citation-layout-delimiter "")
+(define %zotero-style-citation-layout-suffix "")
+
 (define (zotero-style-citation-layout-prefix)
-  (get-refbinding "zotero-style-citation-layout-prefix"))
+  %zotero-style-citation-layout-prefix)
+  ;; (tree->stree (get-refbinding "zotero-style-citation-layout-prefix")))
 
 (define (zotero-style-citation-layout-delimiter)
-  (get-refbinding "zotero-style-citation-layout-delimiter"))
+  %zotero-style-citation-layout-delimiter)
+  ;; (tree->stree (get-refbinding "zotero-style-citation-layout-delimiter")))
 
 (define (zotero-style-citation-layout-suffix)
-  (get-refbinding "zotero-style-citation-layout-suffix"))
+  %zotero-style-citation-layout-suffix)
+  ;; (tree->stree (get-refbinding "zotero-style-citation-layout-suffix")))
 
 
 ;;;;;;
@@ -565,41 +613,6 @@
       ((in? mode '(:all)) #t))))
 
 
-;;;;;;
-;;;
-;;; Status line messages and system-wait messages.
-;;;
-;;;;;;
-
-(define right-message "Juris-M / Zotero <---> TeXmacs Integration")
-
-;;;;;;
-;;;
-;;; These strings might ultimately (inside the C++) end up going through a
-;;; language translation table lookup, so I'm using the same strings that are
-;;; found throughout the TeXmacs scheme sources. ☺
-;;;
-(define please-wait "please wait")
-(define soon-ready "(soon ready)")
-
-(define (prefix-message message)
-  (string-append "tm-zotero: " message))
-
-
-(define (tm-zotero-set-message message . timeout)
-  (if (nnull? timeout)
-      (set-temporary-message (prefix-message message) right-message (car timeout))
-      (set-temporary-message (prefix-message message) right-message 1000)))
-
-(define (tm-zotero-system-wait message arg)
-  (system-wait (prefix-message message) arg))
-
-(define (tm-zotero-set-message-and-system-wait message arg . timeout)
-  (if (nnull? timeout)
-      (tm-zotero-set-message message (car timeout))
-      (tm-zotero-set-message message))
-  (tm-zotero-system-wait message arg))
-
 ;;}}}
 
 ;;{{{ General category tm-define overloaded
@@ -654,12 +667,12 @@
                  (is-zfield? zfield)))
   ;; (tm-zotero-format-debug "notify-activated:called...")
   (tm-zotero-set-message "zcite reactivated! Checking for modification...")
-  (let* ((documentID (get-documentID))
-         (dd (get-<document-data> documentID))
-         (zfieldID (zfield-zfieldID zfield))
-         (zfd (hash-ref (document-zfield-zfd-ht dd) zfieldID))
-         (origText (zfd-Code-code-properties-plainCitation zfd))
-         (newText  (zfield-Text zfield))
+  (let* ((documentID   (get-documentID))
+         (dd           (get-<document-data> documentID))
+         (zfieldID     (zfield-zfieldID zfield))
+         (zfd          (hash-ref (document-zfield-zfd-ht dd) zfieldID))
+         (origText     (zfd-Code-code-properties-plainCitation zfd))
+         (newText      (zfield-Text zfield))
          (is-modified? (if (string=? newText origText) "false" "true")))
     ;; (tm-zotero-format-debug "notify-activated: origText => ~s" origText)
     ;; (tm-zotero-format-debug "notify-activated: newText => ~s" newText)
@@ -683,21 +696,43 @@
 ;;; each time a zfield is encountered.
 ;;;
 
+;;;;;;
+;;;
+;;; This is flag that will be set while the clipboard-cut operation is taking
+;;; place, in an attempt to try and prevent the ztHrefFromCiteToBib fields
+;;; inside of a selection about to be cut from being interned again right after
+;;; uninterning them just prior to actually cutting the text out of the
+;;; document.
+;;;
+(define fluid/is-during-tm-zotero-clipboard-cut? (make-fluid))
+(fluid-set! fluid/is-during-tm-zotero-clipboard-cut? #f)
 
+(tm-define (is-during-tm-zotero-clipboard-cut?)
+  (fluid-ref fluid/is-during-tm-zotero-clipboard-cut?))
+
+
+;;;;;;
+;;;
+;;; This is an internal function that is expected to be called from inside the
+;;; dynamic extent of a fluid-let fluid/is-during-tm-zotero-clipboard-cut? #t,
+;;; and does not check for that condition. Without that fluid for a locking
+;;; mechanism, the uninterned tags would get interned again right behind us as
+;;; soon as the GUI main-loop and typesetter run again!
+;;;
 (define (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
   ;;(tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_called..._RESET_")
-  (let* ((dd (get-<document-data> documentID))
-         (zhd-ht (document-ztbibItemRefs-ht dd))
-         (zfieldID (zfield-zfieldID zfield))
+  (let* ((dd         (get-<document-data> documentID))
+         (zhd-ht     (document-ztbibItemRefs-ht dd))
+         (zfieldID   (zfield-zfieldID zfield))
          (ztHref*-ls (tm-search
                       zfield
                       (cut tm-func? <> 'ztHrefFromCiteToBib))))
     (map (lambda (ztHref*)
            ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:  _GREEN_map lambda_WHITE_:ztHref* => ~s_RESET_"
            ;;                         (tree->stree ztHref*))
-           (let* ((sysID (ztHref*-sysID ztHref*))
+           (let* ((sysID     (ztHref*-sysID ztHref*))
                   (ref-label (ztHrefFromCiteToBib-reflabel zfieldID sysID))
-                  (zhd (hash-ref zhd-ht ref-label #f)))
+                  (zhd       (hash-ref zhd-ht ref-label #f)))
              (if zhd
                  (begin
                    ;; (tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:  _GREEN_map lambda_WHITE_:_GREEN_removing zhd with ref-label: _BOLD_~s_RESET_" ref-label)
@@ -732,18 +767,18 @@
   (with-fluids
       ((fluid/is-during-tm-zotero-clipboard-cut? #t))
     ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_WHITE_:_GREEN_called_RESET_")
-    (let* ((documentID (get-documentID))
-           (dd (get-<document-data> documentID))
-           (zfd-ht (document-zfield-zfd-ht dd))
-           (zfd-ls (document-zfield-zfd-ls dd))
-           (zb-zfd-ls (document-zbibliography-zfd-ls dd))
+    (let* ((documentID     (get-documentID))
+           (dd             (get-<document-data> documentID))
+           (zfd-ht         (document-zfield-zfd-ht dd))
+           (zfd-ls         (document-zfield-zfd-ls dd))
+           (zb-zfd-ls      (document-zbibliography-zfd-ls dd))
            (new-zfield-zfd (document-new-zfield-zfd dd))
-           (selection-t (selection-tree))
-           (copy-t (tree-copy selection-t))
-           (c-zfields (tm-search copy-t is-zfield?)))
+           (selection-t    (selection-tree))
+           (copy-t         (tree-copy selection-t))
+           (c-zfields      (tm-search copy-t is-zfield?)))
       (map (lambda (zfield)
            (let* ((zfieldID (zfield-zfieldID zfield))
-                  (zfd (hash-ref zfd-ht zfieldID #f)))
+                  (zfd      (hash-ref zfd-ht zfieldID #f)))
              (cond
                ((and zfd (not (eq? zfd new-zfield-zfd)))
                 (unintern-ztHrefFromCiteToBib-for-cut documentID zfield))
@@ -776,25 +811,17 @@
   (with-fluids
       ((fluid/is-during-tm-zotero-clipboard-cut? #t))
     ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_WHITE_:_GREEN_called_RESET_, which => ~s" which)
-    (let* (;;(dummy (tm-zotero-format-debug "clipboard-cut:documentID..."))
-           (documentID (get-documentID))
-           (dd (get-<document-data> documentID))
-           ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfd-ht..."))
-           (zfd-ht (document-zfield-zfd-ht dd))
-           ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfd-ls..."))
-           (zfd-ls (document-zfield-zfd-ls dd))
-           ;;(dummy (tm-zotero-format-debug "clipboard-cut:zb-zfd-ls..."))
-           (zb-zfd-ls (document-zbibliography-zfd-ls dd))
-           ;;(dummy (tm-zotero-format-debug "clipboard-cut:new-zfield-zfd..."))
+    (let* ((documentID     (get-documentID))
+           (dd             (get-<document-data> documentID))
+           (zfd-ht         (document-zfield-zfd-ht dd))
+           (zfd-ls         (document-zfield-zfd-ls dd))
+           (zb-zfd-ls      (document-zbibliography-zfd-ls dd))
            (new-zfield-zfd (document-new-zfield-zfd dd))
-           ;;(dummy (tm-zotero-format-debug "clipboard-cut:selection-t..."))
-           (selection-t (selection-tree))
-           ;;(dummy (tm-zotero-format-debug "clipboard-cut:selection-t => ~s" (tree->stree selection-t)))
-           ;;(dummy (tm-zotero-format-debug "clipboard-cut:zfields..."))
-           (zfields (tm-search selection-t is-zfield?)))
+           (selection-t    (selection-tree))
+           (zfields        (tm-search selection-t is-zfield?)))
       (map (lambda (zfield)
              (let* ((zfieldID (zfield-zfieldID zfield))
-                    (zfd (hash-ref zfd-ht zfieldID #f)))
+                    (zfd      (hash-ref zfd-ht zfieldID #f)))
                (cond
                  ((and zfd (not (eq? zfd new-zfield-zfd)))
                   ;;(tm-zotero-format-debug "clipboard-cut:zfd => ~s (~s)" zfd zfieldID)
@@ -879,11 +906,11 @@
 ;;{{{ Preferences and Settings (with-like, global, document-wide)
 
 (texmacs-modes
-  (in-tm-zotero-style% (style-has? "tm-zotero-dtd"))
-  (focus-is-zcite% (tree-is? (focus-tree) 'zcite) in-tm-zotero-style%)
+  (in-tm-zotero-style%     (style-has? "tm-zotero-dtd"))
+  (focus-is-zcite%         (tree-is? (focus-tree) 'zcite) in-tm-zotero-style%)
   (focus-is-zbibliography% (tree-is? (focus-tree) 'zbibliography) in-tm-zotero-style%)
-  (focus-is-zfield% (or (focus-is-zcite?) (focus-is-zbibliography?)))
-  (focus-is-ztHref% (tree-is? (focus-tree) 'ztHref) in-tm-zotero-style%))
+  (focus-is-zfield%        (or (focus-is-zcite?) (focus-is-zbibliography?)))
+  (focus-is-ztHref%        (tree-is? (focus-tree) 'ztHref) in-tm-zotero-style%))
 
 ;;;
 ;;; TODO Invent a good naming convention for the below preferences and
@@ -1174,8 +1201,11 @@
                               (== var "id"))
                      (let ((psd (tm-zotero-get-citation-layout-prefix-delimiter-suffix (cadar attr-list))))
                        (set-init-env (string-append prefix "citation-layout-prefix") (car psd))
+                       (set! %zotero-style-citation-layout-prefix (car psd))
                        (set-init-env (string-append prefix "citation-layout-delimiter") (cadr psd))
-                       (set-init-env (string-append prefix "citation-layout-suffix") (caddr psd))))
+                       (set! %zotero-style-citation-layout-delimiter (cadr psd))
+                       (set-init-env (string-append prefix "citation-layout-suffix") (caddr psd))
+                       (set! %zotero-style-citation-layout-suffix (caddr psd))))
                    (loop (cdr attr-list)))))))))
     (let loop ((sxml (cdr (parse-xml str_dataString))))
       (cond
@@ -1549,9 +1579,9 @@
 
 ;;{{{ zfield tag definitions, insert-new-zfield
 
-(define-public zfield-tags '(zcite zbibliography))
+(define-public zfield-tags  '(zcite zbibliography))
 (define-public ztHref*-tags '(ztHrefFromCiteToBib ztHrefFromBibToURL))
-(define-public ztHref-tags '(ztHref))
+(define-public ztHref-tags  '(ztHref))
 
 (define-public ztRefsList-ensure-interned-tags '(zcite ztbibItemText))
 
@@ -1603,7 +1633,9 @@
 
 ;;;;;;
 ;;;
-;;; This is the top-half of new zfield insertion.
+;;; This is the top-half of new zfield insertion. It is *not* used by the code
+;;; that implements splitting of multi-citation zcite fields into multiple
+;;; zcite fields.
 ;;;
 ;;; This always happens at the cursor position. After the insert, the cursor is
 ;;; at the right edge of the newly inserted zfield, just inside the light-blue
@@ -1619,9 +1651,9 @@
 ;;;
 (define (insert-new-zfield tag placeholder)
   (if (not (focus-is-zfield?))
-      (let* ((documentID (get-documentID))
+      (let* ((documentID   (get-documentID))
              (new-zfieldID (get-new-zfieldID))
-             (new-zfd (make-instance <zfield-data>))
+             (new-zfd      (make-instance <zfield-data>))
              (new-zfield
               (stree->tree
                `(,tag
@@ -2114,7 +2146,7 @@
    #:slot-set! (lambda (zfd tp)
                  (if (and tp (observer? tp))
                      (begin
-                       (tp-guardian tp)
+                       ;;(tp-guardian tp)
                        (slot-set! zfd '%tree-pointer tp))
                      (begin
                        (slot-set! zfd '%tree-pointer #f)))))
@@ -2324,14 +2356,16 @@
        (hash-set! citationItem "suffix" suffix)))))
 
 
-;; When label is blank, it generally means the same thing as "page" whenever
-;; locator is set. Otherwise it might be any one of the several locator
-;; strings:
-;;
+;;;;;;
+;;;
+;;; When label is blank, it generally means the same thing as "page" whenever
+;;; locator is set. Otherwise it might be any one of the several locator
+;;; strings:
+;;;
 (define zotero-csl-locator-strings
   '("book" "chapter" "column" "figure" "folio" "line" "note" "opus"
     "page" "paragraph" "part" "section" "verse" "issue" "volume"))
-;;
+;;;
 (define citationItem-label
   (make-procedure-with-setter
    ;; ref
@@ -2386,7 +2420,7 @@
    #:slot-set! (lambda (zhd tp)
                  (if (and tp (observer? tp))
                      (begin
-                       (tp-guardian tp)
+                       ;;(tp-guardian tp)
                        (slot-set! zhd '%tree-pointer tp))
                      (begin
                        (slot-set! zhd '%tree-pointer #f)))))
@@ -3359,21 +3393,6 @@
   (close-tm-zotero-socket-port!))       ;; free the IP port for re-use
 
 (define tm-zotero-socket-port #f)
-
-
-;;;;;;
-;;;
-;;; This is flag that will be set while the clipboard-cut operation is taking
-;;; place, in an attempt to try and prevent the ztHrefFromCiteToBib fields
-;;; inside of a selection about to be cut from being interned again right after
-;;; uninterning them just prior to actually cutting the text out of the
-;;; document.
-;;;
-(define fluid/is-during-tm-zotero-clipboard-cut? (make-fluid))
-(fluid-set! fluid/is-during-tm-zotero-clipboard-cut? #f)
-
-(tm-define (is-during-tm-zotero-clipboard-cut?)
-  (fluid-ref fluid/is-during-tm-zotero-clipboard-cut?))
 
 ;;;;;;
 ;;;
@@ -5460,6 +5479,72 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;          (apply regexp-substitute/global `(#f ,(caar rc) ,str_text ,@(cdar rc)))
 ;;          (cdr rc)))))
 
+;;;;;;
+;;;
+;;; For splitting by the layout-delimiter.
+;;;
+;;;    string-contains s1 s2 [start1 [end1 [start2 [end2]]]]
+;;;
+;;;   Does s1 contain s2? Return the index in s1 where s2 occurs as a
+;;;   substring, or false. The optional start/end indices restrict the
+;;;   operation to the indicated substrings.
+;;;
+(define (split-string-by-substr s1 s2)
+  ;; (tm-zotero-format-debug "_BOLD__YELLOW_split-string-by-subst_RESET_:s1 => ~s" s1)
+  ;; (tm-zotero-format-debug "_BOLD__YELLOW_split-string-by-subst_RESET_:s2 => ~s" s2)
+  (do ((j (string-contains s1 s2 0) (string-contains s1 s2 (+ j (string-length s2))))
+       (i 0 (+ j (string-length s2)))
+       (ret '()))
+      ((not j) (reverse (cons (substring s1 i (string-length s1)) ret)))
+    (set! ret (cons (substring s1 i j) ret))
+    ;; (tm-zotero-format-debug "_BOLD__YELLOW_split-string-by-subst_RESET_:ret => ~s" ret)
+    ))
+
+
+;;;;;;
+;;;
+;;; The \zciteprefix{}, \zsubcite{}, \zcitedelimiter{}, and \zcitesuffix{}
+;;; macros are all effectively defined as \identity{}.
+;;;
+(define (tm-zotero-zsubcite-grouping-transform str_text)
+  (let* ((layout-prefix    (or (zotero-style-citation-layout-prefix)    ""))
+         (layout-delimiter (or (zotero-style-citation-layout-delimiter) ""))
+         (layout-suffix    (or (zotero-style-citation-layout-suffix)    ""))
+         ;; might not have layout-suffix present if suppress trailing punctuation is set.
+         (has-layout-suffix? (and (not (== "" layout-suffix))
+                                  (string-suffix? layout-suffix str_text))))
+    (if (== "" layout-delimiter) ;; can not split on empty string anyway.
+        str_text
+        (begin
+          ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:str_text => ~s" str_text)
+          ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:layout-prefix    => ~s" layout-prefix)
+          ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:layout-delimiter => ~s" layout-delimiter)
+          ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:layout-suffix    => ~s" layout-suffix)
+          (when (and (not (== "" layout-prefix))
+                     (string-prefix? layout-prefix str_text))
+            (set! str_text (substring str_text
+                                      (string-length layout-prefix)
+                                      (string-length str_text))))
+          ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:str_text => ~s" str_text)
+          (when (and (not (== "" layout-suffix))
+                     (string-suffix? layout-suffix str_text))
+            (set! str_text (substring str_text
+                                      0
+                                      (- (string-length str_text)
+                                         (string-length layout-suffix)))))
+          ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:str_text => ~s" str_text)
+          (let* ((split-str (split-string-by-substr str_text layout-delimiter))
+                 (zsubcited (map (lambda (str) (string-append "\\zsubcite{" str "}")) split-str)))
+            ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:split-str => ~s" split-str)
+            ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:zsubcited => ~s" zsubcited)
+            (string-append (if (not (== "" layout-prefix))
+                               (string-append "\\zciteprefix{" layout-prefix "}")
+                               "")
+                           (string-join zsubcited (string-append "\\zcitedelimiter{" layout-delimiter "}"))
+                           (if has-layout-suffix?
+                               (string-append "\\zcitesuffix{" layout-suffix "}")
+                               "")))))))
+
 
 (cond-expand
   (guile-2
@@ -5520,6 +5605,8 @@ styles. doi: forms are short, so they don't need to be put on their own line."
          (strls (string-split str_text creturn))
          (strls (map (cut string-trim <> cnewline) strls))
          (strls (map tm-zotero-regex-transform strls))
+         (strls (or (and is-bib? strls)
+                    (map tm-zotero-zsubcite-grouping-transform strls)))
          ;; Q: What advantage would there be to have parse-latex accept a
          ;; UTF-8, rather than Cork encoded, string?
          (str_text (string-convert
@@ -5595,10 +5682,10 @@ styles. doi: forms are short, so they don't need to be put on their own line."
   ;; (tm-zotero-format-debug "zfield-IsNote?:called...")
   ;; Inside a "with" context that has zt-option-this-zcite-in-text true?
   (and (not (tree-is? zfield 'zbibliography))
-       (let* ((with-t (with-like-search (tree-ref zfield :up)))
-              (in-text-opt (and with-t
-                                (with-ref with-t
-                                          "zt-option-this-zcite-in-text")))
+       (let* ((with-t          (with-like-search (tree-ref zfield :up)))
+              (in-text-opt     (and with-t
+                                    (with-ref with-t
+                                              "zt-option-this-zcite-in-text")))
               (forced-in-text? (and in-text-opt
                                     (== (tree->string in-text-opt) "true"))))
          (or
