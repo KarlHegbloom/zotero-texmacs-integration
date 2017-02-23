@@ -57,6 +57,7 @@
         (ice-9 common-list)
         (compat guile-2)
         (term ansi-color)
+        ;; TODO Find out if my plugin can perform args processing for batch use?
         (ice-9 optargs)
         ))
 
@@ -69,6 +70,11 @@
 ;;; cloned from https://github.com/citation-style-language/styles.git plus the
 ;;; ones for Juris-M myles, and my own customized indigobook with categorizied
 ;;; table of authorities.
+;;;
+;;; This ought to be a separate program, or operated by a command-line switch
+;;; or scheme thunk invocation or something, so that it can be done as a
+;;; "batch" process from the command line, a post-inst script, a cron script,
+;;; or a git pull hook...
 ;;;
 (define tm-zotero-csl-styles-base-directory
   "/home/karlheg/.juris-m/zotero/8l87vugc.default/zotero/styles")
@@ -582,13 +588,17 @@
   (not (not (tree-search-upwards t zfield-tags))))
 
 
+(define (inside-zsubCite? t)
+  (not (not (tree-search-upwards t '(zsubCite)))))
+
 
 (define (inside-inactive? t)
-  (or (and (not (tree? t))
-           #f)
-      (and (tm-atomic? t)
-           (== "+DISACTIVATED" (tree->stree t)))
-      (tree-search-upwards t 'inactive)))
+  (cond
+    ((not (tree? t)) #f)
+    ((and (tm-atomic? t)
+          (== "+DISACTIVATED" (tree->stree t))) #t)
+    (else
+      (tree-search-upwards t 'inactive))))
 
 
 ;;;;;;
@@ -611,7 +621,6 @@
       ((in? mode '(:one :several)) (not (not (tree-search-upwards t 'show-part))))
       ((in? mode '(:preamble)) #f)
       ((in? mode '(:all)) #t))))
-
 
 ;;}}}
 
@@ -683,6 +692,63 @@
   (wait-update-current-buffer)
   #t)
 
+
+;;;;;;
+;;;
+;;; zfield can be (focus-tree)
+;;;
+(tm-define (toggle-focus-zcite-suppress-trailing-punctuation . ign)
+  (:secure)
+  (when (and (in-tm-zotero-style?)
+             (focus-is-zcite?))
+    (toggle-zfield-suppress-trailing-punctuation (focus-tree))))
+
+
+(define-public (toggle-zfield-suppress-trailing-punctuation zfield)
+  (let* ((documentID    (get-documentID))
+         (zfieldID      (zfield-zfieldID zfield))
+         (is-note?      (zfield-IsNote? zfield))
+         (dd            (get-<document-data> documentID))
+         (zfd-ht        (document-zfield-zfd-ht dd))
+         (zfd           (hash-ref zfd-ht zfieldID #f))
+         (layout-suffix (or (zotero-style-citation-layout-suffix) ""))
+         (suppress?
+          (and zfd
+               (zfd-Code-code-properties-suppress-trailing-punctuation zfd)))
+         (formattedCitation
+          (and zfd
+               (zfd-Code-code-properties-formattedCitation zfd)))
+         (formattedCitation
+          (if (string-prefix? "{\\rtf " formattedCitation)
+              (substring formattedCitation 6 (1- (string-length formattedCitation)))
+              formattedCitation)))
+    (with-fluids
+        ((fluid/is-during-tm-zotero-clipboard-cut? #t))
+      (if suppress?
+          ;; Toggling the trailing punctuation on.
+          (unless (string-suffix? layout-suffix formattedCitation)
+            (set! (zfd-Code-code-properties-formattedCitation zfd)
+                  (string-append "{\\rtf " formattedCitation layout-suffix "}")))
+          ;; Toggling the trailing punctuation off.
+          (when (string-suffix? layout-suffix formattedCitation)
+            (set! (zfd-Code-code-properties-formattedCitation zfd)
+                  (string-append "{\\rtf "
+                                 (substring
+                                  formattedCitation
+                                  0
+                                  (- (string-length formattedCitation)
+                                     (string-length layout-suffix)))
+                                 "}"))))
+      (when zfd
+        (set! (zfd-Code-code-properties-suppress-trailing-punctuation zfd)
+              (not (zfd-Code-code-properties-suppress-trailing-punctuation zfd))))
+      (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
+      (set! (zfield-Text-t zfield)
+            (tm-zotero-UTF-8-str_text->texmacs (zfd-Code-code-properties-formattedCitation zfd) is-note? #f))
+      (set! (zfd-Code-code-properties-plainCitation zfd)
+            (zfield-Text zfield))
+      (set! (zfield-Code-is-modified?-flag zfield) "false"))
+    (not suppress?)))
 
 ;;;;;;
 ;;;
@@ -759,6 +825,13 @@
   )
 
 
+;;;;;;
+;;;
+;;; clipboard-copy of any selection-tree that has-zfields?
+;;;
+;;;  TODO Almost identical to clipboard-cut; could be abstracted into one
+;;;       routine with two wrappers.
+;;;
 (tm-define (clipboard-copy which)
   (:require (and (in-tm-zotero-style?)
                  (in-text?)
@@ -802,7 +875,10 @@
     ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_WHITE_:_GREEN_returning._RESET_")
     ))
 
-
+;;;;;;
+;;;
+;;; clipboard-cut of any selection-tree that has-zfields?
+;;;
 (tm-define (clipboard-cut which)
   (:require (and (in-tm-zotero-style?)
                  (in-text?)
@@ -868,6 +944,140 @@
 
 ;;;;;;
 ;;;
+;;; clipboard-cut of a selection-tree that has-zsubCites? inside the context of
+;;; an inactive zcite, which having been disactivated, allows the cursor to
+;;; move inside, and for a selection and clipboard-cut to be made there using,
+;;; e.g., C-SPC, Left, Left, ... C-w.
+;;;
+;;; Adjust selection extents to include only integral zsubCite and to exclude
+;;; zciteLayoutPrefix, zciteLayoutDelimiter, and zciteLayoutSuffix at the ends
+;;; of the selection.
+;;;
+;;; - When the selection-start is inside of a zsubCite, move it to the left to
+;;;   point to the start of that zsubCite instead of to a point inside of
+;;;   it. How: Get the zsubCite tree with tree-search-upwards, and simply set
+;;;   selection-start to the path to that tree's start.
+;;;
+;;; - When the selection-end is inside of a zsubCite, move it to the right to
+;;;   point to the end of that zsubCite instead of to a point inside of it.
+;;;
+;;; - When the selection-start is inside of a zciteLayoutPrefix, move
+;;;   selection-start out of the zciteLayoutPrefix to the zsubCite just after
+;;;   it. It does not make sense for selection-end to be inside either, and it
+;;;   ought to be moved out of the zciteLayoutPrefix toward the right also.
+;;;
+;;; - When the selection-start is inside of a zciteLayoutDelimiter, move it out
+;;;   toward the right. When selection-end is inside of a zciteLayoutDelimiter,
+;;;   move it out toward the left.
+;;;
+;;; - When the selection-start is inside of a zciteLayoutSuffix, it makes
+;;;   little sense, but in case it happens, move selection-start out towards
+;;;   the left of the zciteLayoutSuffix. When selection-end is inside of a
+;;;   zciteLayoutSuffix, move it out towards the left also.
+;;;
+;;; - !! Be sure to check for and handle the case where there is no longer a
+;;;      valid selection-tree after all of this!
+;;;
+;;; This will leave behind leading and trailing instances of zciteLayoutPrefix,
+;;; zciteLayoutDelimiter, and zciteLayoutSuffix inside of the
+;;; zfield-Text-t. These will need to be automagically cleaned up... keeping
+;;; that in mind...
+;;;
+;;; When the data is being pasted back inside of the running text of the
+;;; document, I want it to behave as though what was cut was an entire zcite
+;;; rather than one or more zsubCite within it... and so I want to disactivate
+;;; a zcite, arrow inside of it, highlight and cut a zsubCite from it,
+;;; re-activate the zcite tag, then paste the clipboard into the document, and
+;;; have that insert a new zcite that contains the zsubCite cut from the first
+;;; zcite. The first zcite should not have that zsubCite any longer, nor any of
+;;; the zfield-Code-code / zfd-Code-code-ht information for the part cut from
+;;; it.
+;;;
+;;; When the data is pasted back inside of this same disactivated zcite, or
+;;; inside of a different disactivated zcite---potentially more than
+;;; once---everything should work according to the principle of least
+;;; surprise... Those zsubCite's need to be inserted into the zfield-Text-t at
+;;; the cursor location, and the zfield-Code-code / zfd-Code-code-ht updated
+;;; appropriately, remembering to keep the citationItems in order.
+;;;
+;;; - In order for it to do either thing, the meta-data for the zsubCite's
+;;;   being copied or cut (to be pasted later) must be stored along with the
+;;;   selected clipping, so that it can become part of any zcite field that it
+;;;   gets pasted into later.
+;;;
+;;;   - The document structure that is already equipped to contain that
+;;;     information is, of course, the zcite itself. So copying or cutting
+;;;     zsubCite out of disactivated zcite will put a newly constructed zcite
+;;;     onto the clipboard.
+;;;
+;;; - Pasteing a zcite inside of a disactivated zcite will insert the
+;;;   zsubCite's into it's zfield-Text-t, and consolodate the metadata,
+;;;
+;;; Capture a clipboard-copy of the entire zcite this operation is taking place
+;;; inside of.
+;;;
+;;;   Insert that copy into a temporary buffer that has tm-zotero.ts. Create a
+;;;   <zfield-data> object for it, ensuring that the zfield-Code-code has been
+;;;   parsed and is available as (let ((ht (zfd-Code-code-ht zfd)... and so
+;;;   that (set! (zfd-Code-code-ht zfd) ht) causes the #:slot-set! magic to
+;;;   happen. That will be used to:
+;;;
+;;; 
+;;;
+;;; Capture the selection tree
+;;;
+;;; Clean up extraneous zciteLayoutPrefix, zciteLayoutDelimiter, or
+;;; zciteLayoutSuffix. There will be a suffix only if it has one set and omit
+;;; trailing punctuation is not set for the zcite; When there's a
+;;; zciteLayoutDelimiter followed by a zciteLayoutSuffix, the
+;;; zciteLayoutDelimiter can be removed.
+;;;
+;;;   When there's no zsubCite's left at all, the entire zfield needs to be
+;;;   removed from the document.
+;;;
+;;;     (This is the case where I disactivate the focus-tree zcite with
+;;;      Backspace, then arrow inside and select all of the zsubCite blocks,
+;;;      and push C-w; ought to be almost the same thing as highlighting the
+;;;      entire zfield without disactivating it, then using clipboard-cut on
+;;;      it.)
+;;;
+;;;;;;
+
+(tm-define (clipboard-cut which)
+  (:require (let ((st (selection-tree)))
+              (and (in-tm-zotero-style?)
+                   (not (is-during-tm-zotero-clipboard-cut?))
+                   (in-text?)
+                   (inside-inactive?  st)
+                   (inside-zcite?     st)
+                   (has-zsubCites?    st))))
+  (with-fluids
+      ((fluid/is-during-tm-zotero-clipboard-cut? #t))
+    ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_WHITE_:_GREEN_called_RESET_, which => ~s" which)
+
+
+    ;;; pasted in from above; this function not edited yet below here! STUB
+    (let* ((documentID     (get-documentID))
+           (dd             (get-<document-data> documentID))
+           (zfd-ht         (document-zfield-zfd-ht dd))
+           (zfd-ls         (document-zfield-zfd-ls dd))
+           (zb-zfd-ls      (document-zbibliography-zfd-ls dd))
+           (new-zfield-zfd (document-new-zfield-zfd dd))
+           (selection-t    (selection-tree))
+           (zfields        (tm-search selection-t is-zfield?)))
+      (map (lambda (zfield)
+             (let* ((zfieldID (zfield-zfieldID zfield))
+                    (zfd      (hash-ref zfd-ht zfieldID #f)))
+               
+               )
+             )
+           )
+      )
+    )
+  )
+
+;;;;;;
+;;;
 ;;; When pasting in a tree that contains any zfields, it is important to give
 ;;; each zfield a new zfieldID. Otherwise, Zotero will change every one of them
 ;;; that has the same id to have the same text!
@@ -907,10 +1117,87 @@
 
 (texmacs-modes
   (in-tm-zotero-style%     (style-has? "tm-zotero-dtd"))
-  (focus-is-zcite%         (tree-is? (focus-tree) 'zcite) in-tm-zotero-style%)
+  ;;
+  (focus-is-zcite%         (tree-is? (focus-tree) 'zcite)         in-tm-zotero-style%)
   (focus-is-zbibliography% (tree-is? (focus-tree) 'zbibliography) in-tm-zotero-style%)
   (focus-is-zfield%        (or (focus-is-zcite?) (focus-is-zbibliography?)))
-  (focus-is-ztHref%        (tree-is? (focus-tree) 'ztHref) in-tm-zotero-style%))
+  (focus-is-ztHref%        (tree-is? (focus-tree) 'ztHref)        in-tm-zotero-style%)
+  ;;
+  (focus-is-zsubCite%             (tree-is? (focus-tree) 'zsubCite)             in-tm-zotero-style%)
+  (focus-is-zciteLayoutPrefix%    (tree-is? (focus-tree) 'zciteLayoutPrefix)    in-tm-zotero-style%)
+  (focus-is-zciteLayoutDelimiter% (tree-is? (focus-tree) 'zciteLayoutDelimiter) in-tm-zotero-style%)
+  (focus-is-zciteLayoutSuffix%    (tree-is? (focus-tree) 'zciteLayoutSuffix)    in-tm-zotero-style%)
+  ;;
+  )
+
+(kbd-commands
+  ("zc" "Insert Zotero Citation"
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addCitation)))
+  ("zcite" "Insert Zotero Citation"
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addCitation)))
+  ("zb" "Insert Zotero Bibliography"
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addBibliography)))
+  ("zbibliography" "Insert Zotero Bibliography"
+   (when (and (in-tm-zotero-style?)
+              (not (focus-is-zfield?)))
+     (tm-zotero-addBibliography))))
+
+
+(kbd-map
+ (:mode in-tm-zotero-style?)
+ ("M-C-r" (interactive tm-zotero-refresh)))
+
+
+;; (kbd-map
+;;   (:mode (and (in-tm-zotero-style?)
+;;               (focus-is-zcite?)))
+;;   ("C-." (interactive toggle-focus-zcite-suppress-trailing-punctuation)))
+
+
+(tm-define (kbd-shift-space)
+  (:require (and (in-tm-zotero-style?)
+                 (focus-is-zcite?)))
+  (toggle-focus-zcite-suppress-trailing-punctuation))
+
+
+
+;; (tm-define (kbd-tab)
+;;   (:require (in-tm-zotero-style?))
+;;   (zt-format-debug "Debug:kbd:kbd-tab: (inside-which '(zcite)) => ~s\n"
+;;                    (inside-which '(zcite)))
+;;   (zt-format-debug "Debug:kbd:kbd-tab: (get-focus-path) => ~s\n"
+;;                    (get-focus-path))
+;;   (zt-format-debug "Debug:kbd:kbd-tab: (focus-tree) => ~s\n" (focus-tree))
+;;   (zt-format-debug "Debug:kbd:kbd-tab: (tree-label (focus-tree)) => ~s\n"
+;;                    (tree-label (focus-tree)))
+;;   (zt-format-debug "Debug:kbd:kbd-tab: (tree-func? (focus-tree) 'zcite) => ~s\n"
+;;                    (tree-func? (focus-tree) 'zcite)))
+;;
+;; Cursor is at right end of zcite, blue highlight appears around it.
+;; Debug => Status => Path menu prints [ 1, 1, 2, 1 ].
+;; Debug:kbd:kbd-tab: (inside-which '(zcite)) => #f
+;; Debug:kbd:kbd-tab: (get-focus-path) => (1 1 2)
+;; Debug:kbd:kbd-tab: (focus-tree) => <tree <zcite|+JGeR0gQNwL2AKT|ITEM CSL_CITATION {"citationID"...
+;; Debug:kbd:kbd-tab: (tree-label (focus-tree)) => zcite
+;; Debug:kbd:kbd-tab: (tree-func? (focus-tree) 'zcite) => #t
+
+
+(tm-define (kbd-tab)
+  (:require (and (focus-is-zcite?)
+                 (not (in-source?))))
+  (tm-zotero-editCitation))
+
+(tm-define (kbd-tab)
+  (:require (and (focus-is-zbibliography?)
+                 (not (in-source?))))
+  (tm-zotero-editBibliography))
+
 
 ;;;
 ;;; TODO Invent a good naming convention for the below preferences and
@@ -1585,13 +1872,18 @@
 
 (define-public ztRefsList-ensure-interned-tags '(zcite ztbibItemText))
 
-(define tm-zotero-bbl-formats-tags
+(define propachi-texmacs-citeproc-output-format-bbl-tags
   '(zttextit zttexts zttextup zttextsc zttextnormal zttextbf zttextmd
     ;; underline textsuperscript textsubscript ; not ours
     ztbibItemText ztNewBlock ztLeftMargin ztRightInline ztbibIndent
     ztShowId
     ;; ztHref ztDefaultCiteURL ; wrong category
     ))
+
+(define zsubCite-grouping-tags
+  '(zsubCite
+    zciteLayoutPrefix zciteLayoutDelimiter zciteLayoutSuffix))
+
 
 ;;; Inside of a zcite's "with" environment is defined:
 ;;;   zt-zfieldID which is bound to the fieldID.
@@ -1611,12 +1903,32 @@
   (tm-in? t zfield-tags))
 
 
+
+(define-public (is-zsubCite? t)
+  (tm-is? t 'zsubCite))
+
+
+(define-public (is-zciteLayoutPrefix? t)
+  (tm-is? t 'zciteLayoutPrefix))
+
+(define-public (is-zciteLayoutDelimiter? t)
+  (tm-is? t 'zciteLayoutDelimiter))
+
+(define-public (is-zciteLayoutSuffix? t)
+  (tm-is? t 'zciteLayoutSuffix))
+
+
 ;;;;;;
 ;;;
-;;; These are needed for e.g., clipboard-cut and clipboard-paste.
+;;; These are needed for e.g., :require for clipboard-cut and clipboard-paste.
 ;;;
 (define-public (has-zfields? t)
   (tm-find t is-zfield?))
+
+
+(define-public (has-zsubCites? t)
+  (tm-find t is-zsubCite?))
+
 
 (define-public (is-ztHref*? t)
   (tm-in? t ztHref*-tags))
@@ -1624,11 +1936,13 @@
 (define-public (is-ztHref? t)
   (tm-in? t ztHref-tags))
 
+
 (define-public (is-tm-zotero-tag t)
-  (or (tm-in? t tm-zotero-bbl-formats-tags)
+  (or (tm-in? t propachi-texmacs-citeproc-output-format-bbl-tags)
       (tm-in? t ztHref*-tags)
       (tm-in? t ztHref-tags)
-      (tm-in? t zfield-tags)))
+      (tm-in? t zfield-tags)
+      (tm-in? t zsubCite-grouping-tags)))
 
 
 ;;;;;;
@@ -3195,7 +3509,7 @@
 ;;;
 ;;; Return the ztbibItemRefsList for this zfieldID.
 ;;;
-(tm-define (tm-zotero-ext:get-ztbibItemRefsList sysID-t)
+(tm-define (tm-zotero-ext:get-ztbibItemRefsList sysID-t left-t right-t)
   (:secure)
   (let* ((sysID (tree->stree sysID-t))
          (documentID (get-documentID))
@@ -3203,7 +3517,9 @@
          (zhd-ls (hash-ref zhd-ht sysID '()))
          (ref-labels-ls (map the-ref-label-of zhd-ls)))
     ;; (tm-zotero-format-debug "tm-zotero-ext:_BOLD_get-ztbibItemRefsList:_RESET_ _GREEN_ref-labels-ls_RESET_ => ~s" ref-labels-ls)
-    `(zt-ref-sep ,@ref-labels-ls)))
+    (if (null? ref-labels-ls)
+        ""
+        `(concat ,(tree->stree left-t) (zt-ref-sep ,@ref-labels-ls) ,(tree->stree right-t)))))
 
 ;;;;;;
 ;;;
@@ -5503,10 +5819,15 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 
 ;;;;;;
 ;;;
-;;; The \zciteprefix{}, \zsubcite{}, \zcitedelimiter{}, and \zcitesuffix{}
-;;; macros are all effectively defined as \identity{}.
+;;; The \zsubCite{}, \zciteLayoutPrefix{}, \zciteLayoutDelimiter{}, and
+;;; \zciteLayoutSuffix{} macros are all effectively defined in tm-zotero.ts as
+;;; \identity{}. They do not transform their contents, but instead provide a
+;;; location in the document and a wrapper with a handle on it around each of
+;;; the zfield-Text-t subCite. This is for selection highlighting with the
+;;; zcite tag disactivated, prior to using clipboard-copy, clipboard-cut, or
+;;; clipboard-paste within that context.
 ;;;
-(define (tm-zotero-zsubcite-grouping-transform str_text)
+(define (tm-zotero-zsubCite-grouping-transform str_text)
   (let* ((layout-prefix    (or (zotero-style-citation-layout-prefix)    ""))
          (layout-delimiter (or (zotero-style-citation-layout-delimiter) ""))
          (layout-suffix    (or (zotero-style-citation-layout-suffix)    ""))
@@ -5534,15 +5855,15 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                                          (string-length layout-suffix)))))
           ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:str_text => ~s" str_text)
           (let* ((split-str (split-string-by-substr str_text layout-delimiter))
-                 (zsubcited (map (lambda (str) (string-append "\\zsubcite{" str "}")) split-str)))
+                 (zsubcited (map (lambda (str) (string-append "\\zsubCite{" str "}")) split-str)))
             ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:split-str => ~s" split-str)
             ;; (tm-zotero-format-debug "_GREEN_tm-zotero-zsubcite-grouping-transform_RESET_:zsubcited => ~s" zsubcited)
             (string-append (if (not (== "" layout-prefix))
-                               (string-append "\\zciteprefix{" layout-prefix "}")
+                               (string-append "\\zciteLayoutPrefix{" layout-prefix "}")
                                "")
-                           (string-join zsubcited (string-append "\\zcitedelimiter{" layout-delimiter "}"))
+                           (string-join zsubcited (string-append "\\zciteLayoutDelimiter{" layout-delimiter "}"))
                            (if has-layout-suffix?
-                               (string-append "\\zcitesuffix{" layout-suffix "}")
+                               (string-append "\\zciteLayoutSuffix{" layout-suffix "}")
                                "")))))))
 
 
@@ -5606,7 +5927,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
          (strls (map (cut string-trim <> cnewline) strls))
          (strls (map tm-zotero-regex-transform strls))
          (strls (or (and is-bib? strls)
-                    (map tm-zotero-zsubcite-grouping-transform strls)))
+                    (map tm-zotero-zsubCite-grouping-transform strls)))
          ;; Q: What advantage would there be to have parse-latex accept a
          ;; UTF-8, rather than Cork encoded, string?
          (str_text (string-convert

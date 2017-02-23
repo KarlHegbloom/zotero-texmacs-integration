@@ -25,7 +25,6 @@
       ("Edit Bibliography" (tm-zotero-editBibliography))
       ---
       ("Refresh" (tm-zotero-refresh))
-      
       ;; ("Remove Codes" (tm-zotero-removeCodes))
       ---
       ("Set Document Prefs" (tm-zotero-setDocPrefs))

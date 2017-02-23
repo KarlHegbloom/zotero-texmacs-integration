@@ -500,9 +500,9 @@
 
   \;
 
-  <assign|get-ztbibItemRefsList|<macro|sysID|<extern|tm-zotero-ext:get-ztbibItemRefsList|<arg|sysID>>>>
+  <assign|get-ztbibItemRefsList|<macro|sysID|left|right|<extern|tm-zotero-ext:get-ztbibItemRefsList|<arg|sysID>|<arg|left>|<arg|right>>>>
 
-  <assign|ztbibItemRefsList|<macro|sysID|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<ztbibItemRefsList-left><get-ztbibItemRefsList|<arg|sysID>><ztbibItemRefsList-right>>>>>
+  <assign|ztbibItemRefsList|<macro|sysID|<with|render-bibItemRefsList|<value|zt-render-bibItemRefsLists>|<if|<value|render-bibItemRefsList>|<get-ztbibItemRefsList|<arg|sysID>|<ztbibItemRefsList-left>|<ztbibItemRefsList-right>>>>>>
 
   \;
 
@@ -557,17 +557,17 @@
     <\src-comment>
       These macros do not transform their contents, but instead exist in
       order to wrap their contents and put a handle on those contents. This
-      is for splitting and joining of zcite.
+      is for splitting and joining of zcite (citeproc "citation clusters").
     </src-comment>
   </active*>
 
-  <assign|zsubcite|<value|identity>>
+  <assign|zsubCite|<value|identity>>
 
-  <assign|zciteprefix|<value|identity>>
+  <assign|zciteLayoutPrefix|<value|identity>>
 
-  <assign|zcitedelimiter|<value|identity>>
+  <assign|zciteLayoutDelimiter|<value|identity>>
 
-  <assign|zcitesuffix|<value|identity>>
+  <assign|zciteLayoutSuffix|<value|identity>>
 
   \;
 
