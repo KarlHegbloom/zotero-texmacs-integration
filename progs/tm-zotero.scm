@@ -3363,6 +3363,7 @@
 
 (define-public generate-unique-zfieldID create-unique-id)
 
+
 (define-public (tm-zotero-random-string . args)
   (let* ((n (if (and (pair? args)
                      (integer? (car args)))
@@ -3375,12 +3376,8 @@
                     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"))
          (chars-set-size (string-length chars)))
     (do ((i 0 (1+ i))
-         (randomString "" (string-append
-                           randomString
-                           (list->string
-                            (list
-                             (string-ref chars (random chars-set-size)))))))
-        ((>= i n) randomString)
+         (res '() (cons (string-ref chars (random chars-set-size)) res)))
+        ((>= i n) (list->string res))
       )))
 
 (tm-define (tm-zotero-ext:create-unique-id)
