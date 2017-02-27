@@ -566,6 +566,7 @@
   ls)
 
 
+
 (define (inside-footnote? t)
   (not (not (tree-search-upwards t '(footnote zt-footnote)))))
 
@@ -577,28 +578,27 @@
       (in-endnote? t)))
 
 
-
 (define (inside-zcite? t)
-  (not (not (tree-search-upwards t '(zcite)))))
+  (not (not (tree-search-upwards t 'zcite))))
 
 (define (inside-zbibliography? t)
-  (not (not (tree-search-upwards t '(zbibliography)))))
+  (not (not (tree-search-upwards t 'zbibliography))))
 
 (define (inside-zfield? t)
   (not (not (tree-search-upwards t zfield-tags))))
 
 
 (define-public (inside-zsubCite? t)
-  (not (not (tree-search-upwards t '(zsubCite)))))
+  (not (not (tree-search-upwards t 'zsubCite))))
 
 (define-public (inside-zciteLayoutPrefix? t)
-  (not (not (tree-search-upwards t '(zciteLayoutPrefix)))))
+  (not (not (tree-search-upwards t 'zciteLayoutPrefix))))
 
 (define-public (inside-zciteLayoutDelimiter? t)
-  (not (not (tree-search-upwards t '(zciteLayoutDelimiter)))))
+  (not (not (tree-search-upwards t 'zciteLayoutDelimiter))))
 
 (define-public (inside-zciteLayoutSuffix? t)
-  (not (not (tree-search-upwards t '(zciteLayoutSuffix)))))
+  (not (not (tree-search-upwards t 'zciteLayoutSuffix))))
 
 
 (define (inside-inactive? t)
@@ -889,7 +889,7 @@
                   ;;
                   (tm-zotero-format-error
                    "_BOLD__RED_clipboard-copy_RESET_: _RED_Copying new zfield!_RESET_ _BOLD__RED_Fixme:_RESET_ Probably protocol breakdown; Restart Firefox and TeXmacs.")
-                  (tree-assign zfield
+                  (tree-assign! zfield
                                (stree->tree
                                 '(strong "{?? New Citation ??}")))
                   (clear-tree-pointer zfd)
@@ -952,7 +952,7 @@
                     ;;
                     (tm-zotero-format-error
                      "_BOLD__RED_clipboard-cut_RESET_: _RED_Cutting new zfield!_RESET_ _BOLD__RED_Fixme:_RESET_ Probably protocol breakdown; Restart Firefox and TeXmacs.")
-                    (tree-assign zfield
+                    (tree-assign! zfield
                                  (stree->tree
                                   '(strong "{?? New Citation ??}")))
                     (clear-tree-pointer zfd)
@@ -1121,7 +1121,7 @@
            (zfield-copy-ID   (generate-unique-zfieldID))
            (zsubCite-t-ls    (tm-search (zfield-Text-t zfield-copy) is-zsubCite?))
            (zfd-ht           (document-zfield-zfd-ht dd))
-           ;; (zfd-ls           (document-zfield-zfd-ls dd))
+           (zfd-ls           (document-zfield-zfd-ls dd))
            ;; (zb-zfd-ls        (document-zbibliography-zfd-ls dd))
            ;; (new-zfield-zfd   (document-new-zfield-zfd dd))
            (zfd              (hash-ref zfd-ht zfieldID))
@@ -1277,9 +1277,9 @@
       ;; that state and re-read the zfield-Code-code in the newly re-ID'd
       ;; zfield.
       ;;
-      (hash-remove! zfd-ht zfieldID)
-      (set! (the-zfieldID-of zfd) zfield-new-ID) ; also writes it to the document
-      (hash-set! zfd-ht zfield-new-ID zfd)
+      ;; (hash-remove! zfd-ht zfieldID)
+      ;; (set! (the-zfieldID-of zfd) zfield-new-ID) ; also writes it to the document
+      ;; (hash-set! zfd-ht zfield-new-ID zfd)
       ;;
       ;; The same zfd can remain in the zfd-ls right where it is as long as it
       ;; is not being cut from the document.
@@ -1296,7 +1296,15 @@
       ;; overwrite of user-modifications. This code could then call on it for
       ;; each citation where something has been cut out or pasted in.
       ;;
-
+      (when (null? keep-alist)
+        (hash-remove! zfd-ht zfieldID)
+        (set! (document-zfield-zfd-ls dd)
+              (list-filter zfd-ls
+                           (lambda (elt)
+                             (not (eq? elt zfd)))))
+        (tree-assign! zfield "")
+        (and-with inactive (tree-search-upwards zfield 'inactive)
+          (tree-assign! inactive "")))
       ;;
       ;; This does not have to ever cpp-clipboard-cut the selection-tree
       ;; because it sets the zfield-Text-t fresh.
@@ -1305,11 +1313,9 @@
 
       (clear-tree-pointer copy-zfd)
 
-      ;; (tree-simplify zfield-copy)
       (buffer-pretend-autosaved b)
       (buffer-pretend-saved b)
       (buffer-close b)
-      ;; (recall-message)
       )
     )
   )
@@ -1329,12 +1335,10 @@
   (:require (and (in-tm-zotero-style?)
                  (not (is-during-tm-zotero-clipboard-cut?))
                  (inside-zfield? (cursor-tree))
-                 (or (inside-zsubCite?             (cursor-tree))
-                     (inside-zciteLayoutPrefix?    (cursor-tree))
-                     (inside-zciteLayoutDelimiter? (cursor-tree))
-                     (inside-zciteLayoutSuffix?    (cursor-tree)))
-                 (has-zfield? (clipboard-get which))))
-  (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:_GREEN_inside zfield and inside subCite, clipboard has zfield_RESET_ which => ~s" which)
+                 (inside-which '(zsubCite zciteLayoutPrefix zciteLayoutDelimiter zciteLayoutSuffix))
+                 (has-zfield? (tree-ref (clipboard-get which) 1))))
+  (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:_GREEN_inside zfield and inside subCite, clipboard has zfield _YELLOW_(noop)_RESET_ which => ~s" which)
+  (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:_RESET_ (clipboard-get which) => ~y" (tree->stree (clipboard-get which)))
   (noop))
 
 
@@ -1383,12 +1387,8 @@
                  ;; zcite zsubCite's in between the other ones, not right
                  ;; inside the middle of one of the other ones.
                  ;;
-                 (not (inside-zsubCite?             (cursor-tree)))
-                 (not (inside-zciteLayoutPrefix?    (cursor-tree)))
-                 (not (inside-zciteLayoutDelimiter? (cursor-tree)))
-                 (not (inside-zciteLayoutSuffix?    (cursor-tree)))
-                 ;; (inside-inactive? (cursor-tree))
-                 (is-zcite? (clipboard-get which))))
+                 (not (inside-which '(zsubCite zciteLayoutPrefix zciteLayoutDelimiter zciteLayoutSuffix)))
+                 (is-zcite? (tree-ref (clipboard-get which) 1))))
   (with-fluids
       ((fluid/is-during-tm-zotero-clipboard-cut? #t))
     ;;
@@ -1406,7 +1406,7 @@
       (buffer-pretend-autosaved b)
       (buffer-pretend-saved b)
 
-      (set! clip-zfd (make-instance <field-data> #:tree zcite-clip))
+      (set! clip-zfd (make-instance <zfield-data> #:zfd-tree zcite-clip))
 
       ;;
       (let* ((documentID       (get-documentID))
@@ -1485,7 +1485,7 @@
                                           clip-formattedSubCite-ls
                                           clip-code-citationItems-ls))
              ;;
-             (cp (cursor-path))
+             (cp (cDr (cursor-path)))
              ;;
              (before-cursor (list-filter zcite-zsubCite->*-alist
                                          (lambda (elt)
@@ -1524,9 +1524,9 @@
 
         (set! (zfield-Code-is-modified?-flag zfield) "false")
 
-        (hash-remove! zfd-ht zfieldID)
-        (set! (the-zfieldID-of zfd) zfield-new-ID) ; also writes it to the document
-        (hash-set! zfd-ht zfield-new-ID zfd)
+        ;; (hash-remove! zfd-ht zfieldID)
+        ;; (set! (the-zfieldID-of zfd) zfield-new-ID) ; also writes it to the document
+        ;; (hash-set! zfd-ht zfield-new-ID zfd)
 
         (clear-tree-pointer clip-zfd)
 
@@ -1534,7 +1534,6 @@
         (buffer-pretend-saved b)
         (buffer-close b)
       ))))
-
 
 ;;}}}
 
@@ -2448,7 +2447,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((zfieldID-t (tree-ref zfield 0)))
-       (tree-assign zfieldID-t t)))))
+       (tree-assign! zfieldID-t t)))))
 
 
 (define zfield-zfieldID
@@ -2464,7 +2463,7 @@
    ;; set!
    (lambda (zfield str)
      (let ((zfieldID-t (zfield-zfieldID-t zfield)))
-       (tree-assign zfieldID-t
+       (tree-assign! zfieldID-t
                     (stree->tree str))))))
 
 
@@ -2505,7 +2504,7 @@
                    ;; <tuple|3|<raw-data|THIS>|"false"|<raw-data|"origText">>
                    (tree-ref code 1 0))
                   ((tm-func? code 'raw-data) ; v.2
-                   (tree-assign code
+                   (tree-assign! code
                                 (stree->tree
                                  `(tuple "3" ; update to v.3
                                          ,(tree->stree code)
@@ -2514,7 +2513,7 @@
                    (ref-impl zfield) ; tail-call
                    )
                   ((tm-atomic? code)    ; v.1
-                   (tree-assign code
+                   (tree-assign! code
                                 (stree->tree
                                  `(tuple "3" ; to v.3
                                          (raw-data ,(tree->stree code))
@@ -2523,7 +2522,7 @@
                    (ref-impl zfield) ; tail-call
                    )
                   (else ; ? I don't think this can really happen.
-                    (tree-assign code
+                    (tree-assign! code
                                  (stree->tree
                                   `(tuple "3" ; to v.3
                                           (raw-data "")
@@ -2534,7 +2533,7 @@
            (set!-impl
             (lambda (zfield t)
               (let ((code-t (ref-impl zfield)))
-                (tree-assign code-t t))))
+                (tree-assign! code-t t))))
            )
     (make-procedure-with-setter ref-impl set!-impl)))
 
@@ -2553,7 +2552,7 @@
    ;;
    (lambda (zfield str)
      (let ((code-t (zfield-Code-code-t zfield)))
-       (tree-assign code-t
+       (tree-assign! code-t
                     (stree->tree str))))))
 
 
@@ -2574,7 +2573,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((is-modified?-flag-t (tree-ref zfield 1 2)))
-       (tree-assign is-modified?-flag-t t)))))
+       (tree-assign! is-modified?-flag-t t)))))
 
 
 (define zfield-Code-is-modified?-flag
@@ -2585,7 +2584,7 @@
    ;; set!
    (lambda (zfield str-bool)
      (let ((is-modified?-flag-t (zfield-Code-is-modified?-flag-t zfield)))
-       (tree-assign is-modified?-flag-t
+       (tree-assign! is-modified?-flag-t
                     (stree->tree str-bool))))))
 
 ;;;;;;
@@ -2603,7 +2602,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((origText-t (tree-ref zfield 1 3 0)))
-       (tree-assign origText-t t)))))
+       (tree-assign! origText-t t)))))
 
 (define zfield-Code-origText
   (make-procedure-with-setter
@@ -2613,7 +2612,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((origText-t (zfield-Code-origText-t zfield)))
-       (tree-assign origText-t
+       (tree-assign! origText-t
                     (format #f "~s" (tree->stree t)))))))
 
 ;;;;;;
@@ -2629,7 +2628,7 @@
    ;; set!
    (lambda (zfield t)
      (let ((text-t (tree-ref zfield 2)))
-       (tree-assign text-t t)))))
+       (tree-assign! text-t t)))))
 
 ;;;;;;
 ;;;
@@ -2689,7 +2688,7 @@
    ;; set!
    (lambda (ztHref* t)
      (let ((hashLabel-t (tree-ref ztHref* 0)))
-       (tree-assign hashLabel-t t)))))
+       (tree-assign! hashLabel-t t)))))
 
 (define ztHref*-hashLabel
   (make-procedure-with-setter
@@ -2699,7 +2698,7 @@
    ;; set!
    (lambda (ztHref* str)
      (let ((hashLabel-t (ztHref*-hashLabel-t ztHref*)))
-       (tree-assign hashLabel-t
+       (tree-assign! hashLabel-t
                     (stree->tree str))))))
 
 
@@ -2729,7 +2728,7 @@
    ;; set!
    (lambda (ztHref* t)
      (let ((url-t (tree-ref ztHref* 1)))
-       (tree-assign hashLabel-t t)))))
+       (tree-assign! hashLabel-t t)))))
 
 (define ztHref*-url
   (make-procedure-with-setter
@@ -2739,7 +2738,7 @@
    ;; set!
    (lambda (ztHref* str)
      (let ((url-t (ztHref*-url-t ztHref*)))
-       (tree-assign url-t
+       (tree-assign! url-t
                     (stree->tree str))))))
 
 
@@ -2751,7 +2750,7 @@
    ;; set!
    (lambda (ztHref* t)
      (let ((display-t (tree-ref ztHref* 2)))
-       (tree-assign display-t t)))))
+       (tree-assign! display-t t)))))
 
 
 
@@ -2763,7 +2762,7 @@
    ;; set!
    (lambda (ztHref t)
      (let ((url-t (tree-ref ztHref 0)))
-       (tree-assign url-t t)))))
+       (tree-assign! url-t t)))))
 
 (define ztHref-url
   (make-procedure-with-setter
@@ -2773,7 +2772,7 @@
    ;; set!
    (lambda (ztHref str)
      (let ((url-t (ztHref-url-t ztHref)))
-       (tree-assign url-t
+       (tree-assign! url-t
                     (stree->tree str))))))
 
 
@@ -2785,7 +2784,7 @@
    ;; set!
    (lambda (ztHref t)
      (let ((display-t (tree-ref ztHref 1)))
-       (tree-assign display-t t)))))
+       (tree-assign! display-t t)))))
 
 
 ;;}}}
@@ -5585,7 +5584,7 @@
         (set! (document-zbibliography-zfd-ls dd)
               (remove-<*-data>-ls! (document-zbibliography-zfd-ls dd) zfd)))
       (clear-tree-pointer zfd)
-      (tree-set! zfield "")))
+      (tree-assign! zfield "")))
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
@@ -5748,7 +5747,7 @@
 ;;; These changes need to be made before the zfield Text is set and before
 ;;; Zotero asks for it back and then stores the original text into the zfield
 ;;; Code... so the transformation must be done with the fresh string handed to
-;;; this program by Zotero before tree-set! text.
+;;; this program by Zotero before tree-assign! text.
 ;;;;
 ;;; But when typing a document, entering an hlink or href, either in running
 ;;; text or in a footnote or endnote, there needs to be special behaviour that
@@ -5893,10 +5892,10 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                                              0
                                              (- (string-length pre-lnk-str)
                                                 (string-length doi-suffix-str))))
-                (tree-set! pre-lnk-t (stree->tree pre-lnk-str))
+                (tree-assign! pre-lnk-t (stree->tree pre-lnk-str))
                 (if lg
                     (begin
-                      (tree-set! lnk (stree->tree
+                      (tree-assign! lnk (stree->tree
                                       `(concat (next-line)
                                                (small (concat (less-than-sign)
                                                               ,(substring doi-suffix-str
@@ -5907,9 +5906,9 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                       (set! post-lnk-str (substring post-lnk-str
                                                     (string-length (cadr lg))
                                                     (string-length post-lnk-str)))
-                      (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+                      (tree-assign! post-lnk-t (stree->tree post-lnk-str)))
                     (begin
-                      (tree-set! lnk (stree->tree
+                      (tree-assign! lnk (stree->tree
                                       `(concat (next-line)
                                                (small (concat ,doi-suffix-str ,lnk))))))))))
         ;;
@@ -5943,23 +5942,23 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                                                  0
                                                  (- (string-length pre-lnk-str)
                                                     (string-length (car lg)))))
-                    (tree-set! pre-lnk-t (stree->tree pre-lnk-str))
-                    (tree-set! lnk (stree->tree
+                    (tree-assign! pre-lnk-t (stree->tree pre-lnk-str))
+                    (tree-assign! lnk (stree->tree
                                     `(concat (next-line)
                                              (small (concat (less-than-sign) ,lnk (greater-than-sign))))))
                     (set! post-lnk-str (substring post-lnk-str
                                                   (string-length (cadr lg))
                                                   (string-length post-lnk-str)))
-                    (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+                    (tree-assign! post-lnk-t (stree->tree post-lnk-str)))
                   (begin
-                    (tree-set! lnk (stree->tree
+                    (tree-assign! lnk (stree->tree
                                     `(concat (next-line)
                                              (small ,lnk))))))))
         ;;
         ;; Nothing special to do regarding pre-lnk-str or post-lnk-str.
         ;;
         (else
-          (tree-set! lnk (stree->tree `(concat (next-line) (small ,lnk))))))
+          (tree-assign! lnk (stree->tree `(concat (next-line) (small ,lnk))))))
       ;;
       ;; Ensure no space at end of pre-lnk-str when lnk has been placed on
       ;; it's own line.
@@ -5973,7 +5972,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                                        0
                                        (- (string-length pre-lnk-str)
                                           1)))
-          (tree-set! pre-lnk-t (stree->tree pre-lnk-str))))
+          (tree-assign! pre-lnk-t (stree->tree pre-lnk-str))))
       ;;
       ;; Always ensure that trailing punctuation remains attached to the link
       ;; rather than sitting at the start of the next line following the link.
@@ -5985,7 +5984,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
             ((null? strs) #t)
           (when (string-prefix? (car strs) post-lnk-str)
             ;;(tm-zotero-format-debug "Punctuation: '~s'" (car strs))
-            (tree-set! lnk (stree->tree
+            (tree-assign! lnk (stree->tree
                             `(concat ,lnk
                                      ,(substring post-lnk-str
                                                  0
@@ -5993,7 +5992,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
             (set! post-lnk-str (substring post-lnk-str
                                           (string-length (car strs))
                                           (string-length post-lnk-str)))
-            (tree-set! post-lnk-t (stree->tree post-lnk-str)))))
+            (tree-assign! post-lnk-t (stree->tree post-lnk-str)))))
       ;;
       ;; No spaces at front of post-lnk-str when lnk has been moved to it's own line.
       ;;
@@ -6008,9 +6007,9 @@ styles. doi: forms are short, so they don't need to be put on their own line."
           (set! post-lnk-str (substring post-lnk-str
                                         1
                                         (string-length post-lnk-str)))
-          (tree-set! post-lnk-t (stree->tree post-lnk-str)))
+          (tree-assign! post-lnk-t (stree->tree post-lnk-str)))
         (when (> (string-length post-lnk-str) 0)
-          (tree-set! lnk (stree->tree `(concat ,lnk (next-line))))))
+          (tree-assign! lnk (stree->tree `(concat ,lnk (next-line))))))
       ;; (tm-zotero-format-debug "move-link-to-own-line returning, lnk => ~s" lnk)
       ))
     lnk)
@@ -6026,7 +6025,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;                                    0
 ;;                                    (- (string-length pre-lnk-str)
 ;;                                       1)))
-;;       (tree-set! pre-lnk-txt (stree->tree pre-lnk-str)))))
+;;       (tree-assign! pre-lnk-txt (stree->tree pre-lnk-str)))))
 
 
 
@@ -6036,17 +6035,17 @@ styles. doi: forms are short, so they don't need to be put on their own line."
     ((and (tree-in? lnk '(ztHrefFromBibToURL ztHrefFromCiteToBib))
           (tree-in? (tree-ref lnk 1) '(slink verbatim)))
      (let ((slink-or-verbatim (tree-ref lnk 1)))
-       (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0))))
+       (tree-assign! slink-or-verbatim (tree-ref slink-or-verbatim 0))))
     ((and (tree-in? lnk '(ztHref))
           (tree-in? (tree-ref lnk 0) '(slink verbatim)))
      (let ((slink-or-verbatim (tree-ref lnk 0)))
-       (tree-set! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
+       (tree-assign! slink-or-verbatim (tree-ref slink-or-verbatim 0)))))
   ;;(tm-zotero-format-debug "_GREEN_fixup-embedded-slink-as-url_WHITE_:returning._RESET_ ~s" (tree->stree lnk))
   lnk)
 
 ;; (define (fixup-embedded-slink-as-url lnk)
 ;;   (when (match? lnk '((:or ztHrefFromBibToURL ztHrefFromCiteToBib) :%1 ((:or slink verbatim) :%1)))
-;;     (tree-set! lnk `(,(tree-label lnk) ,(tree-ref lnk 0) ,(tree-ref lnk 1 0)))))
+;;     (tree-assign! lnk `(,(tree-label lnk) ,(tree-ref lnk 0) ,(tree-ref lnk 1 0)))))
 
 ;;}}}
 
@@ -6428,7 +6427,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
     ;;
     (map (lambda (lnk)
            ;;(tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
-           (tree-set! lnk (fixup-embedded-slink-as-url lnk)))
+           (tree-assign! lnk (fixup-embedded-slink-as-url lnk)))
          (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib ztHref))))
     ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_before tree-simplify_RESET_")
     (tree-simplify t)

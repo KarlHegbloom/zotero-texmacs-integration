@@ -559,7 +559,7 @@
 
   <assign|zcite|<macro|fieldID|fieldCode|fieldText|<with|zt-zfieldID|<arg|fieldID>|<tm-zotero-ensure-zfield-interned!|<arg|fieldID>><zcite-flag-if-modified|<arg|fieldCode>><with|dummy|<value|zt-link-FromCiteToBib>|<render-zcite|<arg|fieldID>|<arg|fieldText>>>>>>
 
-  <drd-props|zcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>
+  <inactive|<drd-props|Xzcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>>
 
   \;
 
@@ -573,25 +573,25 @@
 
   <assign|zsubCite|<value|identity>>
 
-  <drd-props|zsubCite|disable-writability|0|unaccessible|0>
+  <drd-props|zsubCite|unaccessible|all>
 
   <inactive|<drd-props|XzsubCite|accessible|all|enable-writability|all|border|yes>>
 
   <assign|zciteLayoutPrefix|<value|identity>>
 
-  <drd-props|zciteLayoutPrefix|disable-writability|0|unaccessible|0>
+  <drd-props|zciteLayoutPrefix|unaccessible|all>
 
   <inactive|<drd-props|XzciteLayoutPrefix|accessible|all|enable-writability|all|border|yes>>
 
   <assign|zciteLayoutDelimiter|<value|identity>>
 
-  <drd-props|zciteLayoutDelimiter|disable-writability|0|unaccessible|0>
+  <drd-props|zciteLayoutDelimiter|unaccessible|all>
 
   <inactive|<drd-props|XzciteLayoutDelimiter|accessible|all|enable-writability|all|border|yes>>
 
   <assign|zciteLayoutSuffix|<value|identity>>
 
-  <drd-props|zciteLayoutSuffix|disable-writability|0|unaccessible|0>
+  <drd-props|zciteLayoutSuffix|unaccessible|all>
 
   <inactive|<drd-props|XzciteLayoutSuffix|accessible|all|enable-writability|all|border|yes>>
 
@@ -660,8 +660,6 @@
 
 <\initial>
   <\collection>
-    <associate|font|bonum>
-    <associate|math-font|math-bonum>
     <associate|preamble|true>
   </collection>
 </initial>
