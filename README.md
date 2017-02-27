@@ -6,7 +6,7 @@ __It is ready to try! I need alpha testers. Please report!__
 
 ## Documentation and YouTube Screencast Demos ##
 
-RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/branch-v1.2a-next-wip/doc/tm-zotero-tutorial.en.pdf)
+RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/master/doc/tm-zotero-tutorial.en.pdf)
 
 [Juris-M / Zotero and TeXmacs Integration Screencasts Playlist](https://www.youtube.com/playlist?list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
