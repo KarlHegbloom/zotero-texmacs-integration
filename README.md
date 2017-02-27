@@ -32,6 +32,7 @@ to the top directory of a clone of the source from github, *e.g.,*
     mkdir --parents ~/src/Juris-M || true;
     cd ~/src/Juris-M;
     git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
+    git checkout branch-v1.2a-next;
     cd ~;
     mkdir --parents ~/.TeXmacs/plugins || true;
     cd ~/.TeXmacs/plugins;
@@ -90,6 +91,7 @@ to the top directory of a clone of the source from github, *e.g.,*
         mkdir --parents ~/src/Juris-M || true;
         cd ~/src/Juris-M;
         git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
+        git checkout branch-v1.2a-next;
         cd ~;
         mkdir --parents ~/.TeXmacs/plugins || true;
         cd ~/.TeXmacs/plugins;
@@ -102,7 +104,7 @@ to the top directory of a clone of the source from github, *e.g.,*
     when I change it, you run:
 
         cd ~/src/Juris-M/zotero-texmacs-integration;
-        git checkout master;
+        git checkout branch-v1.2a-next;
         git pull;
 
 Now when you start TeXmacs, it will be able to find the style and the
