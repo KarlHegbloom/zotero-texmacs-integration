@@ -91,6 +91,7 @@ to the top directory of a clone of the source from github, *e.g.,*
         mkdir --parents ~/src/Juris-M || true;
         cd ~/src/Juris-M;
         git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
+        git checkout branch-v1.2a;
         cd ~;
         mkdir --parents ~/.TeXmacs/plugins || true;
         cd ~/.TeXmacs/plugins;
