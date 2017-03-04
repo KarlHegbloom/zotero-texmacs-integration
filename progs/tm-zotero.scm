@@ -1856,6 +1856,7 @@
 ;;;   TeXmacs: <value|zotero-pref-noteType>
 ;;;
 ;;{{{ sample sxml representation of DocumentData
+
 ;;;;;
 ;;; Here's what the typical DocumentData looks like, parsed to sxml:
 ;;;
@@ -1889,6 +1890,7 @@
 ;;;       (pref (@ (name "automaticJournalAbbreviations") (value "true")))
 ;;;       (pref (@ (name "noteType")                      (value "0")))
 ;;;       (pref (@ (name "suppressTrailingPunctuation")   (value "true")))))))
+
 ;;}}}
 
 (define (get-env-zoteroDocumentData)
@@ -2171,12 +2173,17 @@
 ;;
 (define-public (tm-zotero-save-cache-of-citation-layout-prefix-delimiter-suffix)
   (let* ((cache-alist (compile-cache-of-citation-layout-prefix-delimiter-suffix))
+         (renamed-styles-ht (json->scm (open-file (%search-load-path "renamed-styles.json") "r")))
          (cache-ht (make-hash-table))
          (outfile (open-file "cache-of-citation-layout-prefix-delimiter-suffix.json" "w")))
     (do ((al cache-alist (cdr al)))
         ((null? al))
       ;;(tm-zotero-format-debug "_BOLD__RED_tm-zotero-save-cache-of-citation-layout-prefix-delimiter-suffix_RESET_: ~s ~s" (caar al) (cdar al))
       (hash-set! cache-ht (caar al) (cdar al)))
+    (hash-for-each (lambda (key val)
+                     (and-with rval (hash-ref cache-ht val #f)
+                       (hash-set! cache-ht key rval)))
+                   renamed-styles-ht)
     (scm->json cache-ht outfile #:pretty #t)
     (close outfile)))
 
@@ -2589,6 +2596,8 @@
 
 ;;;;;;
 ;;;
+;;; TODO This is no longer in use and the slot can be repurposed.
+;;;
 ;;; This holds a copy of the zfield-Text, and is set only right after getting a
 ;;; result from Zotero, and is kept for comparison when finding out if the user
 ;;; has modified the contents of zfield-Text-t, which can only be done while
@@ -2640,7 +2649,7 @@
 ;;;
 (define (zfield-Text zfield)
   (if (and zfield (tree? zfield))
-      (format #f "~s" (tree->stree (zfield-Text-t zfield)))
+      (string-convert (format #f "~s" (tree->stree (zfield-Text-t zfield))) "Cork" "UTF-8")
       ""))
 
 ;;;
@@ -3128,11 +3137,12 @@
 ;;;
 ;;; When label is blank, it generally means the same thing as "page" whenever
 ;;; locator is set. Otherwise it might be any one of the several locator
-;;; strings:
+;;; strings: [[../../zotero/chrome/content/zotero/xpcom/cite.js]]
 ;;;
-(define zotero-csl-locator-strings
-  '("book" "chapter" "column" "figure" "folio" "line" "note" "opus"
-    "page" "paragraph" "part" "section" "verse" "issue" "volume"))
+(define zotero-csl-locator-labels
+  '("page" "book" "chapter" "column" "figure" "folio"
+    "issue" "line" "note" "opus" "paragraph" "part" "section" "sub verbo"
+    "volume" "verse"))
 ;;;
 (define citationItem-label
   (make-procedure-with-setter
@@ -6105,9 +6115,14 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                (cdr elt)))
        ;;
        ;; Remember that these execute one after the next, and are applied using regexp-substitute/global, so they must contain
-       ;; 'post' as an element in order to have them work on the entire string.
+       ;; pre and post as elements in order to have them work on the entire string.
        ;;
        `(
+         ;; This first one is commented off because now the strings processed by this have been split on \r\n in order to shorten
+         ;; them so that the regexp processing terminates more quickly. Some regex run on very long strings can take a long time
+         ;; to complete. That was very noticable. Splitting them into smaller strings makes the regex run much more quickly. The
+         ;; program is very noticably faster now.
+         ;;
          ;; (("(\r\n)")
          ;;  pre "\n" post)
          ;; The standard "integration.js" sends RTF, which uses \r\n pairs. Turn them to \n only.
@@ -6121,8 +6136,13 @@ styles. doi: forms are short, so they don't need to be put on their own line."
           pre "“" post)
          (("('')")
           pre "”" post)
-         (("(<varspace>)")
-          pre " " post)
+         ;;
+         ;;
+         ;; https://www.crossref.org/display-guidelines/
+         ;;
+         (("(https?://(www|dx)\\.doi\\.org/)")
+          pre "https://doi.org/" post)
+         ;;
          ;;
          ;; Categorized sort hack utilizing Juris-M abbrevs mechanism. 03USC#@18#@00241#@
          ;; (for Title 18 U.S.C. §241, where federal laws are the 03'd category in the larger category of items of type "statute")
@@ -6162,14 +6182,13 @@ styles. doi: forms are short, so they don't need to be put on their own line."
           pre post)
          (("(([  ]|\\hspace.[^}]+.)?\\(([  ]|\\hspace.[^}]+.)*\\))") ;; empty parentheses and space before them (but NOT period or space after).
           pre post)
+         ;;
          ;; Category heading dummy entries. Replaces the entire line!
+         ;;
          (("(^.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+\\{.*})}.*\\.?}%?)"); ,regexp/newline)
           pre 3 post)
          (("(^.*ztbibItemText.*(000000000@#)?<(ztbib[A-Za-z]+)>(.*)</\\3>.*\\.?}%?)")
           pre "\\" 3 "{" 4 "}" post)
-         ;; (("(.*000000000@#(.ztbib[A-Za-z]+.*})}.*\\.?}%?)" ,regexp/newline)
-         ;;  pre 2 post)
-         ;; Category heading dummy entries. Replaces the entire line!
          ;;
          ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
          ;; encoded) these characters won't work right for some reason. The macros I'm replacing them with below expand to the same
@@ -6183,24 +6202,40 @@ styles. doi: forms are short, so they don't need to be put on their own line."
          ;;
          (("(¶)")
           pre "\\ParagraphSignGlyph{}" post)
-         (("(\\ParagraphSignGlyph\\{\\})([  ])")
+         (("(\\ParagraphSignGlyph\\{\\})( )")
+          pre 1 "\\hspace{0.5spc}\\ztnobreak{}" post)
+         (("(\\ParagraphSignGlyph\\{\\})( )")
           pre 1 "\\hspace{0.5spc}" post)
          (("(§)")
           pre "\\SectionSignGlyph{}" post)
-         (("(\\SectionSignGlyph\\{\\})([  ])")
+         (("(\\SectionSignGlyph\\{\\})( )")
+          pre 1 "\\hspace{0.5spc}\\ztnobreak{}" post)
+         (("(\\SectionSignGlyph\\{\\})( )")
           pre 1 "\\hspace{0.5spc}" post)
+         ;;
+         ;; TODO Fix nobreak-space problem.
+         ;;
+         ;; A style that uses it is American Physics Society, which uses a square-bracketed number for the in-text citation, and
+         ;; the style-layout-prefix is " [", which is a nobreak-space and a square bracket. It gets sent to TeXmacs as a UTF-8
+         ;; string, which is then converted to Cork, and becomes a TeXmacs <varspace>, but that shows up in TeXmacs as actually
+         ;; "<varspace>" instead of as " ".
+         ;;
+         (("( )")
+          pre "\\hspace{1spc}\\ztnobreak{}" post)
+         (("(‑)") ;; nbhyp
+          pre "-\\ztnobreak{}" post)
          ;;
          ;; (("(<doi:)")
          ;;  pre "\\ztlt{}doi:" post)
          ;; (("(}>)")
          ;;  pre "}\\ztgt{}" post)
          ;;
-         ;; Todo: Fix this in citeproc.js (bibliography for collapsed parallel citation) When a legal case is cited twice in a row
-         ;; in a citation cluster, they are collapsed into a parallel citation. With Indigobook, the in-text citation looks perfect,
-         ;; but for some reason the one in the bibliography has a ., between the two different reporters, rather than only a , so
-         ;; this hack cleans that up.
+         ;; TODO Fix this in citeproc.js (bibliography for collapsed parallel citation) When a legal case is cited twice in a row
+         ;; in a citation cluster, they are collapsed into a parallel citation. With Indigobook, the in-text citation looks
+         ;; perfect, but for some reason the one in the bibliography has a ., between the two different reporters, rather than only
+         ;; a , so this hack cleans that up.
          ;;
-         ;; (("(\\.,)")    ;; No... e.g., 
+         ;; (("(\\.,)")    ;; No... messes up strings like: "e.g.,"
          ;;  pre "," post)
          ;;
          ;; Using the ibus mathwriter input method, I can type -> and get →. I can put that at the end of the suffix text, when I
@@ -6212,8 +6247,8 @@ styles. doi: forms are short, so they don't need to be put on their own line."
          ;; the suffix text unchanged, and places the semicolon between the two citations in the citation cluster. Because of the
          ;; arrow there, this hack removes that semicolon:
          ;;
-         (("(→}*[;.])")
-          pre post)
+         ;; (("(→}*(.zciteLayout(Delimiter|Suffix)\\{)?[;.,]([  ]?\\})?)")
+         ;;  pre 2 4 post) ;; Never mind. Don't use it.
          ;;
          ;; use \abbr{v.} to make the space after the period be a small sized one.
          ((" (v\\.?s?\\.?) ")
@@ -6390,21 +6425,48 @@ styles. doi: forms are short, so they don't need to be put on their own line."
   ;; paste them back together again after, with \n. There was already a regex
   ;; for s,\r\n,\n, and this replaces it.
   ;;
+  ;; TODO Look into having Juris-M / Zotero return a list of strings, rather than pasting together that list of strings with \r\n.
+  ;;
   (let* ((str_text (if (string-prefix? "{\\rtf " str_text)
                        (substring str_text 6 (1- (string-length str_text)))
                        str_text))
+         (tss "\\textsuperscript{")
+         (in-textsuperscript? (if (string-prefix? tss str_text)
+                                  (begin
+                                    (set! str_text (substring str_text
+                                                              (string-length tss)
+                                                              (1- (string-length str_text))))
+                                    #t)
+                                  #f))
+         ;;
          (strls (if is-bib?
                     (map (cut string-trim <> cnewline)
                          (string-split str_text creturn))
                     (list str_text)))
-         (strls (map tm-zotero-regex-transform strls))
+         ;;
          (strls (if is-bib?
                     strls
                     (map tm-zotero-zsubCite-grouping-transform strls)))
-         ;; Q: What advantage would there be to have parse-latex accept a
-         ;; UTF-8, rather than Cork encoded, string?
+         (strls (map tm-zotero-regex-transform strls))
+         ;;
+         ;; TODO Find out if there would be any advantage to having parse-latex accept a UTF-8, rather than Cork encoded, string?
+         ;;
+         ;; (tm-output "You may safely ignore any warning regarding UTF-8 -> LaTeX conversion.\n")
+         ;;
+         ;; In tm-zotero-regex-transform the Unicode non-breaking space #A0 was transformed into either \nbsp{} or
+         ;; \hspace{1spc}. Otherwise, for some reason TeXmacs churns out the literal string: "<varspace>". Why?
+         ;;
+         ;; (str_text (string-convert
+         ;;            (string-convert
+         ;;             (string-join strls "\n")
+         ;;             "UTF-8" "LaTeX")
+         ;;            "UTF-8" "Cork"))
          (str_text (string-convert
-                    (string-join strls "\n")
+                    (if is-bib?
+                        (string-join strls "\n")
+                        (if in-textsuperscript?
+                            (string-append tss (car strls) "}")
+                            (car strls)))
                     "UTF-8" "Cork"))
          (t (latex->texmacs (parse-latex str_text)))
          (b (buffer-new)))
@@ -6415,8 +6477,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
     ;;
     ;; Used from inside tm-zotero.ts
     ;;
-    ;; It turns out that tm-select will return these not in tree or document
-    ;; order.  For this function, that's alright.
+    ;; It turns out that tm-select will return these not in tree or document order.  For this function, that's alright.
     ;;
     (map (lambda (lnk)
            (when (or is-note? is-bib?)
