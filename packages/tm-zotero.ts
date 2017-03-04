@@ -1,6 +1,6 @@
 <TeXmacs|1.99.9>
 
-<style|source>
+<style|<tuple|source|std-symbol>>
 
 <\body>
   <active*|<\src-title>
@@ -54,7 +54,7 @@
 
   <use-module|(tm-zotero)>
 
-  <use-package|std-counter|std-utils|env-float|std-list|std-markup>
+  <use-package|std-counter|std-utils|env-float|std-list|std-markup|std-symbol>
 
   <\active*>
     <\src-comment>
@@ -85,7 +85,13 @@
 
   <assign|greater-than-sign|\<gtr\>>
 
-  \;
+  <inactive|<assign|Xztnbsp|<macro|width|<hspace|<arg|width>><no-break><specific|screen|<resize|<move|<with|color|#A0A0FF|->|<times|-1|<minus|<times|0.5|<arg|width>>|0.3em>>|>|0em||0em|>>>>>
+
+  <assign|ztnbsp|<macro|width|<hspace|<arg|width>><no-break>>>
+
+  <assign|ztnbsp*|<value|ztnbsp>>
+
+  <assign|ztnobreak|<macro|<no-break>>>
 
   <\active*>
     <\src-comment>
