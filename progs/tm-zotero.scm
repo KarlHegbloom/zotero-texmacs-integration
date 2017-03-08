@@ -710,7 +710,6 @@
      (string-append "zcite reactivated! Checking for modification... is-modified? => "
                     is-modified? ". Done."))
     (tm-zotero-affirmCitation))
-  (wait-update-current-buffer)
   #t)
 
 
@@ -1605,7 +1604,8 @@
                  (not (inside-zfield? (cursor-tree)))
                  (not (inside-inactive? (cursor-tree)))
                  (has-zfield? (clipboard-get which))))
-  (let ((clipboard-t (clipboard-get which)))
+  (let ((documentID (get-documentID))
+        (clipboard-t (clipboard-get which)))
     (with-fluids
         ((fluid/is-during-tm-zotero-clipboard-cut? #t))
       ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_WHITE_:_GREEN_not inside zfield, clipboard has zfield_RESET_ which => ~s" which)
@@ -1624,18 +1624,32 @@
       ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-paste_RESET_:  _GREEN_after_RESET_: _BOLD__YELLOW_clipboard-t =>_RESET_\n~y"
       ;;                         (tree->stree clipboard-t))
       )
-    ;; (map (lambda (zfield)
-    ;;        ;;
-    ;;        ;; I don't know if this will work right due to the asynchronous
-    ;;        ;; nature of tm-zotero-affirmCitation. I may need to implement a
-    ;;        ;; processing queue in order to make this work the way I want.
-    ;;        ;;
-    ;;        (cursor-after
-    ;;         (tree-go-to zfield 1)
-    ;;         (tm-zotero-affirmCitation)))
-    ;;      (tm-search clipboard-t is-zfield?))
-    ))
+    (enqueue-delayed-integration-commands
+     documentID
+     (tm-search clipboard-t is-zfield?)
+     tm-zotero-affirmCitation)))
 
+
+(define-public (enqueue-delayed-integration-commands documentID zfield-ls func)
+  (let ((documentID documentID)
+        (zfield-ls  zfield-ls)
+        (func       func)
+        (counter    40)
+        (wait       10))
+    (delayed
+      (:pause ((lambda () (inexact->exact (round wait)))))
+      (:do (if (not (get-document-active-mark-nr documentID))
+               (cond
+                 ((null? zfield-ls) 0)
+                 (else
+                   (tree-go-to (car zfield-ls) 1)
+                   (func)
+                   (set! zfield-ls (cdr zfield-ls))
+                   (set! wait 10)
+                   wait))
+               (begin
+                 (set! wait (min (* 1.01 wait) 2500))
+                 wait))))))
 
 ;;;;;;
 ;;;
