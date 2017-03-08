@@ -1913,16 +1913,26 @@
 ;; Debug:kbd:kbd-tab: (tree-func? (focus-tree) 'zcite) => #t
 
 
-(tm-define (kbd-tab)
+(tm-define (kbd-control-return)
   (:require (and (focus-is-zcite?)
                  (not (in-source?))))
   (tm-zotero-editCitation))
 
 (tm-define (kbd-tab)
+  (:require (and (focus-is-zcite?)
+                 (not (in-source?))))
+  (tm-zotero-affirmCitation))
+
+
+(tm-define (kbd-control-return)
   (:require (and (focus-is-zbibliography?)
                  (not (in-source?))))
   (tm-zotero-editBibliography))
 
+(tm-define (kbd-tab)
+  (:require (and (focus-is-zbibliography?)
+                 (not (in-source?))))
+  (tm-zotero-editBibliography))
 
 ;;;
 ;;; TODO Invent a good naming convention for the below preferences and
