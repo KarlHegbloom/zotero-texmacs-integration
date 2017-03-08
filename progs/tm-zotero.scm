@@ -1091,7 +1091,14 @@
 ;;;
 ;;;;;;
 
-(tm-define (clipboard-cut which)
+
+;;;;;;
+;;;
+;;; A working clipboard-copy implementation begins as a copy of a working
+;;; clipboard-cut implementation... I'm leaving everything there, with things
+;;; not needed for "copy" vs "cut" commented off, for reference.
+;;;
+(tm-define (clipboard-copy which)
   (:require (let ((st (selection-tree)))
               (and (in-tm-zotero-style?)
                    (not (is-during-tm-zotero-clipboard-cut?))
@@ -1099,22 +1106,6 @@
                    (inside-inactive? (cursor-tree))
                    (not (has-zfield? st))
                    (has-zsubCite? st))))
-  ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_RESET_: before (selection-get-start) => ~s" (selection-get-start))
-  ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_RESET_: before (selection-get-end) => ~s\n" (selection-get-end))
-  ;; (let* ((sel-start-zsubCite-t (tree-search-upwards (path->tree (cDr (selection-get-start))) '(zsubCite)))
-  ;;        (sel-end-zsubCite-t   (tree-search-upwards (path->tree (cDr (selection-get-end))) '(zsubCite))))
-  ;;   (cond
-  ;;     ((and sel-start-zsubCite-t sel-end-zsubCite-t)
-  ;;      (selection-set (tree->path sel-start-zsubCite-t :start)
-  ;;                     (tree->path sel-end-zsubCite-t :end)))
-  ;;     (sel-start-zsubCite-t
-  ;;      (selection-set (tree->path sel-start-zsubCite-t)
-  ;;                     (selection-get-end)))
-  ;;     (sel-end-zsubCite-t
-  ;;      (selection-set (selection-get-start)
-  ;;                     (tree->path sel-end-zsubCite-t)))))
-  ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_RESET_: after (selection-get-start) => ~s" (selection-get-start))
-  ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_RESET_: after (selection-get-end) => ~s\n" (selection-get-end))
   (with-fluids
       ((fluid/is-during-tm-zotero-clipboard-cut? #t))
     (let* ((selection-t      (selection-tree))
@@ -1129,9 +1120,9 @@
            (dd               (get-<document-data> documentID))
            (zfd-ls           (document-zfield-zfd-ls dd))
            (zfd-key          (string-append documentID zfieldID))
-           (dummy (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_RESET__BOLD_:_RESET_ zfd-key => ~s" zfd-key))
+           ;; (dummy (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET__BOLD_:_RESET_ zfd-key => ~s" zfd-key))
            (zfd              (hash-ref documentID+zfieldID-><zfield-data>-ht zfd-key #f))
-           (dummy (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_RESET__BOLD_:_RESET_ zfd => ~s" zfd))
+           ;; (dummy (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET__BOLD_:_RESET_ zfd => ~s" zfd))
            (layout-prefix    (or (zotero-style-citation-layout-prefix)    ""))
            (layout-delimiter (or (zotero-style-citation-layout-delimiter) ""))
            (layout-suffix    (or (zotero-style-citation-layout-suffix)    ""))
@@ -1155,11 +1146,262 @@
            (formattedSubCite-ls (split-string-by-substr formattedCitation layout-delimiter))
            (code-citationItems-ls (or (and zfd (zfd-Code-code-citationItems-ls zfd))
                                       '()))
-           (zsubCite->*-alist (map (lambda (a b c)
-                                     (list a b c)) ;; car cadr caddr
-                                   zsubCite-t-ls
-                                   formattedSubCite-ls
-                                   code-citationItems-ls))
+           (zsubCite->*-alist (if (and (== (length zsubCite-t-ls)
+                                           (length formattedSubCite-ls))
+                                       (== (length zsubCite-t-ls)
+                                           (length code-citationItems-ls)))
+                                  (map (lambda (a b c)
+                                         (list a b c)) ;; car cadr caddr
+                                       zsubCite-t-ls
+                                       formattedSubCite-ls
+                                       code-citationItems-ls)
+                                  '()))
+           ;; (keep-alist (list-filter zsubCite->*-alist
+           ;;                          (lambda (elt)
+           ;;                            (not (member (car elt) sel-zsubCite-ls)))))
+           ;; (cut-alist (list-filter zsubCite->*-alist
+           ;;                         (lambda (elt)
+           ;;                           (member (car elt) sel-zsubCite-ls))))
+           (copy-alist (list-filter zsubCite->*-alist
+                                    (lambda (elt)
+                                      (member (car elt) sel-zsubCite-ls))))
+           (b (buffer-new))
+           (copy-zfd #f))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_WHITE_:_GREEN_called_RESET_, _BOLD__YELLOW_has zsubCites_RESET_: which => ~s" which)
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: zsubCite-t-ls = >\n~y" (map tree->stree zsubCite-t-ls))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: formattedSubCite-ls = >\n~y" formattedSubCite-ls)
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: sel-zsubCite-ls =>\n~y" (map tree->stree sel-zsubCite-ls))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: zfieldID => ~s" zfieldID)
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: (tree->path zfield) => ~s" (tree->path zfield))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: (path->tree (cDr (selection-get-start))) => ~s" (tree->stree (path->tree (cDr (selection-get-start)))))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: (path->tree (cDr (selection-get-end))) => ~s" (tree->stree (path->tree (cDr (selection-get-end)))))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: (path->tree (selection-get-start)) => ~s" (tree->stree (path->tree (selection-get-start))))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: (path->tree (selection-get-end)) => ~s" (tree->stree (path->tree (selection-get-end))))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: kept => ~s" (map tree->stree (list-filter zsubCite-t-ls (lambda (t) (not (member t sel-zsubCite-ls))))))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: cut => ~s" (map tree->stree (list-filter zsubCite-t-ls (lambda (t) (member t sel-zsubCite-ls)))))
+      ;;
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: ~y" (tree->stree (tree-search-upwards (path->tree (selection-get-start)) '(zsubCite))))
+      ;; (tm-zotero-format-debug "_BOLD__RED_clipboard-copy_RESET_: ~y" (tree->stree (tree-search-upwards (path->tree (selection-get-end)) '(zsubCite))))
+      ;;
+      (selection-cancel)
+
+      (when zfd
+        ;;
+        ;; This buffer does not have any style set. Also, during the execution of
+        ;; this routine, nothing lets it go back to the GUI event-loop, and so
+        ;; the typesetter never runs until this returns. The point of knowing
+        ;; this is that from that we know that none of the
+        ;; tm-zotero-ext:ensure-*-interned! functions will get run inside of the
+        ;; temporary buffer, b, so we don't have to clean up or worry about them
+        ;; at all.
+        ;;
+        (buffer-set-body b zfield-copy) ;; Magical association of editor with buffer-tree
+        (buffer-pretend-autosaved b)
+        (buffer-pretend-saved b)
+
+        ;;
+        ;; This avoids unresolved reference binding issues due to the changing of
+        ;; the zfield-zfieldID, which affects the naming of the intra-document
+        ;; hyperlink target labels. The tm-zotero-ext:get-ztbibItemRefsList
+        ;; in-call is what tm-zotero.ts uses to obtain the necessary information
+        ;; for typesetting the lists of page-refs to the points in the document
+        ;; where a bibliography item was cited. It works by having labels that
+        ;; are formed by the zfield-zfieldID and the sysID of the citation
+        ;; item. When those zfieldID's change but the meta-data here is not kept
+        ;; in sync, we get unresolved reference binding errors when each affected
+        ;; bibItemRefsList is typeset. The simplest way to keep them in sync is
+        ;; to just burn them off when things change, and let the lazy internment
+        ;; thing happen after a few seconds, after TeXmacs has returned to the
+        ;; GUI command-loop and runs the typesetter.
+        ;;
+        (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
+
+
+        (set! (zfield-zfieldID zfield-copy) zfield-copy-ID)
+
+        (set! copy-zfd (make-instance <zfield-data> #:zfd-tree zfield-copy))
+
+        ;; (set! (zfd-Code-code-citationID zfd)      (tm-zotero-random-string))
+        (set! (zfd-Code-code-citationID copy-zfd) (tm-zotero-random-string))
+
+        ;; (set! (zfd-Code-code-properties-formattedCitation zfd)
+        ;;       (string-append
+        ;;        "{\\rtf "
+        ;;        (string-join (map cadr keep-alist) layout-delimiter)
+        ;;        (if suppress? "" layout-suffix)
+        ;;        "}"))
+
+        ;; (set! (zfd-Code-code-properties-formattedCitation copy-zfd)
+        ;;       (string-append
+        ;;        "{\\rtf "
+        ;;        (string-join (map cadr cut-alist) layout-delimiter)
+        ;;        (if suppress? "" layout-suffix)
+        ;;        "}"))
+
+        (set! (zfd-Code-code-properties-formattedCitation copy-zfd)
+              (string-append
+               "{\\rtf "
+               (string-join (map cadr copy-alist) layout-delimiter)
+               (if suppress? "" layout-suffix)
+               "}"))
+
+        ;; (set! (zfield-Text-t zfield)
+        ;;       (tm-zotero-UTF-8-str_text->texmacs
+        ;;        (zfd-Code-code-properties-formattedCitation zfd)
+        ;;        is-note? #f))
+
+        (set! (zfield-Text-t zfield-copy)
+              (tm-zotero-UTF-8-str_text->texmacs
+               (zfd-Code-code-properties-formattedCitation copy-zfd)
+               is-note? #f))
+
+
+        ;; (set! (zfd-Code-code-citationItems-ls zfd)
+        ;;       (map caddr keep-alist))
+
+        ;; (set! (zfd-Code-code-citationItems-ls copy-zfd)
+        ;;       (map caddr cut-alist))
+
+        (set! (zfd-Code-code-citationItems-ls copy-zfd)
+              (map caddr copy-alist))
+
+        ;; (set! (zfd-Code-code-properties-plainCitation zfd)
+        ;;       (zfield-Text zfield))
+
+        (set! (zfd-Code-code-properties-plainCitation copy-zfd)
+              (zfield-Text zfield-copy))
+
+
+        ;; (set! (zfield-Code-is-modified?-flag zfield)      "false")
+
+        (set! (zfield-Code-is-modified?-flag zfield-copy) "false")
+
+        ;;
+        ;; By uninterning it's zfd then giving it a new ID, Juris-M / Zotero no
+        ;; longer has knowledge of this zcite, and so will re-fetch info for this
+        ;; zfield, since it will notice a new zfieldID in the list...
+        ;;
+        ;; Ok, that did not do what I wanted. The problem is that when I use
+        ;; addCitation to insert a multi-subcite citation, disactivate it, then
+        ;; cut one zsubCite out, reactivate it, and then paste that cut zsubCite
+        ;; into the paragraph right after the citation it was just cut from, and
+        ;; then use editCitation on that new one, it changes to \zttextit{id.},
+        ;; since Juris-M / Zotero's internal state has it that the previous
+        ;; citation has the one in it that we just cut from it then pasted in as
+        ;; a separate citation that Juris-M / Zotero doesn't know about until the
+        ;; editCitation call happens.
+        ;;
+        ;; So merely changing the zfieldID was insufficient to cause it to reset
+        ;; that state and re-read the zfield-Code-code in the newly re-ID'd
+        ;; zfield.
+        ;;
+        ;; (hash-remove! zfd-ht zfieldID)
+        ;; (set! (the-zfieldID-of zfd) zfield-new-ID) ; also writes it to the document
+        ;; (hash-set! zfd-ht zfield-new-ID zfd)
+        ;;
+        ;; The same zfd can remain in the zfd-ls right where it is as long as it
+        ;; is not being cut from the document.
+        ;;
+        ;; This is a drastic measure, but should cause it to restart with fresh
+        ;; state information next time this plugin connects...
+        ;;
+        ;; (close-tm-zotero-socket-port!) ;; try instead to set new citationID, above.
+        ;;
+        ;; I'm not sure that helped. It works great when I perform the
+        ;; editCitation right away on the citation that I've cut from. I want the
+        ;; protcol extended to provide resetCitation or something; like
+        ;; editCitation but no interaction other than prompting regarding
+        ;; overwrite of user-modifications. This code could then call on it for
+        ;; each citation where something has been cut out or pasted in.
+        ;;
+
+        ;;
+        ;; This does not have to ever cpp-clipboard-cut the selection-tree
+        ;; because it sets the zfield-Text-t fresh.
+        ;;
+        (clipboard-set which zfield-copy)
+
+        (clear-tree-pointer copy-zfd)
+
+        ;; (if (null? keep-alist)
+        ;;     (begin
+        ;;       (hash-remove! documentID+zfieldID-><zfield-data>-ht zfd-key)
+        ;;       (set! (document-zfield-zfd-ls dd)
+        ;;             (list-filter zfd-ls
+        ;;                          (lambda (elt)
+        ;;                            (not (eq? elt zfd)))))
+        ;;       (tree-assign! zfield "")
+        ;;       (and-with inactive (tree-search-upwards zfield 'inactive)
+        ;;         (tree-assign! inactive "")))
+        ;;     (begin
+        ;;       ;; Should it do this here, or in notify-activate?
+        ;;       (tree-go-to zfield 1)
+        ;;       (tm-zotero-affirmCitation)))
+
+        (buffer-pretend-autosaved b)
+        (buffer-pretend-saved b)
+        (buffer-close b)))))
+
+
+
+(tm-define (clipboard-cut which)
+  (:require (let ((st (selection-tree)))
+              (and (in-tm-zotero-style?)
+                   (not (is-during-tm-zotero-clipboard-cut?))
+                   (inside-zcite? (cursor-tree))
+                   (inside-inactive? (cursor-tree))
+                   (not (has-zfield? st))
+                   (has-zsubCite? st))))
+  (with-fluids
+      ((fluid/is-during-tm-zotero-clipboard-cut? #t))
+    (let* ((selection-t      (selection-tree))
+           (sel-zsubCite-ls  (tm-search selection-t is-zsubCite?))
+           (zfield           (tree-search-upwards (path->tree (cDr (selection-get-start))) '(zcite)))
+           (zfieldID         (zfield-zfieldID zfield))
+           (zfield-new-ID    (generate-unique-zfieldID))
+           (zfield-copy      (tree-copy zfield))
+           (zfield-copy-ID   (generate-unique-zfieldID))
+           (zsubCite-t-ls    (tm-search (zfield-Text-t zfield-copy) is-zsubCite?))
+           (documentID       (get-documentID))
+           (dd               (get-<document-data> documentID))
+           (zfd-ls           (document-zfield-zfd-ls dd))
+           (zfd-key          (string-append documentID zfieldID))
+           ;;(dummy (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_RESET__BOLD_:_RESET_ zfd-key => ~s" zfd-key))
+           (zfd              (hash-ref documentID+zfieldID-><zfield-data>-ht zfd-key #f))
+           ;;(dummy (tm-zotero-format-debug "_BOLD__RED_clipboard-cut_RESET__BOLD_:_RESET_ zfd => ~s" zfd))
+           (layout-prefix    (or (zotero-style-citation-layout-prefix)    ""))
+           (layout-delimiter (or (zotero-style-citation-layout-delimiter) ""))
+           (layout-suffix    (or (zotero-style-citation-layout-suffix)    ""))
+           (suppress? (and zfd (zfd-Code-code-properties-suppress-trailing-punctuation zfd)))
+           (is-note? (zfield-IsNote? zfield))
+           (formattedCitation (and zfd (zfd-Code-code-properties-formattedCitation zfd)))
+           (formattedCitation (if (string? formattedCitation) formattedCitation ""))
+           (formattedCitation (if (string-prefix? "{\\rtf " formattedCitation)
+                                  (substring formattedCitation 6 (1- (string-length formattedCitation)))))
+           (formattedCitation (if (string-prefix? layout-prefix formattedCitation)
+                                  (substring formattedCitation
+                                             (string-length layout-prefix)
+                                             (string-length formattedCitation))
+                                  formattedCitation))
+           (formattedCitation (if (string-suffix? layout-suffix formattedCitation)
+                                  (substring formattedCitation
+                                             0
+                                             (- (string-length formattedCitation)
+                                                (string-length layout-suffix)))
+                                  formattedCitation))
+           (formattedSubCite-ls (split-string-by-substr formattedCitation layout-delimiter))
+           (code-citationItems-ls (or (and zfd (zfd-Code-code-citationItems-ls zfd))
+                                      '()))
+           (zsubCite->*-alist (if (and (== (length zsubCite-t-ls)
+                                           (length formattedSubCite-ls))
+                                       (== (length zsubCite-t-ls)
+                                           (length code-citationItems-ls)))
+                                  (map (lambda (a b c)
+                                         (list a b c)) ;; car cadr caddr
+                                       zsubCite-t-ls
+                                       formattedSubCite-ls
+                                       code-citationItems-ls)
+                                  '()))
            (keep-alist (list-filter zsubCite->*-alist
                                     (lambda (elt)
                                       (not (member (car elt) sel-zsubCite-ls)))))
