@@ -91,6 +91,8 @@
 
   <assign|ztnbsp*|<value|ztnbsp>>
 
+  <assign|ztnbhyp|<macro|<no-break>-<no-break>>>
+
   <assign|ztnobreak|<macro|<no-break>>>
 
   <\active*>
@@ -303,7 +305,7 @@
 
   <assign|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<macro|zfieldID-t|hashLabel-t|<extern|tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<arg|zfieldID-t>|<arg|hashLabel-t>>>>
 
-  <assign|ztHrefFromCiteToBib|<macro|hashLabel|URL|display|<label|<merge|zciteID|<value|zt-zfieldID>|<arg|hashLabel>>><tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<value|zt-zfieldID>|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|unique-id|<create-unique-id>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?>>|<locus|<id|<value|unique-id>>|<link|hyperlink|<id|<value|unique-id>>|<url|<arg|hashLabel>>>|<arg|display>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<locus|<id|<value|unique-id>>|<link|<id|<value|unique-id>>|<url|<arg|URL>>>|<arg|display>>|<arg|display>>>>>
+  <assign|ztHrefFromCiteToBib|<macro|hashLabel|URL|display|<label|<merge|zciteID|<value|zt-zfieldID>|<arg|hashLabel>>><tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!|<value|zt-zfieldID>|<arg|hashLabel>><with|link-FromCiteToBib|<value|zt-link-FromCiteToBib>|link-BibToURL|<value|zt-link-BibToURL>|unique-id|<create-unique-id>|<case|<and|<value|link-FromCiteToBib>|<has-zbibliography?|<arg|hashLabel>>>|<locus|<id|<value|unique-id>>|<link|hyperlink|<id|<value|unique-id>>|<url|<arg|hashLabel>>>|<arg|display>>|<and|<value|link-FromCiteToBib>|<value|link-BibToURL>>|<locus|<id|<value|unique-id>>|<link|<id|<value|unique-id>>|<url|<arg|URL>>>|<arg|display>>|<arg|display>>>>>
 
   <assign|ztHrefFromCiteToBib*|<value|ztHrefFromCiteToBib>>
 
@@ -583,19 +585,19 @@
 
   <inactive|<drd-props|XzsubCite|accessible|all|enable-writability|all|border|yes>>
 
-  <assign|zciteLayoutPrefix|<value|identity>>
+  <assign|zciteLayoutPrefix|<macro|t|<if|<inside-inactive?|<arg|t>>|<arg|t><next-line>|<arg|t>>>>
 
   <drd-props|zciteLayoutPrefix|unaccessible|all>
 
   <inactive|<drd-props|XzciteLayoutPrefix|accessible|all|enable-writability|all|border|yes>>
 
-  <assign|zciteLayoutDelimiter|<value|identity>>
+  <assign|zciteLayoutDelimiter|<macro|t|<if|<inside-inactive?|<arg|t>>|<arg|t><next-line>|<arg|t>>>>
 
   <drd-props|zciteLayoutDelimiter|unaccessible|all>
 
   <inactive|<drd-props|XzciteLayoutDelimiter|accessible|all|enable-writability|all|border|yes>>
 
-  <assign|zciteLayoutSuffix|<value|identity>>
+  <assign|zciteLayoutSuffix|<macro|t|<if|<inside-inactive?|<arg|t>>|<next-line><arg|t>|<arg|t>>>>
 
   <drd-props|zciteLayoutSuffix|unaccessible|all>
 
@@ -631,31 +633,25 @@
 
   \;
 
-  <assign|has-zbibliography?|<macro|<extern|(lambda ()
-  (tm-zotero-ext:document-has-zbibliography?))>>>
+  <assign|has-zbibliography?|<macro|t|<extern|tm-zotero-ext:document-has-zbibliography?|<arg|t>>>>
 
   \;
 
-  <assign|inside-footnote?|<macro|t|<extern|(lambda (t)
-  (tm-zotero-ext:inside-footnote? t))|<arg|t>>>>
+  <assign|inside-footnote?|<macro|t|<extern|tm-zotero-ext:inside-footnote?|<arg|t>>>>
 
-  <assign|inside-endnote?|<macro|t|<extern|(lambda (t)
-  (tm-zotero-ext:inside-endnote? t))|<arg|t>>>>
+  <assign|inside-endnote?|<macro|t|<extern|tm-zotero-ext:inside-endnote?|<arg|t>>>>
 
-  <assign|inside-note?|<macro|t|<extern|(lambda (t)
-  (tm-zotero-ext:inside-note? t))|<arg|t>>>>
+  <assign|inside-note?|<macro|t|<extern|tm-zotero-ext:inside-note?|<arg|t>>>>
 
-  <assign|inside-zcite?|<macro|t|<extern|(lambda (t)
-  (tm-zotero-ext:inside-zcite? t))|<arg|t>>>>
+  <assign|inside-zcite?|<macro|t|<extern|tm-zotero-ext:inside-zcite?|<arg|t>>>>
 
-  <assign|inside-zbibliography?|<macro|t|<extern|(lambda (t)
-  (tm-zotero-ext:inside-zbibliography? t))|<arg|t>>>>
+  <assign|inside-zbibliography?|<macro|t|<extern|tm-zotero-ext:inside-zbibliography?|<arg|t>>>>
 
-  <assign|not-inside-zbibliography?|<macro|t|<extern|(lambda (t)
-  (tm-zotero-ext:not-inside-zbibliography? t))|<arg|t>>>>
+  <assign|not-inside-zbibliography?|<macro|t|<extern|tm-zotero-ext:not-inside-zbibliography?|<arg|t>>>>
 
-  <assign|inside-zfield?|<macro|t|<extern|(lambda (t)
-  (tm-zotero-ext:inside-zfield? t))|<arg|t>>>>
+  <assign|inside-zfield?|<macro|t|<extern|tm-zotero-ext:inside-zfield?|<arg|t>>>>
+
+  <assign|inside-inactive?|<macro|t|<extern|tm-zotero-ext:inside-inactive?|<arg|t>>>>
 
   \;
 

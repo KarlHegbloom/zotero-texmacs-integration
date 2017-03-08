@@ -20,6 +20,8 @@
   (=> "Zotero"
       ("Add Citation" (tm-zotero-addCitation))
       ("Edit Citation" (tm-zotero-editCitation))
+      ;;("Add or Edit Citation" (tm-zotero-addEditCitation))
+      ("Affirm Citation" (tm-zotero-affirmCitation))
       ---
       ("Add Bibliography" (tm-zotero-addBibliography))
       ("Edit Bibliography" (tm-zotero-editBibliography))
