@@ -280,8 +280,9 @@
     of the \Pzbibliography\Q), you can:
 
     <\itemize>
-      <item>press the <key|Tab> key to open the Zotero citation (or
-      bibliography) edit dialogues.
+      <item>press the <key|Tab> key to call <markup|assertCitation>, or to
+      open the bibliography edit dialogue; press <key|Ctrl-Enter> to call
+      <markup|editCitation> or <markup|editBibliography>.
 
       <item>press <key|Shift-space> to toggle the suppress trailing
       punctuation flag for that zcite.
@@ -816,18 +817,18 @@
   <\collection>
     <associate|auto-1|<tuple|1|1>>
     <associate|auto-10|<tuple|<with|mode|<quote|math>|<rigid|\<circ\>>>|5>>
-    <associate|auto-11|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|6>>
+    <associate|auto-11|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|5>>
     <associate|auto-12|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|6>>
     <associate|auto-13|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|6>>
     <associate|auto-14|<tuple|<with|mode|<quote|math>|\<bullet\>>|8>>
     <associate|auto-15|<tuple|<with|mode|<quote|math>|\<bullet\>>|8>>
     <associate|auto-16|<tuple|1|9>>
-    <associate|auto-2|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|3>>
-    <associate|auto-3|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|3>>
+    <associate|auto-2|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|2>>
+    <associate|auto-3|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|2>>
     <associate|auto-4|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|3>>
     <associate|auto-5|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|3>>
-    <associate|auto-6|<tuple|<with|mode|<quote|math>|\<bullet\>>|4>>
-    <associate|auto-7|<tuple|<with|mode|<quote|math>|\<bullet\>>|4>>
+    <associate|auto-6|<tuple|<with|mode|<quote|math>|\<bullet\>>|3>>
+    <associate|auto-7|<tuple|<with|mode|<quote|math>|\<bullet\>>|3>>
     <associate|auto-8|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|4>>
     <associate|auto-9|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|4>>
     <associate|footnote-1|<tuple|1|8>>
@@ -858,7 +859,7 @@
     <associate|zbibSysID3421|<tuple|1|10>>
     <associate|zbibSysID3427|<tuple|1|10>>
     <associate|zbibSysID3429|<tuple|1|10>>
-    <associate|zbibSysID3434|<tuple|1|10>>
+    <associate|zbibSysID3434|<tuple|1|9>>
     <associate|zbibSysID3440|<tuple|1|10>>
     <associate|zbibSysID3457|<tuple|1|10>>
     <associate|zbibSysID3461|<tuple|1|10>>
@@ -867,7 +868,7 @@
     <associate|zbibSysID3471|<tuple|1|10>>
     <associate|zbibSysID3474|<tuple|1|10>>
     <associate|zbibSysID3482|<tuple|1|11>>
-    <associate|zbibSysID3484|<tuple|1|11>>
+    <associate|zbibSysID3484|<tuple|1|10>>
     <associate|zbibSysID3486|<tuple|1|11>>
     <associate|zbibSysID3603|<tuple|1|11>>
     <associate|zbibSysID3613|<tuple|1|10>>
@@ -878,7 +879,7 @@
     <associate|zbibSysID374|<tuple|1|10>>
     <associate|zbibSysID3748|<tuple|1|11>>
     <associate|zbibSysID3756|<tuple|1|10>>
-    <associate|zbibSysID3955|<tuple|1|11>>
+    <associate|zbibSysID3955|<tuple|1|10>>
     <associate|zbibSysID3959|<tuple|1|10>>
     <associate|zbibSysID3966|<tuple|1|10>>
     <associate|zbibSysID3990|<tuple|1|10>>
@@ -892,12 +893,12 @@
     <associate|zbibSysID93|<tuple|1|9>>
     <associate|zciteID+WoBHoEj0Jm92ki#zbibSysID3187|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|4>>
     <associate|zciteID+WoBHoEj0Jm92ki#zbibSysID3564|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|4>>
-    <associate|zciteID+ZKhKfHGkvinH8g#zbibSysID1342|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|5>>
-    <associate|zciteID+ZKhKfHGkvinH8g#zbibSysID1420|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|5>>
-    <associate|zciteID+ZKhKfHGkvinH8g#zbibSysID2275|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|5>>
+    <associate|zciteID+ZKhKfHGkvinH8g#zbibSysID1342|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|4>>
+    <associate|zciteID+ZKhKfHGkvinH8g#zbibSysID1420|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|4>>
+    <associate|zciteID+ZKhKfHGkvinH8g#zbibSysID2275|<tuple|<with|mode|<quote|math>|<rigid|\<rightarrow\>>>|4>>
     <associate|zotero+DvR2qZelkLrxq7-noteIndex|<tuple|0|9>>
     <associate|zotero+WoBHoEj0Jm92ki-noteIndex|<tuple|0|4>>
-    <associate|zotero+ZKhKfHGkvinH8g-noteIndex|<tuple|0|5>>
+    <associate|zotero+ZKhKfHGkvinH8g-noteIndex|<tuple|0|4>>
   </collection>
 </references>
 
