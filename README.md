@@ -2,11 +2,19 @@
 
 __This branch is the active (Α) development branch of this program.__
 
-__It is ready to try! I need alpha testers. Please report!__
+__It is ready to try! I need alpha testers. Please report both success and failure to this [issue tracker](https://github.com/KarlHegbloom/zotero-texmacs-integration/issues)!__
+
+## News ##
+
+  * Update to the latest [propachi-texmacs](https://github.com/KarlHegbloom/propachi-texmacs/releases) is necessary!
+  * Key bindings changed: In the `zcite` context, `Tab` now calls `affirmCitation` and `Ctrl-Enter` calls `editCitation`. In the `zbibliography` context, `Tab` and `Ctrl-Enter` both call `editBibliography`.
+  * `clipboard-copy`, `clipboard-cut`, and `clipboard-paste` now operate on new `zcite` sub-dividing tags, `zciteLayoutPrefix`, `zciteLayoutDelimiter`, `zciteLayoutSuffix`, and `zsubCite`. So when a `zcite` is disactivated via `Backspace` or the focus toolbar button, you have access to selection of a region for `clipboard-copy` or `clipboard-cut`, and when that region consists only of complete `zsubCite` and any of the `zciteLayout*` tags, then those `zsubCite`'s will get put onto the clipboard wrapped inside of a full `zcite`, ready to be pasted into the document's main text. Any clipping that is of just one `zcite` can be pasted into a disactivated `zcite` as well, as long as the cursor is *between* the `zsubCite` and `zciteLayout*` tags!
+
 
 ## Documentation and YouTube Screencast Demos ##
 
 RTFM: [tm-zotero-tutorial.en.pdf on Github](https://github.com/KarlHegbloom/zotero-texmacs-integration/blob/master/doc/tm-zotero-tutorial.en.pdf)
+
 
 [Juris-M / Zotero and TeXmacs Integration Screencasts Playlist](https://www.youtube.com/playlist?list=PLN9Ht5SDLPrbPHHyRvTK7bw1awqTsllWy)
 
