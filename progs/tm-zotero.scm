@@ -15,6 +15,7 @@
 
 ;;{{{ Module definition and uses, routines from other parts of TeXmacs
 
+;;;;;;
 ;;;
 ;;; Save a few things to be sure not to lose them if they are needed.
 ;;;
@@ -49,7 +50,7 @@
         (generic generic-edit)
         (generic format-edit)
         (convert tools sxml)
-        (tm-zotero json)
+        (tm-zotero json)                ; ensures that it's my copy
         (srfi srfi-19)                  ; current-time, etc.
         (ice-9 format)
         (ice-9 regex)
@@ -57,7 +58,7 @@
         (compat guile-2)
         (term ansi-color)
         ;; TODO Find out if my plugin can perform args processing for batch use?
-        (ice-9 optargs)
+        (ice-9 optargs)                 ; define*
         ))
 
 
@@ -73,7 +74,9 @@
 ;;; This ought to be a separate program, or operated by a command-line switch
 ;;; or scheme thunk invocation or something, so that it can be done as a
 ;;; "batch" process from the command line, a post-inst script, a cron script,
-;;; or a git pull hook...
+;;; or a git pull hook... The script that builds it can call on the xpath
+;;; command-line program to get the information it needs... or just use the
+;;; scheme program here:
 ;;;
 (define tm-zotero-csl-styles-base-directory
   "/home/karlheg/.juris-m/zotero/8l87vugc.default/zotero/styles")
@@ -91,9 +94,14 @@
 (define <tree> (class-of (tm->tree ""))) ; really a <blackbox> right now.
 
 
+;;;;;;
+;;;
+;;; TeXmacs uses the "make" symbol differently than GOOPS does... but
+;;; define-method makes it easy to "make" a compatible one:
+;;;
 (define-method (make (tag <symbol>))
   (tm-make tag))
-
+;;;
 (define-method (make (tag <symbol>) (arity <integer>))
   (tm-make tag arity))
 
@@ -170,7 +178,11 @@
 (debug-set! stack 0)
 
 
-
+;;;;;;
+;;;
+;;; I like to have colored output because it helps me to visually parse the
+;;; repetetive debug output.
+;;;
 (define color-code-rx
   (map (lambda (elt)
          (cons (apply make-regexp `,(car elt))
@@ -226,6 +238,10 @@
          (("(_YELLOW_)")
           pre ,(color 'YELLOW) post))))
 
+;;;;;;
+;;;
+;;; Or, the color codes stand-in strings can be stripped instead:
+;;;
 (define color-code-strip-rx
   (map (lambda (elt)
          (cons (apply make-regexp `,(car elt))
@@ -273,6 +289,11 @@
 
 (define last-time (current-time))
 
+;;;;;;
+;;;
+;;; Because every debug printout has a timestamp, they can be used to get a
+;;; measure of how long it takes between printouts.
+;;;
 (define (timestamp time)
   "@time is a time-utc as returned by srfi-19:current-time."
   (let* ((td (time-difference time last-time))
@@ -299,6 +320,10 @@
                         (cdr args))))))
 
 
+;;;;;;
+;;;
+;;; This is set by a preference getter/setter, zt-notify-debug-trace.
+;;;
 (define zt-debug-trace? #f)
 
 ;;;;;;
@@ -406,9 +431,9 @@
 ;;;    definition of <zfield-data> and tm-zotero-ext:ensure-zfield-interned!.)
 ;;;
 
-(define %zotero-style-citation-layout-prefix "")
+(define %zotero-style-citation-layout-prefix    "")
 (define %zotero-style-citation-layout-delimiter "")
-(define %zotero-style-citation-layout-suffix "")
+(define %zotero-style-citation-layout-suffix    "")
 
 (define (zotero-style-citation-layout-prefix)
   %zotero-style-citation-layout-prefix)
@@ -462,7 +487,7 @@
 ;;;      by a letter.
 ;;;
 (define (zfield-NoteIndex-t zfieldID-or-zfield)
-  (tm-zotero-format-debug "_BOLD__YELLOW_zfield-NoteIndex-t_RESET__BOLD_:_RESET_ ~s" zfieldID-or-zfield)
+  ;; (tm-zotero-format-debug "_BOLD__YELLOW_zfield-NoteIndex-t_RESET__BOLD_:_RESET_ ~s" zfieldID-or-zfield)
   (let ((zfieldID (or (and (string? zfieldID-or-zfield)
                            zfieldID-or-zfield)
                       (zfield-zfieldID zfieldID-or-zfield))))
@@ -478,7 +503,7 @@
 ;;;      the footnote number?
 ;;;
 (define-public (zfield-NoteIndex zfieldID-or-zfield)
-  (tm-zotero-format-debug "_BOLD__YELLOW_zfield-NoteIndex_RESET__BOLD_:_RESET_ ~s" zfieldID-or-zfield)
+  ;; (tm-zotero-format-debug "_BOLD__YELLOW_zfield-NoteIndex_RESET__BOLD_:_RESET_ ~s" zfieldID-or-zfield)
   (let* ((NoteIndex-t     (zfield-NoteIndex-t zfieldID-or-zfield))
          (NoteIndex-str   (or (and NoteIndex-t
                                    (tree? NoteIndex-t)
@@ -490,51 +515,11 @@
                                    (string? NoteIndex-str)
                                    (string-tokenize-by-char NoteIndex-str #\.))
                               '())))
-    (tm-zotero-format-debug "_BOLD__YELLOW_zfield-NoteIndex_RESET__BOLD_:_RESET_ NoteIndex-str => ~s" NoteIndex-str)
+    ;; (tm-zotero-format-debug "_BOLD__YELLOW_zfield-NoteIndex_RESET__BOLD_:_RESET_ NoteIndex-str => ~s" NoteIndex-str)
     (do ((ls NoteIndex-parts (cdr ls))
          (n 0 (+ (* n 1000) (string->number (car ls)))))
         ((null? ls) (number->string n)))))
 
-
-;;;;;;
-;;;
-;;; There can be more than one sysID the same in a citation cluster, e.g., for
-;;; parallel legal citations, or more than one reference to the same source,
-;;; but to different pages or chapters, perhaps. When forming the
-;;; ztbibItemRefsList trees for the bibliography entries, there's no point in
-;;; linking back to the same citation cluster zfield more than once.
-;;;
-;;; Just for that, make sure the lists are uniq-equal? (since uniq uses memq,
-;;; and this uses member, and we need to compare using equal? to make it
-;;; recurse through list structure.
-;;;
-;; (define (uniq-equal? l)
-;;   (let loop ((acc '())
-;;              (l l))
-;;     (if (null? l)
-;;         (reverse! acc)
-;;         (loop (if (member (car l) acc)
-;;                   acc
-;;                   (cons (car l) acc))
-;;               (cdr l)))))
-
-
-;;;;;;
-;;;
-;;; See: info:(guile-1.8) Guardians
-;;;
-;; (define tp-guardian (make-guardian))
-
-;; (define (tp-guardian-after-gc)
-;;   (do ((tp (tp-guardian) (tp-guardian)))
-;;       ((and tp (observer? tp)))
-;;     (when (and tp (observer? tp))
-;;       (tree-pointer-detach tp)))
-;;   #t)
-
-;; ;; If I enable the next line TeXmacs just spins the CPU forever.
-;; ;;
-;; ;;(add-hook! after-gc-hook tp-guardian-after-gc)
 
 
 ;;;;;;
@@ -550,6 +535,8 @@
                   (tree->path (tree-pointer->tree tp2)))))
 
 
+;;;;;;
+;;;
 ;;; <zfield-data> is defined below.
 ;;;
 ;;; This is effectively a generic function because tree-pointer is an accessor
@@ -568,12 +555,9 @@
   (merge! ls *fd <*-data>-less?))
 
 (define (remove-<*-data>-ls! ls *fd)
-  (set! ls
-        (list-filter ls
-                     (lambda (elt)
-                       (not (eq? *fd elt)))))
-  ls)
-
+  (list-filter ls
+               (lambda (elt)
+                 (not (eq? *fd elt)))))
 
 
 
@@ -709,13 +693,20 @@
     (tm-zotero-set-message
      (string-append "zcite reactivated! Checking for modification... is-modified? => "
                     is-modified? ". Done."))
-    (tm-zotero-affirmCitation))
+    ;;
+    (enqueue-delayed-integration-commands
+     documentID
+     (list zfield)
+     tm-zotero-affirmCitation))
   #t)
 
 
 ;;;;;;
 ;;;
-;;; zfield can be (focus-tree)
+;;; This will be called when Shift-Space is pressed when a zcite is the
+;;; focus-tree. It toggles the suppress trailing punctuation flag for the
+;;; zcite, and modifies the appearance of the citation without contacting
+;;; Zotero.
 ;;;
 (tm-define (toggle-focus-zcite-suppress-trailing-punctuation . ign)
   (:secure)
@@ -724,15 +715,14 @@
     (toggle-zfield-suppress-trailing-punctuation (focus-tree))))
 
 
-(define-public (toggle-zfield-suppress-trailing-punctuation zfield)
+(define (toggle-zfield-suppress-trailing-punctuation zfield)
   (let* ((documentID    (get-documentID))
          (zfieldID      (zfield-zfieldID zfield))
-         (is-note?      (zfield-IsNote? zfield))
+         (is-note?      (zfield-IsNote?  zfield))
          (dd            (get-<document-data> documentID))
-         ;;(zfd-ht        (document-zfield-zfd-ht dd))
-         ;;(zfd           (hash-ref zfd-ht zfieldID #f))
-         (zfd (hash-ref documentID+zfieldID-><zfield-data>-ht
-                        (string-append documentID zfieldID)))
+         (zfd-key       (string-append documentID zfieldID))
+         (zfd           (hash-ref documentID+zfieldID-><zfield-data>-ht
+                                  zfd-key))
          (layout-suffix (or (zotero-style-citation-layout-suffix) ""))
          (suppress?
           (and zfd
@@ -772,6 +762,7 @@
       (set! (zfield-Code-is-modified?-flag zfield) "false"))
     (not suppress?)))
 
+
 ;;;;;;
 ;;;
 ;;; NOTE Some examples of how clipboard-cut and clipboard-paste can be
@@ -783,7 +774,6 @@
 ;;; tm-zotero-ext:ensure-zfield-interned!, which is called by the typesetter
 ;;; each time a zfield is encountered.
 ;;;
-
 ;;;;;;
 ;;;
 ;;; This is flag that will be set while the clipboard-cut operation is taking
@@ -795,6 +785,10 @@
 (define fluid/is-during-tm-zotero-clipboard-cut? (make-fluid))
 (fluid-set! fluid/is-during-tm-zotero-clipboard-cut? #f)
 
+;;;;;;
+;;;
+;;; Assume that the fluid is always either #t or #f.
+;;;
 (tm-define (is-during-tm-zotero-clipboard-cut?)
   (fluid-ref fluid/is-during-tm-zotero-clipboard-cut?))
 
@@ -805,7 +799,10 @@
 ;;; dynamic extent of a fluid-let fluid/is-during-tm-zotero-clipboard-cut? #t,
 ;;; and does not check for that condition. Without that fluid for a locking
 ;;; mechanism, the uninterned tags would get interned again right behind us as
-;;; soon as the GUI main-loop and typesetter run again!
+;;; soon as the GUI main-loop and typesetter run again! This does not have a
+;;; fluid-let inside of it because it is always called from a context where
+;;; that is more appropriate, that is, with wider dynamic scope that just this
+;;; routine here.
 ;;;
 (define (unintern-ztHrefFromCiteToBib-for-cut documentID zfield)
   ;;(tm-zotero-format-debug "_CYAN_unintern-ztHrefFromCiteToBib-for-cut_WHITE_:_GREEN_called..._RESET_")
@@ -1569,8 +1566,11 @@
                 (tree-assign! inactive "")))
             (begin
               ;; Should it do this here, or in notify-activate?
-              (tree-go-to zfield 1)
-              (tm-zotero-affirmCitation)))
+              ;; Or let the user do it by-hand?
+              (enqueue-delayed-integration-commands
+               documentID
+               (list zfield)
+               tm-zotero-affirmCitation)))
 
         (buffer-pretend-autosaved b)
         (buffer-pretend-saved b)
@@ -2767,6 +2767,10 @@
        (tree-assign! zfieldID-t t)))))
 
 
+;;;;;;
+;;;
+;;; The zfield-zfieldID-t as a string.
+;;;
 (define zfield-zfieldID
   (make-procedure-with-setter
    ;; ref
@@ -5354,15 +5358,15 @@
   ;; (tm-zotero-format-debug "tm-zotero-Document_cursorInField:called...")
   (let ((ret (if (focus-is-zfield?)
                  (begin
-                   (tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-Document_cursorInField_RESET__BOLD_:_RESET_ focus-is-zfield? => #t")
+                   ;; (tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-Document_cursorInField_RESET__BOLD_:_RESET_ focus-is-zfield? => #t")
                    (let* ((zfield   (focus-tree))
                           (zfieldID (zfield-zfieldID zfield)))
                      (if (not (zfield-is-document-new-zfield? documentID zfieldID))
                          (begin
-                           (tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-Document_cursorInField_RESET__BOLD_: ~s" zfield)
+                           ;; (tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-Document_cursorInField_RESET__BOLD_: ~s" zfield)
                            (let ((zfieldCode (zfield-Code-code zfield))
                                  (noteIndex (zfield-NoteIndex zfield)))
-                             (tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-Document_cursorInField_RESET__BOLD_:_RESET_zfieldID => ~s, zfieldCode => ~s, noteIndex => ~s" zfieldID zfieldCode noteIndex)
+                             ;; (tm-zotero-format-debug "_BOLD__GREEN_tm-zotero-Document_cursorInField_RESET__BOLD_:_RESET_zfieldID => ~s, zfieldCode => ~s, noteIndex => ~s" zfieldID zfieldCode noteIndex)
                              (list zfieldID zfieldCode noteIndex)))
                          '()))) ;; is the new field not finalized by Document_insertField
                  '()))) ;; focus is not a zfield.
