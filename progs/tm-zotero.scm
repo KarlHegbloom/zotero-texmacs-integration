@@ -78,8 +78,8 @@
 ;;; command-line program to get the information it needs... or just use the
 ;;; scheme program here:
 ;;;
-(define tm-zotero-csl-styles-base-directory
-  "/home/karlheg/.juris-m/zotero/8l87vugc.default/zotero/styles")
+;; (define tm-zotero-csl-styles-base-directory
+;;   "/home/karlheg/.juris-m/zotero/8l87vugc.default/zotero/styles")
 
 
 ;;;;;;
@@ -2529,8 +2529,10 @@
                                                      (lambda (c) (eqv? c #\/)))
                                  (string-length style-id))
                       style-id)))
-    (or (hash-ref style-id%citation-layout-prefix-delimiter-suffix style-id #f)
-        (get-csl-style-citation-layout-prefix-delimiter-suffix style-id))))
+    ;(or
+     (hash-ref style-id%citation-layout-prefix-delimiter-suffix style-id '("" "" ""))
+     ;; (get-csl-style-citation-layout-prefix-delimiter-suffix style-id)
+     ));)
 
 ;;}}}
 
