@@ -101,6 +101,10 @@
 
   \;
 
+  <assign|compact-lists|<macro|true>>
+
+  \;
+
   <assign|sectional-short-style|<macro|true>>
 
   <assign|heading-toc|<macro|name|<toc-normal-2|<arg|name>>>>

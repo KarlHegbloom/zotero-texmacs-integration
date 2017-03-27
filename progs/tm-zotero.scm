@@ -347,7 +347,6 @@
                              "_RESET_\n")))
                           (cdr args)))))))
 
-
 ;;}}}
 ;;{{{ Status line messages and system-wait messages.
 
@@ -3542,6 +3541,45 @@
       (tree-pointer-detach tp))))
 
 ;;}}}
+;;{{{ define-class for <zt-endnote-data> and <zEndNotes-data>
+
+(define-class-with-accessors-keywords <zt-endnote-data> ()
+  (the-zfieldID-of #:init-value "")
+  ;;
+  ;; %tree-pointer can be used to determine the in-document-order relative
+  ;; position of this zt-endnote with others or with the zEndNotes.
+  ;;
+  (%tree-pointer #:init-value #f)
+  (tree-pointer
+   #:allocation #:virtual
+   #:slot-ref (lambda (zed)
+                (slot-ref zed '%tree-pointer))
+   #:slot-set! (lambda (zed tp)
+                 (if (and tp (observer? tp))
+                     (begin
+                       ;;(tp-guardian tp)
+                       (slot-set! zed '%tree-pointer tp))
+                     (begin
+                       (slot-set! zed '%tree-pointer #f)))))
+  (zed-tree
+   #:allocation #:virtual
+   #:slot-ref (lambda (zed)
+                (let ((tp (tree-pointer zed)))
+                  (if (and tp (observer? tp))
+                      (tree-pointer->tree tp)
+                      #f)))
+   #:slot-set! (lambda (zed t)
+                 (if (and t (tree? t))
+                     (set! (tree-pointer zed) (tree->tree-pointer t))
+                     (set! (tree-pointer zed) #f))))
+
+  )
+
+(define-class-with-accessors-keywords <zEndNotes-data> ()
+  )
+
+
+;;;}}}
 ;;{{{ define-class for <document-data>
 
 (define-class-with-accessors-keywords <document-data> ()
@@ -3805,7 +3843,7 @@
       ;; (hash-remove! (document-zfield-zfd-ht dd)
       ;;               (the-zfieldID-of zfd))
       (hash-remove! documentID+zfieldID-><zfield-data>-ht
-                    (string-append documentID (th-zfieldID-of zfd)))
+                    (string-append documentID (the-zfieldID-of zfd)))
       (document-remove!-<zfield-data> documentID zfd)
       (when (is-zbibliography? (zfd-tree zfd))
         (document-remove!-zbibliography-zfd zfd))
@@ -4374,6 +4412,19 @@
   (:require (is-during-tm-zotero-clipboard-cut?))
   ;; (tm-zotero-format-debug "    _BLACK__ON-YELLOW_%tm-zotero-ext:ensure-ztHrefFromCiteToBib-interned!_RESET__BOLD_:  _RED_is-during-tm-zotero-clipboard-cut? => #t_RESET_")
   "")
+
+
+;;;;;;
+;;;
+;;; Interning of the zt-endnote items
+;;;
+
+
+;;;;;;
+;;;
+;;; Interning of the zEndNotes blocks
+;;;
+
 
 
 ;;;;;;
@@ -5281,8 +5332,33 @@
 (define (tm-zotero-Document_activate tid documentID)
   (tm-zotero-set-message "Processing command: Document_activate...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_activate:called...")
+  ;;
+  ;; TODO I've noticed that, at least on Ubuntu Linux, when the
+  ;; wait-update-current-buffer is running, it will bring the TeXmacs window to
+  ;; the top when I'm trying to work in another window, which is annoying.
+  ;;
+  ;; Without this call on MacOS, when I insert a zcite or anything, the Juris-M
+  ;; / Zotero frame is left on top of the stack.
+  ;;
+  (activate-texmacs-window)
   (wait-update-current-buffer)
   (tm-zotero-write tid (safe-scm->json-string '())))
+
+
+(define (activate-texmacs-window)
+  (cond
+    ((os-macos?)
+     ;; (system (format #f "/usr/bin/osascript -e tell application ~s to activate"
+                     
+     ;;                 ))
+     (noop)
+     )
+    ((or (os-mingw?) (os-win32?))
+     (noop)
+     )
+    (else
+      (system (format #f "wmctrl -ia $(wmctrl -lp | awk -vpid=~s '$3==pid {print $1; exit}') || true"
+                      (object->string (getpid)))))))
 
 ;;}}}
 ;;{{{ Document_canInsertField

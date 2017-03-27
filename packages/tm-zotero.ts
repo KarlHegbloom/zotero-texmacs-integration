@@ -48,7 +48,23 @@
 
       To do: Simplify
 
-      To do: uniform naming convention\ 
+      To do: uniform naming convention, "exported" vs "internal" with
+      different name-prefix, options or settings that are meant to be set in
+      the document's init-env, or in with wrappers vs settings in TeXmacs
+      global settings.
+    </src-comment>
+  </active*>
+
+  <\active*>
+    <\src-comment>
+      I believe that I found that in the legal-brief.ts, having a use-module
+      and use-package with tm-zotero there was not sufficient to have the
+      (style-includes? p q) find that it includes tm-zotero when the document
+      primary style is legal-brief, without an explicit (tm-define
+      (style-includes? there in init-legal-brief.scm. (TODO: But now want to
+      double-check that since I just noticed that I had not included
+      tm-zotero in the use-package list until just now, as I wrote this
+      comment box.)
     </src-comment>
   </active*>
 
@@ -232,24 +248,55 @@
 
   <assign|endnote-sep|<footnote-sep>>
 
-  <assign|endnote-item-render|<value|aligned-space-item>>
+  \;
 
-  <assign|endnote-item-transform|<value|identity>>
+  <inactive|<assign|endnote-item-render|<value|aligned-space-item>>>
 
-  <new-list|endnote-list|<value|endnote-item-render>|<value|endnote-item-transform>>
+  <inactive|<assign|endnote-item-transform|<value|identity>>>
 
-  <assign|the-endnotes|<macro|<endnote-list*|<get-attachment|endnotes>>>>
+  <inactive|<new-list|endnote-list|<value|endnote-item-render>|<value|endnote-item-transform>>>
+
+  <inactive|<assign|the-endnotes|<macro|<endnote-list*|<get-attachment|endnotes>>>>>
+
+  \;
+
+  <assign|tm-zotero-ext:zEndNotes|<macro|fieldID|<extern|tm-zotero-ext:ensure-zEndNotes-interned!|<arg|fieldID>>>>
+
+  <assign|zEndNotes|<macro|fieldID|fieldCode|fieldText|<tm-zotero-ext:zEndNotes|<arg|fieldID>>>>
+
+  <\active*>
+    <\src-comment>
+      This is how it gets rendered in the text where the zt-endnote macro is.
+      It is modeled after render-footnote*.
+    </src-comment>
+  </active*>
 
   <assign|render-endnote*|<\macro|sym|nr|body>
     <write|endnotes|<style-with|src-compact|all|<with|par-mode|justify|par-left|0cm|par-right|0cm|font-shape|right|<style-with|src-compact|none|<surround|<locus|<id|<hard-id|<arg|body>>>|<link|hyperlink|<id|<hard-id|<arg|body>>>|<url|<merge|#endnr-|<arg|nr>>>>|<item*|<arg|sym>>><endnote-sep>|<set-binding|<merge|endnote-|<arg|nr>>|<value|the-label>|body><right-flush>|<style-with|src-compact|none|<arg|body>>>>>>>
   </macro>>
 
-  <assign|render-endnote|<macro|nr|body|<render-endnote*|<arg|nr>|<arg|nr>|<arg|body>>>>
+  \;
 
-  <assign|zt-endnote|<macro|body|<style-with|src-compact|none|<next-endnote><with|zt-not-inside-note|false|zt-in-endnote|true|<render-endnote|<the-endnote>|<arg|body>>><space|0spc><label|<merge|endnr-|<the-endnote>>><rsup|<with|font-shape|right|<reference|<merge|endnote-|<the-endnote>>>>>>>>
+  \;
 
-  <assign|zt-endnote|<with|color|red|ENDNOTES NOT IMPLEMENTED.> See:
-  tm-zotero.ts>
+  <inactive|<assign|render-endnote|<macro|nr|body|<render-endnote*|<arg|nr>|<arg|nr>|<arg|body>>>>>
+
+  \;
+
+  <inactive|<assign|tm-zotero-ext:ensure-zt-endnote-interned!|<macro|nr|body|<extern|tm-zotero-ext:ensure-zt-endnote-interned!|<arg|nr>|<arg|body>>>>>
+
+  \;
+
+  <assign|XXXzt-endnote|<macro|body|<style-with|src-compact|none|<next-endnote><with|zt-not-inside-note|false|zt-in-endnote|true|<tm-zotero-ext:ensure-zt-endnote-interned!|<the-endnote>|<arg|body>><render-endnote|<the-endnote>|<arg|body>>><space|0spc><label|<merge|endnr-|<the-endnote>>><rsup|<with|font-shape|right|<reference|<merge|endnote-|<the-endnote>>>>>>>>
+
+  \;
+
+  <inactive|<assign|Xzt-endnote|<with|color|red|ENDNOTES NOT IMPLEMENTED.>
+  See: tm-zotero.ts>>
+
+  \;
+
+  <assign|zt-endnote|<macro|body|<style-with|src-compact|none|<next-endnote><with|zt-not-inside-note|false|zt-in-endnote|true|<tm-zotero-ext:zt-endnote|<the-endnote>|<arg|body>>><space|0spc><label|<merge|endnr-|<the-endnote>>><rsup|<with|font-shape|right|<reference|<merge|endnote-|<the-endnote>>>>>>>>
 
   <\active*>
     <\src-comment>
@@ -662,6 +709,13 @@
 
 <\initial>
   <\collection>
+    <associate|font|bonum>
+    <associate|font-base-size|12>
+    <associate|math-font|math-bonum>
+    <associate|page-height|auto>
+    <associate|page-medium|papyrus>
+    <associate|page-type|letter>
+    <associate|page-width|auto>
     <associate|preamble|true>
   </collection>
 </initial>
