@@ -4726,6 +4726,9 @@
       (if (and (port? tm-zotero-socket-port)
                (not (port-closed? tm-zotero-socket-port)))
           tm-zotero-socket-port
+          ;;
+          ;; The below turns out to be not needed. The localhost tcp port is there on MacOS.
+          ;;
           ;; (cond
           ;;   ((os-macos?)		;; Mac OS-X
           ;;    (set! tm-zotero-socket-port (socket PF_UNIX SOCK_STREAM 0))
@@ -5346,19 +5349,22 @@
 
 
 (define (activate-texmacs-window)
-  (cond
-    ((os-macos?)
-     ;; (system (format #f "/usr/bin/osascript -e tell application ~s to activate"
-                     
-     ;;                 ))
-     (noop)
-     )
-    ((or (os-mingw?) (os-win32?))
-     (noop)
-     )
-    (else
-      (system (format #f "wmctrl -ia $(wmctrl -lp | awk -vpid=~s '$3==pid {print $1; exit}') || true"
-                      (object->string (getpid)))))))
+  (let ((pid (object->string (getpid))))
+    (cond
+     ((os-macos?)
+      (system (format
+               #f
+               (string-append (%search-load-path "macos-activate-by-pid") " ~a")
+               pid))
+      )
+     ((or (os-mingw?) (os-win32?))
+      (noop)
+      )
+     (else
+      (system (format
+               #f
+               "wmctrl -ia $(wmctrl -lp | awk -vpid=~s '$3==pid {print $1; exit}') || true"
+               pid))))))
 
 ;;}}}
 ;;{{{ Document_canInsertField
