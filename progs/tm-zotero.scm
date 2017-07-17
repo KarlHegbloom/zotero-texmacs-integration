@@ -6241,6 +6241,7 @@
 ;;; So... consider rewrite in terms of (cond ... (match? ...
 ;;;
 
+
 (define (move-link-to-own-line lnk)
   "Move links to their own line, in smaller text, so that long links
 will not overflow into the page margins. Keep punctuation before and after,
@@ -6289,6 +6290,10 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                                     "DOI:https://dx.doi.org/"
                                     "doi:https://dx.doi.org/"
                                     "https://dx.doi.org/"
+                                    "(doi:http://doi.org/"
+                                    "(DOI:http://doi.org/"
+                                    "(doi:https://doi.org/"
+                                    "(DOI:https://doi.org/"
                                     "<DOI:http://doi.org/";lnk
                                     "<doi:http://doi.org/"
                                     "<http://doi.org/"
@@ -6331,7 +6336,8 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                 (when (string-suffix? (car doi-suffix-ls) pre-lnk-str)
                   (set! ret (car doi-suffix-ls)))))
          => (lambda (doi-suffix-str)
-              (let ((lg (do ((lgls '(("<" ">")
+              (let ((lg (do ((lgls '(("(" ")")
+                                     ("<" ">")
                                      ("<less>" "<gtr>")
                                      ("<less>less<gtr>" "<less>gtr<gtr>"))
                                    (cdr lgls))
@@ -6350,14 +6356,23 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                 (tree-assign! pre-lnk-t (stree->tree pre-lnk-str))
                 (if lg
                     (begin
-                      (tree-assign! lnk (stree->tree
-                                      `(concat (next-line)
-                                               (small (concat (less-than-sign)
-                                                              ,(substring doi-suffix-str
-                                                                          (string-length (car lg))
-                                                                          (string-length doi-suffix-str))
-                                                              ,lnk
-                                                              (greater-than-sign))))))
+                      (if (string=? "(" (car lg))
+                          (tree-assign! lnk (stree->tree
+                                             `(concat (next-line)
+                                                      (small (concat "("
+                                                                     ,(substring doi-suffix-str
+                                                                                 (string-length (car lg))
+                                                                                 (string-length doi-suffix-str))
+                                                                     ,lnk
+                                                                     ")")))))
+                          (tree-assign! lnk (stree->tree
+                                             `(concat (next-line)
+                                                      (small (concat (less-than-sign)
+                                                                     ,(substring doi-suffix-str
+                                                                                 (string-length (car lg))
+                                                                                 (string-length doi-suffix-str))
+                                                                     ,lnk
+                                                                     (greater-than-sign)))))))
                       (set! post-lnk-str (substring post-lnk-str
                                                     (string-length (cadr lg))
                                                     (string-length post-lnk-str)))
@@ -6380,7 +6395,8 @@ styles. doi: forms are short, so they don't need to be put on their own line."
               (string? pre-lnk-str)
               post-lnk-str
               (string? post-lnk-str)
-              (do ((lgls '(("<" ">")
+              (do ((lgls '(("(" ")")
+                           ("<" ">")
                            ("<less>" "<gtr>")
                            ("<less>less<gtr>" "<less>gtr<gtr>"))
                          (cdr lgls))
@@ -6398,9 +6414,15 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                                                  (- (string-length pre-lnk-str)
                                                     (string-length (car lg)))))
                     (tree-assign! pre-lnk-t (stree->tree pre-lnk-str))
-                    (tree-assign! lnk (stree->tree
-                                    `(concat (next-line)
-                                             (small (concat (less-than-sign) ,lnk (greater-than-sign))))))
+                    (if (string=? "(" (car lg))
+                        (tree-assign! lnk
+                                      (stree->tree
+                                       `(concat (next-line)
+                                                (small (concat "(" ,lnk ")")))))
+                        (tree-assign! lnk
+                                      (stree->tree
+                                       `(concat (next-line)
+                                                (small (concat (less-than-sign) ,lnk (greater-than-sign)))))))
                     (set! post-lnk-str (substring post-lnk-str
                                                   (string-length (cadr lg))
                                                   (string-length post-lnk-str)))
