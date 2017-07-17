@@ -1,1 +1,1056 @@
-../../OrgzlyNotes/zotero-texmacs-integration_Notes.org
+# -#*#- buffer-auto-save-file-name: nil; -#*#- ;; for org-crypt, maybe.
+
+#+TITLE Notes and Todo items for zotero-texmacs-integration.
+
+#+TODO: TODO(t) WIP(w!) WAITING(W@/!) TESTING(T!) VERIFY(v@/!) FIXME(f@/!) | DONE(d!/!) CANCELED(c@/!) S.E.P.(s@/!)
+#+PRIORITIES: A D B
+
+#+TAGS: {TodoKind : @feature @bug }
+#+TAGS: [assigned : karlheg ]
+#+TAGS: [subsys   : @scheme @style @documentation ]
+
+#+TAGS: [ Issue : {@Issue_.+} ]
+
+* TODO Organize to do lists, prioritize, create keywords for rough lengths of time for completion (timerequiredDays, timerequiredWeeks...) :timereqHours:
+  SCHEDULED: <2017-02-28 Tue>
+  :PROPERTIES:
+  :CREATED:  [2017-02-28 Tue 14:32]
+  :END:
+
+* Toplevel To-do items
+  :PROPERTIES:
+  :ID:       351c97ad-da99-4b46-87b5-1863d0a76dee
+  :END:
+
+** CANCELED [#A] Convert all /notes/ and /todo/ items to use =outshine.el=
+   :PROPERTIES:
+   :ID:       caa2925c-a144-460a-97c3-95b5751796bc
+   :END:
+   :LOGBOOK:
+   - State "CANCELED"   from "WIP"        [2017-01-25 Wed 19:46] \\
+     Decided to stick with folding mode for now.
+   - State "WIP"        from "TODO"       [2017-01-23 Mon 10:44]
+   :END:
+
+** TODO Put zotero-texmacs-integration into the "tools" page on TeXmacs.org
+
+   when? As soon as it is ready for at least Beta testing pre-release?
+
+** TODO When TeXmacs is ported to Guile 2.n, I will need to do something to
+
+   ensure that the correct version of the json library is loaded.
+
+** TODO I really want pcre2 in Guile for the regex transformations.
+
+** TODO Perhaps <tree> ought to be already defined just as e.g.,
+
+   <observer>, <tmtable>, and <tmcolor> are?
+
+** TODO interface or integrate debug and trace printout with the normal means
+   :PROPERTIES:
+   :ID:       cb6349a3-c63e-4010-8962-18fe1596c9c0
+   :END:
+
+   of doing this in TeXmacs so that it becomes possible to select a category
+   and view it in texmacs own viewer.
+
+** TODO auto-complete-config and dict for scheme-mode for TeXmacs?
+
+** CANCELED for notify-activated I wonder if Backspace could run a function that uses:
+   CLOSED: [2017-03-10 Fri 23:10]
+
+Canceled because drd changing like that isn't really part of it's design; instead, change tag labels and thus macro expansions.
+   
+   ~(texmacs-exec '(drd-props "zcite" ...))~
+
+   ... to make the zfield-Text accessible and editable, with Enter bound inside
+   of it to a function that changes the drd-props back to the default, making
+   the zcite not editable again, plus activating the tag? Perhaps that will be
+   nicer than having it disactivate the tag?
+
+   For now, simply use ~notify-activated~ and edit only when the tag is
+   disactivated.
+
+** DONE I think it is spending too much time
+   CLOSED: [2017-03-10 Fri 23:13]
+
+   searching the document for zcite tags. It does a lot of redundant traversal
+   of the document tree that can potentially be eliminated by maintaining a
+   data structure containing positions (really observers). Positions move
+   automatically when the document is edited, so that they remain attached to
+   the same tree they were created at, even as it moves.
+
+   The data structure must be able to maintain the list of zfields in document
+   order. It should be cheap to insert a new item or remove an item. I will use
+   a red-black tree. It will contain only the positions, in document order. I
+   will look through those positions to find the zfield-Code and zfield-Text;
+   the zfield-ID can be the key to a concurrently maintained hashtable that
+   associates the ids with their positions.
+
+   Update: There is no ready-made rb-tree for Guile 1.8. The only rb-tree I
+   could find that was already for Guile was for >= 2.0, and it calls for r6rs
+   functionality that is not present in Guile 1.8. It would take a lot of time
+   and effort to port that, and I think it's better to spend the time to port
+   all of TeXmacs to Guile 2.n instead. Since the `merge!' and `list-filter'
+   functions don't have to do very much work compared to an rb-tree's insert or
+   delete with all of it's associated tree balancing, up to a certain length,
+   it will be faster than the rb-tree anyway... so I'll just use a flat list
+   and `merge!' to insert, and `list-filter' to remove. After the Guile 2.n
+   port, perhaps an rb-tree can be used instead.
+
+** DONE I want to be able to easily split a citation cluster.
+   CLOSED: [2017-03-10 Fri 23:13]
+
+   Use case: A citation cluster with two or three citations in it, but then I
+   decide that I want to split them into two clusters, one for the first
+   citation, and another for the remaining two, so that I can write a sentence
+   or two in between them.
+
+   So disactivate the tag, then inside of there, a keybinding can automate it,
+   perhaps when the cursor is on the semicolon between two of them or something
+   like that. Inside of the zfield-Code's JSON is the information that Zotero's
+   integration.js is going to look at when it retrieves it prior to presenting
+   the dialog for editCitation. So, instead of copy + paste of the original
+   citation in order to duplicate it, followed by editCitation of each, to
+   delete the last two of them from the first cluster, and the first citation
+   from the second one... I would put my cursor on the semicolon between the
+   first two citations, and then push the keybinding or call the menu item that
+   automatically splits it.
+
+** DONE I want to observe the cut or paste of trees that contain zcite or zbibliography sub-trees
+
+   This is a prerequisite for being able to maintain an in-document-order data
+   structure of document positions of zfields, to avoid searching the entire
+   document again and again.
+
+** TODO Extend the zfield-Code-code tuple, adding a slot with a tuple inside
+
+   of it that will contain "with-like" key value pairs that can be embedded as
+   the arguments to an actual with wrapper emitted during zcite or
+   zbibliography typesetter macro expansion.
+
+   Declare some of them as standard or internal... thinking of the formatting
+   problem involving label widths of Harvard-style [authorDate] bibliography
+   entry labels.
+
+*** TODO The bibliography formatting for bibliographies that use a Harvard
+
+   style author-date in square brackets at the left followed by a
+   block of bib are not laid out quite right when the labels are too
+   wide. Make it increase the zotero-BibliographyStyle_bodyIndent
+   locally inside of the bibliography to make them all line up.
+
+   The way to do that is to add another thing inside of the tuple
+   that's inside the zfield-Data... add a tuple of "with" like
+   bindings, which will be used as exactly that inside of the expansion
+   of the zbibliography (and zcite) macro, with-wrapping everything
+   inside of there using the key value pairs in that tuple as the key
+   value pairs in that typesetter-created inner with.
+
+** CANCELED Consider moving the zfieldID inside the attribute tuple
+   CLOSED: [2017-03-10 Fri 23:14]
+
+   Do so before the beta release, to avoid breaking older documents later!
+
+** TODO The "atomic undo" thing might not be working right.
+
+   I need to test and develop it further.
+
+** WIP standardize interface vis-a-vis document-get*; also reduce code-path by :refactor:
+
+   not making it recompute values required inside of routines being called.
+
+** TODO Improve the move link to it's own line code
+** TODO Make moving the link to it's own line optional
+   TeXmacs did not line-break where there was a link but does now.
+   Version check? Default to move to own line?
+** TODO Also make wrapping the link with <small> a separate option
+   Default to on or off?
+** TODO Some styles put "<" and ">" around the link text. Sometimes I've had
+
+   weird things happen with those coming through to this part of the program,
+   and that is why there are three forms below. Normally it ought to be fixed
+   by the code that brings it to here, but sometimes when you have an academic
+   or legal research writing deadline hanging hanging over you, it's faster to
+   edit code that you are most familiar with in order to kludge around the
+   problem, than it is to figure out what made it turn the "<" into "<less>",
+   etc. when it did.
+
+** TODO Look into having Juris-M / Zotero return a list of strings, rather than pasting together that list of strings with \r\n.
+
+   [[file:~/src/Juris-M/zotero-texmacs-integration/progs/tm-zotero.scm::;;%20TODO%20Look%20into%20having%20Juris-M%20/%20Zotero%20return%20a%20list%20of%20strings,%20rather%20than%20pasting%20together%20that%20list%20of%20strings%20with%20\r\n.]]
+
+** TODO Find out if there would be any advantage to having parse-latex accept a UTF-8, rather than Cork encoded, string?
+
+   [[file:~/src/Juris-M/zotero-texmacs-integration/progs/tm-zotero.scm::;;%20TODO%20Find%20out%20if%20there%20would%20be%20any%20advantage%20to%20having%20parse-latex%20accept%20a%20UTF-8,%20rather%20than%20Cork%20encoded,%20string?]]
+
+* Future Features :@feature:
+
+** TODO [#A] Gather settings that ought to be in the init-env as defaults
+
+   per-document defaults saved, or put into the style sheet? But some settings
+   are sort of a document-wide thing, that belong saved in the document. Other
+   settings are more appropriate for override via a with wrapper around
+   specific zfield or zbibliography. Some things belong in the preamble. Other
+   things belong in the menu or on the toolbar.
+
+** TODO [#C] Option auto-insertion of QRcode in margin, note, or float.
+   :PROPERTIES:
+   :ID:       14e8c31a-f3da-4454-87a9-a9ae701180c7
+   :END:
+
+** TODO [#D] Multiple bibliographies per document like tm-bib does. [0/5]
+
+   - [ ] In the tm-bib styles, bibliographic citations can be given an
+     optional ~aux~ argument, binding it to a specific bibliography, matched to
+     it by having the same ~aux~ key.
+
+   - [ ] Right now the documentID is derived from the full path into the file
+     system where the file being visited by the buffer was loaded from.
+
+   - [ ] The normal ~aux~ support for the tm-bib styles makes the key =bib= the
+     default one for any bibliography. I will make the default aux key =zbib=
+     for this.
+     - [ ] I probably will not really use it for the normal TeXmacs aux support,
+       but instead only for a namespace token.
+
+   - [ ] The query-string ?bibaux=bib or the hash-target label #bibauxbib are
+     options...
+
+   - [ ] If the documentID contains both the ~(url->string (current-buffer))~ and
+     the hash-target, /i.e.,/ =#bibauxbib=, then with each zbibliography in it's
+     own namespace...
+     - [ ] *There will have to be a flag to set one particular zbibliography
+       zfieldID as the primary / default ~aux~ namespace.* The others will be
+       options at the point of citation, or overloaded for certain styles with
+       use of a (:require ...) predicate or hook that runs when the chapter
+       boundary is crossed, for example, by setting the tm-zotero "bibaux"
+       (not named yet) depending on what part or chapter the citation and
+       bibliography are in.
+       - [ ] One bibliography per book, article, part, chapter, or section;
+       - [ ] One bibliography for one kind of citation, and another for another?
+         - [ ] Can they be formatted with different styles? That moves the
+           documentPrefs information into that extended namespace. It can be
+           done.
+
+** DONE [#D] Implement zcite cluster splitting
+   CLOSED: [2017-03-10 Fri 23:18]
+
+* Evidence Summary, Legal Writing
+
+** TODO Look into the idea of validated mathematical documents, Plat\Omega,
+
+   and at using something similar to create validated legal documents
+   so to speak..
+
+** TODO Think about the list of accepted and contested factual
+
+   claims in a lawsuit. Mark them up with semantic tags, so
+   that they can be extracted from the document to create at
+   least a checklist for court use.
+
+** TODO Document management system that can integrate with Emacs, TeXmacs,
+
+   Juris-M, and maybe GnuCash... Calendaring, the date the document was begun,
+   the date it was finished, the date it was filed, etc.
+
+** TODO When it formats a Utah case number (other states?) it ought to put
+
+   small spaces in the right places... I could put Unicode small spaces in
+   there, but I'm not sure whether it would affect things like sorting,
+   etc... Alternatively, semantic markup?
+
+   The reason for this is that the case number is encoded:
+     2 digit year, 3 digit case-type code, 4 digit sequential case number
+     under that case-type-code.
+
+** TODO Record retention rules per court?
+
+** TODO Juris-M entries from Case History with link to filings
+
+   Just like the script that takes a case history PDF and creates
+   time-line file-system directory entries to mark filing dates,
+   etc., create one that makes Juris-M entries for each hearing and
+   filed document. Q: Legal-XML ?
+
+* Juris-M / Zotero
+
+** TODO Add the district court to Juris-M's jurisdictions list so that when I
+
+   enter a reference item for a case there or document or hearing in a case
+   there, I don't see the yellow box. Need to find out what the official
+   designation should be, etc. for the modular styles and so on.
+
+** TODO File feature request for Juris-M, the entries for a court document
+
+   under a case need to have the "Document" field shown with the title, since
+   otherwise there's several that all look alike when you try to search for the
+   one you want when you make a citation.
+
+* Propachi TeXmacs
+
+** DONE ligature pairs at edge of link text being split :@bug:
+   SCHEDULED: <2017-01-20 Fri>
+   :PROPERTIES:
+   :CREATED:  [2017-01-20 Fri 15:30]
+   :END:
+   :LOGBOOK:
+   - State "DONE"       from "TODO"       [2017-02-06 Mon 11:16]
+   :END:
+   The five ligature pairs that TeX normally supports are: f, fi, fl, ffi, and ffl.
+
+** TODO Have Juris-M return refslist for =ztbibItemText= macro
+
+   It can do this using ~state.sys.embedBibliographyEntry()~ but only if from
+   inside of there it can access the associated =tm-zotero= /zfieldID/ strings, in
+   document-order, as well as the Zotero /sysID/ for each bibliographic
+   entry. Right now the /zfieldID/ strings are not part of the state data that
+   citeproc gets handed, and so at the point where it's calling
+   ~embedBibliographyEntry()~, it can not easily reference those values the way I
+   need it to, *unless* perhaps ~embedBibliographyEntry~, being defined by my
+   =propachi-texmacs= monkey-patch, can call accessors that I can try to
+   monkey-patch into the object prototype context of the object that does have
+   access to that mapping? Or should it just insert a stand-in value that gets
+   substituted later, in a monkey-patched wrapper around the function returning
+   the result of creating the bibliography entry =ztbibItemText=, which I assume
+   in saying this has all of the necessary information in scope?
+
+   See: https://github.com/Juris-M/citeproc-js/issues/24
+
+** TODO Make the citeproc-js or Zotero sort functions strip out html tags or
+
+   pseudo-html tags that are part of either a Zotero field or returned as the
+   result of the Abbrevs mechanism. /e.g.,/ =<abbr>= or =<hidden>=, and also even
+   ones like =<em>= or =<uc>= … though since they affect the text's font style,
+   they should not be used there.
+
+** TODO Have variableWrapper replace pseudo-html for ztbibSubHeading
+
+** TODO See if instead of sending the entire bibliography back, it can be
+
+   made to send only the modified ones. Look at:
+   Zotero.Integration.CitationEditInterface in integration.js
+
+** TODO micro-formats meta-data support in citeproc-js output format or
+
+   variableWrapper. For: the citation cluster (zcite) splitter
+   feature mentioned in another to-do entry inside this program. The
+   semantic information might be useful for finding the matching
+   CSL-JSON stuff to move to the split-off zcite.
+
+* To-do items for individual files and components
+  :PROPERTIES:
+  :ID:       8c4d388b-6014-484d-b99b-e6d6c3f88fd8
+  :END:
+
+* TeXmacs Source Research Notes
+
+** DONE Mise en Place: Functions I'll need and what they do.
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2017-03-23 Thu 22:13]
+  :END:
+
+   Starting by looking around in the ./src/Scheme/Glue, following the
+   functions called from inside of the glue functions to their
+   origin, and learning how the objects they are methods of interact
+   with TeXmacs... Using cscope or etags...
+
+   A "position" is essentially a C++ "observer".
+
+   ~position-new-path path          => position~
+   ~position-delete   position      => unspecified~
+   ~position-set      position path => unspecified~
+   ~position-get      position      => path~
+
+   ~path-less?    path path => bool~
+   ~path-less-eq? path path => bool~
+   ~path->tree path => tree~
+
+
+   =buffer-notify= from =(part part-shared)= is what I first thought that
+   I was looking for …  It also defines =buffer-initialize=, and both
+   are called from =tm_buffer_rep::attach_notifier()= in
+   =new_buffer.cpp=, which is called by =buffer-attach-notifier=. Thus,
+   both must be defined here for this to work right since this is not
+   a shared buffer.
+
+   =buffer-attach-notifier= ultimately calls a c++ function that
+   invokes first =buffer-initialize=, and then attaches the
+   =buffer-notify= via a =scheme_observer=. So =buffer-initialize= is *not*
+   where to call =buffer-attach-notifier= … I want to do that once,
+   from some point of entry that is called once when the buffer is
+   first loaded, for the case of a pre-existing document, or once
+   when the style is first added to the document.
+
+   So the first thing that happens after a document is loaded into a
+   buffer is that the typesetter takes off, to render the display. It
+   must initialize the styles for the document... and then:
+
+#+begin_src scheme
+   (tm-define (set-main-style style)
+     (former style)
+     (when (style-includes? style "tm-zotero")
+       (tm-zotero-document-buffer-attach-notifier (get-documentID))))
+
+
+   (tm-define (add-style-package pack)
+     (former pack)
+     (when (== pack "tm-zotero")
+       (tm-zotero-document-buffer-attach-notifier (get-documentID))))
+#+end_src
+
+FixMe: Notice that these do not call =(former id t buf)= since the
+bottom of that stack is the =(part shared-part)= version… which does
+not presently specialize upon whether the document actually has any
+shared parts! That also implies that this won't play well with a
+buffer that does have shared parts...
+
+#+begin_src scheme
+  (tm-define (buffer-initialize id t buf)
+    (:require in-tm-zotero-style?)
+    (noop))
+#+end_src
+
+=event= can be: ='announce=, ='touched=, or ='done=.
+
+=modification-type= can be: ='assign=, ='insert=, ='remove=, ='split=,
+='var-split=, ='join=, ='var-join=, ='assign-node=, ='insert-node=,
+='remove-node=, ='detach=
+
+#+begin_src scheme
+  ;; (tm-define (buffer-notify event t mod)
+  ;;   (:require in-tm-zotero-style?)
+  ;;   (let* ((modtype (modification-type mod))
+  ;;          (modpath (modification-path mod))
+  ;;          (modtree (modification-tree mod))
+  ;;          (modstree (tm->stree modtree)))
+  ;;     (tm-zotero-format-debug "~sbuffer-notify:~s ~sevent:~s~s\n~st:~s~s\n~smod:~s~s\n\n"
+  ;;                      ansi-red ansi-norm
+  ;;                      ansi-cyan event ansi-norm
+  ;;                      ansi-cyan t ansi-norm
+  ;;                      ansi-cyan ansi-norm (modification->scheme mod))
+  ;;   (cond
+  ;;     ((and (== event 'done)
+  ;;           (== modtype 'assign)
+  ;;           (== (car modstree) 'concat)
+  ;;           (member (cadr modstree) zfield-tags))
+  ;;      ;; Inserting (pasting) a zcite or zbibliography that had been cut.
+  ;;      )
+  ;;     ((and (== event 'done)
+  ;;           (noop
+  ;;            )
+  ;;           )))))
+  ;;
+  ;; (tm-define (buffer-notify event t mod)
+  ;;;; I don't like this slot-ref here... is it going to be too slow? Will it run often?
+  ;;   (:require (let ((zt-zfield-list (slot-ref (get-<document-data> (get-documentID))
+  ;;                                             'zfield-ls)))
+  ;;               (and (in-tm-zotero-style?)
+  ;;                    (pair? zt-zfield-list)
+  ;;                    (null? zt-zfield-list))))
+  ;;   (zt-init-zfield-list)
+  ;;   (former event t mod))
+ #+end_src
+
+ Result of above Todo R&D:
+
+ Let's try using keyboard events instead, to avoid what I think will
+ be a lot of overhead with lots of calls to the =buffer-notify=, like
+ for every keypush. Instead, a key bound function happens only on the
+ event of that key being pushed... Lazy lazy lazy.
+
+ ./TeXmacs/progs/generic/generic-kbd.scm has =kbd-map= definitions in
+ it. After some exploration, I see that the functions that I'll need
+ to overload for sure are: =clipboard-cut= and =clipboard-paste=.
+
+ This is called by both =kbd-backspace= and =kbd-delete= …
+
+ I don't know what t is going to be. What about when it is
+ =(tree-is-buffer?  t)=?  Should I check for the section? And I don't
+ want the backspace key to now disactivate the tag... So I need to
+ only do anything when the area being removed is the selection.
+
+ #+begin_src scheme
+  ;; (tm-define (kbd-remove t forwards?)
+  ;;   (:require (and (in-tm-zotero-style?)
+  ;;                  ;; (tree-is-buffer? t) ?
+  ;;                  (tree-in? t zfield-tags)
+  ;;                  (with-any-selection?)))
+  ;;   ;;; for each zfield in t, remove it from the <document-data>.
+  ;;   (prior t forwards)
+  ;;   ;; (clipboard-cut "nowhere")
+  ;;   ;; (clipboard-clear "nowhere")
+  ;;   )
+ #+end_src
+
+ ? =kbd-insert=
+ ? =kbd-select=
+ ? =kbd-select-environment=
+ ? =kbd-tab=, =kbd-variant=
+
+ =clipboard-clear=
+ =clipboard-copy=
+ =clipboard-cut=
+ =clipboard-cut-at=
+ =clipboard-cut-between=
+ =clipboard-get=
+ =clipboard-paste=
+ =clipboard-set=
+ =tree-cut=
+
+ =kill-paragraph=
+ =yank-paragraph=
+
+ See: fold-edit.scm, etc. for examples.
+
+ Also: db-edit.scm, at =structured-remove-horizontal=; and selections.scm
+
+* DONE Read and experiment with: [Solved] System audio and microphone input, as one mixed stream?
+  CLOSED: [2017-02-09 Thu 03:41] SCHEDULED: <2017-02-08 Wed>
+  :PROPERTIES:
+  :CREATED:  [2017-02-08 Wed 09:52]
+  :END:
+
+ / Multimedia and Games / Arch Linux Forums https://bbs.archlinux.org/viewtopic.php?id=147208
+
+* DONE hda-analyser - Google Search
+  CLOSED: [2017-02-09 Thu 03:41] SCHEDULED: <2017-02-08 Wed>
+  :PROPERTIES:
+  :CREATED:  [2017-02-08 Wed 09:54]
+  :END:
+
+https://www.google.com/search?q=hda-analyser&oq=hda-analyser&aqs=chrome..69i57j0l3.11347j1j4&sourceid=chrome-mobile&ie=UTF-8
+
+* DONE Routing audio jacks with HDAAnalyzer | Bug happens.
+  CLOSED: [2017-02-09 Thu 03:41] SCHEDULED: <2017-02-08 Wed>
+  :PROPERTIES:
+  :CREATED:  [2017-02-08 Wed 09:55]
+  :END:
+
+https://bughappens.wordpress.com/2013/06/04/routing-audio-jacks-with-hdaanalyzer/
+
+* DONE HDA Analyzer - AlsaProject
+  CLOSED: [2017-02-09 Thu 03:41] SCHEDULED: <2017-02-08 Wed>
+  :PROPERTIES:
+  :CREATED:  [2017-02-08 Wed 09:55]
+  :END:
+
+https://www.alsa-project.org/main/index.php/HDA_Analyzer
+
+* TODO Patches for texmacs/web: Welcome to GNU TeXmacs (FSF GNU project)
+  SCHEDULED: <2017-02-08 Wed>
+  :PROPERTIES:
+  :CREATED:  [2017-02-08 Wed 09:55]
+  :END:
+
+  http://texmacs.org/tmweb/home/welcome.en.html
+
+* TODO Move stripping of sorting prefix to variableWrapper ()?
+  SCHEDULED: <2017-02-13 Mon>
+  :PROPERTIES:
+  :CREATED:  [2017-02-13 Mon 12:16]
+  :END:
+
+* CANCELED Make it compatible with RTF and html outputformats.
+
+* DONE Reduce the amount of work the regexp tranformer has to do inside tm-zotero.scm
+
+* TODO (define (zfield-Code-v zfield, object->string is used, vs tree->stree. Research and see which it ought to be
+  SCHEDULED: <2017-02-13 Mon>
+  :PROPERTIES:
+  :CREATED:  [2017-02-13 Mon 17:53]
+  :END:
+
+* TODO URL rendering in-text citation, use labeled, not numbered, footnote-style float :timereqHours:
+  SCHEDULED: <2017-02-23 Thu>
+  :PROPERTIES:
+  :CREATED:  [2017-02-23 Thu 09:12]
+  :END:
+
+  AuthorYear, or TitleAbbrev, or specify in-line or as display argument?
+
+** TODO See Chicago Manual of Style, where it talks about footnotes vs endnotes.
+
+* TODO follow up with development of "Cleanup hooks for the undo mark handling"
+
+  [[file:~/src/Juris-M/zotero-texmacs-integration/progs/tm-zotero.scm::;;{{{%20Cleanup%20hooks%20for%20the%20undo%20mark%20handling]]
+
+* TODO Have Juris-M / Zotero integration ~Field_setCode~ also set "htmlFormattedCitation" :feature:timereqDays:
+  SCHEDULED: <2017-02-24 Fri>
+  :PROPERTIES:
+  :CREATED:  [2017-02-24 Fri 09:17]
+  :END:
+
+  Monkey-patch, but where? Need to find where it builds that data,
+  advise around that call, then inject the new key and value into the
+  data that gets set as the ~zfield-Code-code~ which consists of a
+  prefix string that classifies the following JSON, as to whether the
+  CSL citation is embedded or not; the JSON encoded ~hash-table~ already
+  brings a copy of the "formattedCitation", which is in the ~bbl~ (needs
+  to be renamed) ~outputFormat~. I want it to also set
+  ~htmlFormattedCitation~ to the same citation formatted via the same
+  CSL stylesheet but with the ~html~ ~outputFormat~.
+
+  Then later, the ~zcite~ rendering can offer an "if html" form for
+  conversion of the TeXmacs document to a web page. The ~tm-Zotero-TeX~
+  ~outputFormat~ "formattedCitation" can then be used for the "if LaTeX"
+  case, for conversion of a TeXmacs document to LaTeX, if it turns out
+  to be useful... a LyX-pipe connector between LyX and Juris-M /
+  Zotero will need a distinct locus in thee document just as TeXmacs
+  does, and so the LaTeX form produced by TeXmacs to LaTeX ought to be
+  the same format set by the LyX-pipe connector, or by an Emacs
+  interface to aucTeX, psgml-html. A BibTeX drop-in ought to be able
+  to produce citation and bibliography bbl also... All, of course, in
+  the context of tm-zotero.sty, which is yet to be created.
+
+* TODO Preference for setting location of Juris-M / Zotero styles directory :timereqHours:
+  SCHEDULED: <2017-02-24 Fri>
+  :PROPERTIES:
+  :CREATED:  [2017-02-24 Fri 10:18]
+  :END:
+
+  Try and find it first, but then also allow setting it. This is
+  needed to provide fallback for setting the citation layout prefix
+  delimiter and suffix.
+
+* TODO Hook via monkey-patch installation of new CSL styles, to notify TeXmacs :timereqHours:timereqDays:
+  SCHEDULED: <2017-02-24 Fri>
+  :PROPERTIES:
+  :CREATED:  [2017-02-24 Fri 10:22]
+  :END:
+
+  Or to take responsibility for writing out the cache of style id to
+  citation layout prefix, delimiter, suffix... but at least to notify
+  by way of an inbox file job queue thing... mbox .lock locking, and
+  maybe inotify?
+
+* CANCELED Tri-modal, possibly (?) drd-shifting, zcite tag, change way selection cursor works
+  CLOSED: [2017-02-28 Tue 14:36] SCHEDULED: <2017-02-24 Fri>
+  :PROPERTIES:
+  :CREATED:  [2017-02-24 Fri 22:17]
+  :END:
+
+  This won't work.
+
+  Can a mode be kept in the ~zfield-Data-v~? Can the drd traits be
+  changed programatically?, perhaps during lazy internment of zfields,
+  and when triggered at the same time the state is stored into the
+  saved document by making a place for it in the ~zfield-Data-v~... or
+  overloads of the cursor movement and etc keys that :depend on that
+  state bit.
+
+* TODO Organize to do lists, prioritize, create keywords for rough lengths of time for completion (timerequiredDays, timerequiredWeeks...) :timereqHours:
+  SCHEDULED: <2017-02-28 Tue>
+  :PROPERTIES:
+  :CREATED:  [2017-02-28 Tue 14:32]
+  :END:
+
+* TODO Move Zotero menu into insert citation menu location? :timereqHours:
+  SCHEDULED: <2017-02-28 Tue>
+  :PROPERTIES:
+  :CREATED:  [2017-02-28 Tue 14:34]
+  :END:
+
+* DONE American Physics Society and other number-in-text styles not hyperlinked
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2017-03-04 Sat 11:28]
+  :END:
+  The propachi-texmacs =variableWrapper= is not emitting a
+  =ztHrefFromCiteToBib=, and so there's no hyperlink to the
+  bibliography, and consequentially, in the bibliography there is not
+  a list of links back to the citations.
+
+* WAITING American Physics Society and others with no-break-spaces in them
+  :LOGBOOK:
+  - State "WAITING"    from "TODO"       [2017-03-01 Wed 16:02] \\
+    I sent an email to texmacs-dev asking about it. Lets see what they say.
+  :END:
+  The non breaking space is turned into a <varspace> by TeXmacs during
+  conversion from UTF-8 to Cork, and it gets displayed as the literal
+  string "<varspace>" instead of as something more like =\hspace{1spc}=.
+  - I think this is a regression or bug in the UTF-8 to Cork
+    conversion, but I'm not sure.
+  - I sent an email to texmacs-dev asking about it.
+  - There is a workaround regex in the tm-zotero.scm that turns the
+    no-break-space and no-break-hyphen into =\hspace{1spc}\ztnobreak{}=
+    so that the "<varspace>" thing never happens.
+    - =\ztnobreak{}= is defined as a macro that expands to TeXmacs
+      =\no-break= which comes through the LaTeX->TeXmacs conversion as
+      =\no{}-break= and so does not function properly, where
+      =\ztnobreak{}= comes through unchanged. I think it doesn't like
+      the "-" in the name or something.
+
+* TODO =\abbrev{}= list widget user interface, auto detect and add, autocomplete
+  SCHEDULED: <2017-03-02 Thu>
+  :PROPERTIES:
+  :CREATED:  [2017-03-02 Thu 12:36]
+  :END:
+
+  When Zotero sends =<abbr>= wrapped text or if the user enters text in
+  an =\abbr{}= macro, it can grab that text and add it to the list. That
+  list can be run through a =regex-opt= based on the one in GNU Emacs,
+  which can then be used to affect automatically wrapping matching
+  words with =\abbr{}= macro when is not already. So the regex should
+  accept an existing =\abbr{}= inside an optional group that is masked
+  out so adding it back is idempotent rather than producing nested
+  macro calls. If it had pcre and look-behind assertions I would use
+  that here.
+
+* TODO Templates with database backed autocomplete in form fields
+  SCHEDULED: <2017-03-02 Thu>
+  :PROPERTIES:
+  :CREATED:  [2017-03-02 Thu 12:57]
+  :END:
+
+The zcite tag handling code can be adapted to a database-backed fill-out-form templating package. Zephyr basecamp, phrasebook design pattern for database SQL queries that are connected to form fields in various ways... xul, rapicorn, and that one for running xul on ncurses are worth looking at, perhaps, when thinking of how to make widget UI to data model for document management, retention, metadata, citation reference bridging between the DMS database and the citation reference manager database... ipc, rpc...
+
+* TODO Plat\Omega {} [[http://www.sciencedirect.com/science/article/pii/S1571066107001727]], semantic markup for litigation support :feature:timereqWeeks:
+  SCHEDULED: <2017-03-10 Fri>
+  :PROPERTIES:
+  :CREATED:  [2017-03-10 Fri 11:48]
+  :END:
+
+Plat\Omega {} and how it integrates with TeXmacs are interesting and worth a careful study. I wonder what kind of "semantic markup" would benefit TeXmacs documents, for many purposes, from /e.g./science, engineering, to law or project management, for keeping track of and communicating status of inquiry, factuality claims, /e.g.,/ admitted, denied, tagged supporting (and supported, "solidness") evidence gathered and listed, chain of custody, authentication, authorization, cryptographic sign off, non-repudiation, who changed what when and why... _integrate with DMS._
+
+** TODO Automatically generate, like a toc, glossary, or index, a checklist of marked items, /e.g./ factual claims requiring triage, classification, discussion, disclosure, references made to them during the course of written or orally delivered planned, scripted or /ad hoc/ argument. :feature:
+
+** TODO This needs to be designed to be used during interactions between litigants, litigants' counsel, special masters, moderators, mediators, juries, judges, and perhaps the news media or open public inquiry. :use-case:
+
+** TODO It needs to be integrated with evidence summary documents :requirement:
+
+** TODO This implies a database, document management system, meta-data inside evidence and document final output as well as source files, in the ~org-mode~ evidence summary subfiles. :requirement:
+
+** TODO Those evidence summaries are going to be managed and generated by ~org-mode~ in GNU Emacs. An html file or a PDF with hyperlinks will be generated from a list of included subfiles, each named the same as the file or evidence described within the ~org-mode~ subfile, but with the .org file extension.
+
+** TODO Inside TeXmacs, an ~org-mode~-like set of commands, editing functions---/e.g.,/ outline hide and show, plus promote, demote, and reorganize of nodes as well as of entire trees below document structuring nodes such as Part, Chapter, section...
+
+** TODO "Live" narrow-as-you-type ~org-mode~-like searching with sparse tree display. Implement search keys like ~org-mode~, gmail, or that really good mailing list archiver the name of which I don't recall as I write this.
+
+* TODO Guile 2.2, parameterize, also see submodule namespaces, in ice-9/boot-9.scm, ==> buffer-local scheme namespace, tie data structures to document aux etc in useful ways
+  SCHEDULED: <2017-03-12 Sun>
+  :PROPERTIES:
+  :CREATED:  [2017-03-12 Sun 16:44]
+  :END:
+
+** TODO Replace with-fluids with parameterize.
+
+** TODO discuss requirements, use-cases, implementation plan for buffer-local Guile 2.2 scheme submodule namespace named by url->string buffer-name or whatever
+
+** TODO discuss whether there ought to be a standard way to set up for use a submodule namespace for buffer-local use under the namespace of a module being written, vs a more global well-known namespace for that related to the buffer-tree, or rooted at the texmacs-user module?
+
+** TODO that namespace should automatically inherit everthing from some base interface, through a fallback lookup mechanism, (ribcage?) [as well as interfaces of any module pulled in for inclusion in that =(resolve-interface '(TeXmacs))=.]
+
+*** TODO What about tmfs and how it relates to access to in what way or via what interface, or definitions within that buffer-local submodule namespace?
+
+*** TODO "tied" variable or goops object in that buffer-local submodule namespace... to stand in for, with getter and setter like I have for zfields in tm-zotero.scm, e.g., aux
+
+*** TODO These GOOPS objects may need to carry in closure, what submodule namespace, and thus what buffer they are associated with, plus a cursor path or focus-tree or argument tree, Dynamically bound as parameter or lexically captured or save-module-excursion around definition or inside it, curry returning procedures
+
+*** TODO Research and consider implementation of futures, for async operations chainable lexically per the q promise library for JavaScript that is in use within Zotero. Think about the effect of having it so that the correct submodule namespace and tied with it the appropriate current-buffer becomes current automatically per save-module-excursion across the dynamic async execution of these futures... in the context of the wire-protocol controlling the interactions between Zotero and an integration plugin for a writing application
+
+* TODO Think about multi-threading and how it could be exploited to improve TeXmacs.
+  SCHEDULED: <2017-03-12 Sun>
+  :PROPERTIES:
+  :CREATED:  [2017-03-12 Sun 17:46]
+  :END:
+
+  + [ ] Rearch topics:
+    + [ ] Asyncs
+    + [ ] futures
+    + [ ] plet, parallel, etc.
+    + [ ] Thread-local, buffer-local, lexical, dynamic
+    + [ ] parameters, fluids
+    + [ ] prompts, throw and catch
+    + [ ] tieing of goops objects or modules, via the lazy- hack... sort of a
+      class-loader thing?
+    + [ ] Can multi-processing or multi-process pipelining, speed up TeXmacs
+      interactive performance?  /i.e.,/ the n^2 finding of the ip, in bridging
+      the typesetter result box tree with the source tree for the purpose of
+      cursor movement and display and for highlighting the focus-tree, right?
+
+* TODO Automated test suite for multiple CSL styles
+
+  at least a carefully selected subset of the CSL styles; mostly
+  checking for regressions? Since once it's right the first time, then
+  as long as nothing changes out from under it, it will continue to
+  function properly from then on... It needs a scheme-driven harness,
+  and then a set of test-citations as well... then to try =addCitation=,
+  etc. and to check the resulting tree against the reference tree,
+  then change the style sheet, then check again, etc.
+
+  - On the one hand, it's sort of my problem, since my program does a
+    lot of munging of the input it receives from Juris-M / Zotero /
+    citeproc-js. On the other hand, it's sort of the CSL style author
+    / maintainer's problem... So there needs to be a way, or at least
+    an eye towards, during triage of problems with it... determine
+    whether something is a CSL problem or a tm-zotero.scm problem.
+
+* DONE Move =document-zfd-ht= out to a global ht, key with =(string-append documentID zfieldID)=
+  CLOSED: [2017-03-13 Mon 18:09]
+  :LOGBOOK:
+  - State "DONE"       from "WIP"        [2017-03-13 Mon 11:18]
+  - State "WIP"        from "TODO"       [2017-03-04 Sat 11:20]
+  :END:
+  This will eliminate the need to look up the =<document-data>= by
+  =documentID=, =slot-ref= into that, then another =hash-ref= in order to
+  get to the =<zfield-data>=; it can be done with one =hash-ref=, which
+  will be much faster for the particular overload of
+  =tm-zotero-ext:ensure-zfield-interned!= to determine that the =zfield=
+  is already interned.
+
+* DONE tm-define overload tm-zotero-ext:ensure-zfield-interned! to create the fast case, where the zfield is already interned.
+  CLOSED: [2017-03-13 Mon 18:09]
+
+* TODO Research LyX
+  SCHEDULED: <2017-03-17 Fri>
+  :PROPERTIES:
+  :CREATED:  [2017-03-17 Fri 16:35]
+  :END:
+
+  The syntax of the cite command definitions below is:
+
+  =LyXName|alias*<!_stardesc!_stardesctooltip>[][]=latexcmd=
+
+  - LyXName: The LyX name as output in the LyX file. For portability reasons,
+             we try to use the same name for same-formatted commands in the
+             different engines (thus many names stem from natbib).
+
+  - Alias:   A (comma-separated) list of commands that fall
+             back to the given LyX name in the current engine.
+             This is a bit like "ObsoletedBy" in the layouts.
+
+  - latexcmd: The actual LaTeX command that is output.
+
+  Alias and latexcmd are optional. If no latexcmd is given, the
+  LyXName will be output to LaTeX.
+
+  Note further:
+
+  - The LyXName "keyonly" has a special meaning: only the citation key, without
+    any latex command, is output.
+
+  - Capitalization indicates that the command also has a capitalized form
+    (=\Latexcmd= vs. =\latexcmd=). These usually enforce upcasing of name prefixes
+    (von Goethe => Von Goethe).
+
+  - Brackets [] indicate the number of optional arguments (0, 1, 2).
+
+  - The star * indicates there is a starred version of the command (=\latexcmd*=
+    vs. =\latexcmd=). By default, the starred version means: Expand the author
+    list even if the maxnames setting would cause BibTeX/Biber to shorten it
+    with "et al.".  If the star has a different meaning for a command, it can
+    be specified in angle brackets: =<!_stardesc!_stardesctooltip>=.  Maximal two
+    translatable macro keywords, marked by the prefix '=!_=', can be given. The
+    first points to the string that replaces the "Full author list" checkbox
+    label in the Citation dialog, the second one an optional tooltip for this
+    checkbox. Note that these two macros have to be defined in the CiteFormat
+    section, dropping the '!' from the prefix (see below), e.g.: =_stardesc=
+    Starred command label =_stardesctooltip= Tooltip for the starred command
+    checkbox.
+
+  - A trailing =$= indicates that a command features "qualified citation lists"
+    (a specific Biblatex feature)
+
+* TODO Session export for other than scheme session, also have it offer export onto clipboard, not just to file.
+  SCHEDULED: <2017-03-23 Thu>
+  :PROPERTIES:
+  :CREATED:  [2017-03-23 Thu 10:19]
+  :END:
+
+It is in developer menu.
+
+* TODO Format -> language -> Russian, to with-wrap setting language inside with-wrapped block?
+  SCHEDULED: <2017-03-23 Thu>
+  :PROPERTIES:
+  :CREATED:  [2017-03-23 Thu 10:22]
+  :END:
+
+* TODO Can a PDF contain text for a text to speech output that is different from the printed form, e.g., abbreviations periods left off so it doesn't pause as full stop, ligatures expanded for pronunciation
+  SCHEDULED: <2017-03-23 Thu>
+  :PROPERTIES:
+  :CREATED:  [2017-03-23 Thu 10:37]
+  :END:
+
+* DONE tm-define overload tm-zotero-ext:ensure-zfield-interned! to create the fast case, where the zfield is already interned.
+  :LOGBOOK:
+  - State "DONE"       from "TODO"       [2017-03-13 Mon 14:03]
+  :END:
+
+* WIP Implementation of zEndNotes :@feature:
+  SCHEDULED: <2017-03-13 Mon>
+  :LOGBOOK:
+  - State "WIP"        from "TODO"       [2017-03-23 Thu 22:16]
+  :END:
+ + [ ] In =tm-zotero.scm=, define the ~zendnotes~ environment. It will be a ~zfield~
+   just like ~zcite~ and ~zbibliography~ are, only /not/ one that Juris-M / Zotero
+   are ever made explicitly aware of, when the integration calls TeXmacs with
+   the ~Document_getFields~ method. In that regard, a ~zendnotes~ is not quite a
+   ~zfield~ … On the other hand, it will have in common the /arity/ and /semantics/
+   of it's arguments: ~zfield-zfieldID~, ~zfield-Data-v~, and ~zfield-Text-t~, though
+   perhaps the ~zfield-Data-v~ won't be identical in layout due to different
+   requirements for this tag vs the other more-properly "=zfield=" ones, this
+   remaining to be determined during the development process.
+   + [ ] Each item will be essentially the same thing that gets sent to be
+     displayed by a footnote's bottom of the page float when the
+     ~render-footnote~ macro is expanded, only instead of ending up in footnote
+     floats distributed across the bottom of the document's pages, they will be
+     listed one above the next in a similar way to how the ~ztbibItemText~ macros
+     are stacked in the Juris-M / Zotero returned 'bbl' formatted
+     bibliography's «"~inner-html~" so-to-speak».
+   + [ ] When there are not any ~zcite~ type ~zfields~ ahead of it in the document,
+     then the ~zendnotes~ environment won't have anything to display, and so must
+     hide itself.
+     + [ ] It can do that by checking the length of the list of endnotes within
+       it's own data structure. It won't even be inserted into the document at
+       all unless there are endnotes expected, but when somebody switches away
+       from endnotes to footnotes or to a non-"note" style, then the ~zcite~
+       macro expansion won't lead to an expansion of the ~zt-endnote~ macro, and
+       so there will be no endnotes to display, since only when the ~zt-endnote~
+       macro is expanded will the appropriate "ensure interned" be run in order
+       to cause those lists to be gathered from the document.
+       + [ ] This implies that when I manually insert a ~zendnotes~ block into
+         the document, then manually write in an endnote outside of the control
+         of the Zotero integration's logic concerning whether to display as a
+         footnote or endnote, that the inserted endnote would appear where and
+         as expected. Let's call this defined behavior, hence the checkbox on
+         this to-do item sublist.
+       + [ ] It also implies that when there is /not/ a ~zendnotes~ block following
+         any number of ~zcite~ fields, that nothing bad happens; the endnotes are
+         simply not ever rendered in the document.
+       + [ ] The thing that determines whether or not the ~zendnotes~ block
+         appears and takes space in the document, vs remaining invisible and
+         zero sized, is whether or not there are any ~zt-endnote~ items interned
+         for it to display, not whether or not the document's note type is set
+         to "endnote" vs "footnote".
+         + [ ] The constraint that creates this requirement is that I want the
+           endnotes blocks to be able to remain in the document while the
+           typical user monkeys with the settings. They should not lose much
+           work by switching back and forth.
+   + [ ] A ~zendnotes~ will reset endnote numbering, so that they start over from
+     1 again following the location of the ~zendnotes~ block.
+   + [ ] They are called "endnote" for a reason. An endnote environment will
+     never appear before any of the notes displayed within it.
+     + Rationale:: If you want a table of authorities to appear earlier in the
+       document than the items being cited, then put a zbibliography into the
+       forematter. Because it's content is assigned to it by Zotero, it works
+       fine to have that earlier in the document than the citations it
+       documents. /But endnotes don't work that way, and aren't expected to./
+ + [ ] Create a GOOPS object for the zt-endnote's that are emitted during
+   expansion of the ~zcite~ macro when that branch of it's expansion is taken due
+   to document pref settings…
+ + [ ] Create a GOOPS object for the endnote environment zfields.
+   + [ ] Those objects shall each contain it's own list of ~<zendnote-data>~ for
+     each endnote that appeared in the document up until the point where this
+     ~zendnotes~ block appears.
+ + [ ] Extend the ~<document-data>~ object to hold a list of those endnote
+   blocks.
+ + [ ] Create ext functions that ensure-interned the ~zt-endnote~ and ~zendnotes~,
+   as well as return the contents for the ~zendnotes~ during it's typesetting
+   expansion.
+   + [ ] A method to insert the now-being-interned ~zt-endnote~ into the list of
+     them embedded inside the correct data item of the document's list of
+     ~zendnotes~ must:
+     + [ ] Determine which ~zendnotes~ it belongs to, and insert into the correct
+       one's list. It can do that using the ~tree-less?~ comparison being used
+       for in-document-order list ~merge!~ already.
+       + [ ] The ~zendnotes~ that it must select is the first one from the start
+         of the list that is not ahead of, in document-order, this ~zt-endnote~'s
+         appearance in the document.
+     + [ ] Whenever there's a ~zt-endnote~ but the last known ~zendnotes~ block is
+       ~tree-less?~ than it is; that is, when it appears /after/ the last known
+       ~zendnotes~ block, then a partially completed ~<zendnotes-data>~ will be
+       instantiated and inserted and it's list of ~<zt-endnote-data>~ will be
+       built, and then when a ~zendnotes~ appears, and the final item of the
+       ~<document-data>~'s list of them is a partially completed one, then it's
+       ext:ensure-interned method will simply complete filling out the needed
+       information, such as it's tree-pointer, zfieldID, etc.
+     + [ ] Remember that it might be the case that there are not any citations
+       made between either the start of the document and the first ~zendnotes~ or
+       between the last ~zendnotes~ and this one. But if there are not any
+       citations or anything producing ~zt-endnote~'s to intern, then there won't
+       be anything to create the partially completed ~<zendnotes-data>~ object, and
+       so there won't be one there, and it must be both /instantiated/ and filled
+       out by the ~ext:ensure-interned~ method for the ~zendnotes~ blocks.
+     + [ ] When there is no ~zendnotes~ after the end of all ~zt-endnote~'s in the
+       document, then the list of those ~zt-endnote~'s that is constructed inside
+       of that partially completed ~<zendnotes-data>~ will never be called out by
+       the expansion of any ~zendnotes~ block. Thus, the fact of it being
+       partially filled out shouldn't cause any harm or crash. Recall that it
+       won't know the tree location of the ~zendnotes~ it's supposed to be
+       associated with until that ~zendnotes~ is seen and a data structure
+       interned or the partially filled out one completed.
+     + [ ] Also remember that the order they are seen in according to thinking
+       about the document being freshly loaded into the editor is not the same
+       order they'll be seen in during the process of editting, where ~zcite~ are
+       added and the document modified randomly. Thus, the above routines must
+       be capable of handling either case---the sequential read of the document
+       from start to finish, and the random insertion or deletion of new ~zcite~
+       (and thereby new ~zt-endnote~).
+
+* TODO ~zbibliography~ should be hidden for styles that do not have a bibliography.
+  SCHEDULED: <2017-03-13 Mon>
+
+  When the ~setDocPrefs~ method is called and the style is changed to
+  one that does not have a bibliography, then the ~zbibliography~ zfield
+  should render as invisible taking no space. It should not lose any
+  information — /vis-à-vis/ things like uncited items added, cited items
+  removed, or citation items editted by hand in the ~editBibliography~
+  interface — over the course of trying a style that happens to have
+  no bibliography then switching back to one that does.
+
+** TODO Perhaps there can also be a configuration on the wrench icon that causes the zbibliography to hide itself?
+   SCHEDULED: <2017-03-13 Mon>
+
+   If the zbibliography can hide itself then the user does not have to
+   use the document-part-mode menu to hide it.
+
+* TODO On MacOS, Ctrl-Enter does not call up editCitation as expected, but instead inserts a =\next-line{}=
+
+* TODO On MacOS, the Juris-M or Zotero frame is always left on the top.
+
+  In the MacOS version of the LibreOffice plugin, the Document_Activate
+  command, IIRC, is used to cause the editor to be raised to the front.
+
+* TODO Inserting a citation that affects others leaves the cursor after the last automatically modified =zcite=
+
+  rather than at the expected location, which is of course the point
+  just inside the right edge of the cyan highlight box that surrounds
+  the zcite just inserted. Logically, the cursor will move while those
+  other citations are updated, but at the end, after ~Document_complete~
+  is sent by Juris-M, marking the end of this set of editor commands,
+  the cursor needs to be set back to the expected location, so the
+  user does not have to scroll back to that point in order to continue
+  writing.
+
+* TODO Cut + paste of =zsubcite= causes Zotero Alert pertaining to field modified.
+
+** TODO affirmCitation also causes the same Zotero Alert after the changes via cut/paste.
+
+* TODO c++ - How to create an installer with CMake + CPack + NSIS on Windows? - Stack Overflow
+  SCHEDULED: <2017-04-11 Tue>
+  :PROPERTIES:
+  :CREATED:  [2017-04-11 Tue 16:03]
+  :END:
+
+http://stackoverflow.com/questions/13144181/how-to-create-an-installer-with-cmake-cpack-nsis-on-windows
+
+* TODO https://liliputing.com/2017/04/anbox-lets-run-android-apps-natively-ubuntu-gnulinux-distros.html
+  SCHEDULED: <2017-04-12 Wed>
+  :PROPERTIES:
+  :CREATED:  [2017-04-12 Wed 02:34]
+  :END:
+
+* TODO https://github.com/anbox/anbox
+  SCHEDULED: <2017-04-12 Wed>
+  :PROPERTIES:
+  :CREATED:  [2017-04-12 Wed 02:37]
+  :END:
+
+* TODO Allow embedding of custom .csl stylesheet, function to write it to a file and install that in Juris-M
+  SCHEDULED: <2017-04-12 Wed>
+  :PROPERTIES:
+  :CREATED:  [2017-04-12 Wed 10:44]
+  :END:
+
+when the user opens a document or calls on any tm-zotero integration command... for which the document's prefs data specifies a csl style that is not presently installed... Zotero 5 just took a patch that has it prompt for installation of the style, so tm-zotero needs to write it to a file in an obvious place where the user can quickly tell Zotero where to find it. The style file's filename is always part of it's style ID uri. If the dialog starts in a specific directory it will be easy... or better, tm-zotero can use a zotero:// url to install the style ahead of that prompt. That means it needs a way to check if a style is installed yet.
+
