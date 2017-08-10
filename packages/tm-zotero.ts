@@ -1,4 +1,4 @@
-<TeXmacs|1.99.9>
+<TeXmacs|1.99.5>
 
 <style|<tuple|source|std-symbol>>
 
@@ -55,6 +55,10 @@
   <use-module|(tm-zotero)>
 
   <use-package|std-counter|std-utils|env-float|std-list|std-markup|std-symbol>
+
+  \;
+
+  <assign|EvidenceSummaryBaseURL|Exhibits/evsum.html#>
 
   <\active*>
     <\src-comment>

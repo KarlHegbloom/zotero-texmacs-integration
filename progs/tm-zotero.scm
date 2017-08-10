@@ -347,7 +347,6 @@
                              "_RESET_\n")))
                           (cdr args)))))))
 
-
 ;;}}}
 ;;{{{ Status line messages and system-wait messages.
 
@@ -6953,7 +6952,14 @@ styles. doi: forms are short, so they don't need to be put on their own line."
     ;;
     (map (lambda (lnk)
            ;;(tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD__YELLOW_fixup-slink-as-url_RESET_ lnk => ~s" (tree->stree lnk))
-           (tree-assign! lnk (fixup-embedded-slink-as-url lnk)))
+           (tree-assign! lnk (fixup-embedded-slink-as-url lnk))
+           (when (tree-is? lnk 'ztHrefFromBibToURL)
+             (let* ((lnk-url (tree-ref lnk 1))
+                    (lnk-url-str (or (and lnk-url (tree->stree lnk-url)) "")))
+               (when (string-prefix? "evsum:" lnk-url-str)
+                 (let ((lnk-url-base-str (get-env "EvidenceSummaryBaseURL"))) ; i.e., "Exhibits/evsum.html#"
+                   (tree-assign! lnk-url (stree->tree (string-append lnk-url-base-str
+                                                                     (substring lnk-url-str 6)))))))))
          (select t '(:* (:or ztHrefFromBibToURL ztHrefFromCiteToBib ztHref))))
     ;; (tm-zotero-format-debug "_GREEN_tm-zotero-UTF-8-str_text->texmacs_RESET_:_BOLD_before tree-simplify_RESET_")
     (tree-simplify t)
@@ -7147,3 +7153,6 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;; folded-file: t
 ;;; End:
 ;;;;;
+
+
+
