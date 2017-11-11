@@ -79,7 +79,7 @@
 ;;; scheme program here:
 ;;;
 (define tm-zotero-csl-styles-base-directory
-  "/home/karlheg/.juris-m/zotero/8l87vugc.default/zotero/styles")
+  "/home/karlheg/src/Juris-M/styles")
 
 
 ;;;;;;
@@ -4701,7 +4701,7 @@
           (begin
             (set! tm-zotero-socket-port (socket PF_INET SOCK_STREAM 0))
             (setsockopt tm-zotero-socket-port SOL_SOCKET SO_REUSEADDR 1)
-            ;; (bind    tm-zotero-socket-port AF_INET INADDR_LOOPBACK 
+            ;; (bind    tm-zotero-socket-port AF_INET INADDR_LOOPBACK
             ;;          tm-zotero-socket-inet-texmacs-port-number)
             (connect tm-zotero-socket-port AF_INET INADDR_LOOPBACK
                      tm-zotero-socket-inet-zotero-port-number)
@@ -6957,6 +6957,11 @@ styles. doi: forms are short, so they don't need to be put on their own line."
              (let* ((lnk-url (tree-ref lnk 1))
                     (lnk-url-str (or (and lnk-url (tree->stree lnk-url)) "")))
                (when (string-prefix? "evsum:" lnk-url-str)
+                 ;; I plan to use org-mode files, one per item of evidence, to
+                 ;; build an evidence summary document. It will be named
+                 ;; "evsum.html". Each item will have an anchor identifier
+                 ;; named after the evidence file's name, which is the same as
+                 ;; the org-mode file's name, sans file-type extension.
                  (let ((lnk-url-base-str (get-env "EvidenceSummaryBaseURL"))) ; i.e., "Exhibits/evsum.html#"
                    (tree-assign! lnk-url (stree->tree (string-append lnk-url-base-str
                                                                      (substring lnk-url-str 6)))))))))
@@ -7153,6 +7158,3 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;; folded-file: t
 ;;; End:
 ;;;;;
-
-
-

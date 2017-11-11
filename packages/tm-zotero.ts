@@ -58,7 +58,7 @@
 
   \;
 
-  <assign|EvidenceSummaryBaseURL|Exhibits/evsum.html#>
+  <assign|EvidenceSummaryBaseURL|file://./Exhibits/evsum.html#>
 
   <\active*>
     <\src-comment>
