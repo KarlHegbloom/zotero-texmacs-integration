@@ -79,7 +79,7 @@
 ;;; scheme program here:
 ;;;
 (define tm-zotero-csl-styles-base-directory
-  "/home/karlheg/src/Juris-M/styles")
+  "~/Juris-M/styles")
 
 
 ;;;;;;
