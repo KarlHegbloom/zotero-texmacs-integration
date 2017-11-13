@@ -1,10 +1,12 @@
 [submodule "propachi-texmacs"]
 	path = propachi-texmacs
-	url = git@github.com:KarlHegbloom/propachi-texmacs.git
+        url = git@github.com:KarlHegbloom/propachi-texmacs.git
+        branch = propachi-texmacs-master
 [submodule "citeproc-js"]
 	path = citeproc-js
 	url = git@github.com:KarlHegbloom/citeproc-js.git
-	branch = KarlHegbloom-propachi-texmacs-1.1.139
+	branch = KarlHegbloom-propachi-texmacs
 [submodule "zotero"]
-	path = zotero
-	url = /home/karlheg/src/Juris-M/zotero
+        path = zotero
+        url = https://github.com/Juris-M/zotero.git
+        branch = jurism-5.0
