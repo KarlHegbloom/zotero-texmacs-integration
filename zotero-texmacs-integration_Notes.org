@@ -537,6 +537,10 @@ https://bughappens.wordpress.com/2013/06/04/routing-audio-jacks-with-hdaanalyzer
 
 https://www.alsa-project.org/main/index.php/HDA_Analyzer
 
+
+* TODO [#B] Think about Emacs undo-tree.el and how the things explained in the documenting comments at the top pertain to TeXmacs.
+
+* TODO dynamic-wind or something to ensure that if the user moves the text cursor while addCitation or editCitation are out waiting with a dialog box from Juris-M / Zotero that when the protocol continues the cursor location will be restored to inside the zcite where it's expected to be by Juris-M / Zotero.
 * TODO Patches for texmacs/web: Welcome to GNU TeXmacs (FSF GNU project)
   SCHEDULED: <2017-02-08 Wed>
   :PROPERTIES:
