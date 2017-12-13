@@ -55,6 +55,7 @@
 
 (tm-define (kbd-enter t shift?)
   (:require (and (inside? 'paragraph)
+                 (not (inside-inactive? t))
                  (not (inside? 'hybrid))
                  (not (is-zfield? t))
                  (in-legal-brief-style?)))
@@ -64,6 +65,7 @@
 
 (tm-define (kbd-enter t shift?)
   (:require (and (not (inside? 'paragraph))
+                 (not (inside-inactive? t))
                  (not (inside? 'hybrid))
                  (not (is-zfield? t))
                  (in-legal-brief-style?)
@@ -75,6 +77,7 @@
 
 (tm-define (kbd-enter t shift?)
   (:require (and (not (inside? 'paragraph))
+                 (not (inside-inactive? t))
                  (not (inside? 'hybrid))
                  (not (is-zfield? t))
                  (in-legal-brief-style?)
@@ -87,6 +90,7 @@
 
 (tm-define (kbd-enter t shift?)
   (:require (and (not (inside? 'hybrid))
+                 (not (inside-inactive? t))
                  (in-legal-brief-style?)
                  ;; (in-section?)
                  (or (inside? 'part)
