@@ -2775,7 +2775,7 @@
    ;; ref
    (lambda (zfield)
      (let* ((zfieldID-t (zfield-zfieldID-t zfield))
-            (zfieldID (tree->stree zfieldID-t)))
+            (zfieldID (and zfieldID-t (tree->stree zfieldID-t))))
        ;; (tm-zotero-format-debug "zfield-zfieldID: zfield => ~s" (tree->stree zfield))
        ;; (tm-zotero-format-debug "zfield-zfieldID: zfieldID-t => ~s" (tree->stree zfieldID-t))
        ;; (tm-zotero-format-debug "zfield-zfieldID: zfieldID => ~s" zfieldID)
@@ -2783,8 +2783,9 @@
    ;; set!
    (lambda (zfield str)
      (let ((zfieldID-t (zfield-zfieldID-t zfield)))
-       (tree-assign! zfieldID-t
-                    (stree->tree str))))))
+       (when zfieldID-t
+         (tree-assign! zfieldID-t
+                       (stree->tree str)))))))
 
 
 ;;;;;;
@@ -4386,7 +4387,7 @@
                                   zhd-ls-key
                                   '()))
          (ref-labels-ls (map the-ref-label-of zhd-ls)))
-    ;; (tm-zotero-format-debug "tm-zotero-ext:_BOLD_get-ztbibItemRefsList:_RESET_ _GREEN_ref-labels-ls_RESET_ => ~s" ref-labels-ls)
+    (tm-zotero-format-debug "tm-zotero-ext:_BOLD_get-ztbibItemRefsList:_RESET_ _GREEN_ref-labels-ls_RESET_ => ~s" ref-labels-ls)
     (if (null? ref-labels-ls)
         ""
         `(concat ,(tree->stree left-t) (zt-ref-sep ,@ref-labels-ls) ,(tree->stree right-t)))))
