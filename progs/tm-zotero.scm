@@ -6658,7 +6658,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
          ;;
          ;; Category heading dummy entries. Replaces the entire line!
          ;;
-         (("(^.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+\\{.*})}.*\\.?}%?)"); ,regexp/newline)
+         (("(^.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+\\{[^}]+}).*\\.?}+%?)"); ,regexp/newline)
           pre 3 post)
          (("(^.*ztbibItemText.*(000000000@#)?<(ztbib[A-Za-z]+)>(.*)</\\3>.*\\.?}%?)")
           pre "\\" 3 "{" 4 "}" post)
