@@ -1878,10 +1878,10 @@
  ("M-C-r" (interactive tm-zotero-refresh)))
 
 
-;; (kbd-map
-;;   (:mode (and (in-tm-zotero-style?)
-;;               (focus-is-zcite?)))
-;;   ("C-." (interactive toggle-focus-zcite-suppress-trailing-punctuation)))
+(kbd-map
+  (:mode (and (in-tm-zotero-style?)
+              (focus-is-zcite?)))
+  ("C-." (interactive toggle-focus-zcite-suppress-trailing-punctuation)))
 
 
 (tm-define (kbd-shift-space)
@@ -2061,20 +2061,13 @@
   #f)
 
 
-;;; Todo: go to next similar tag does not work right with zcite. Why?
-;;; The following seems to have no effect...
+(tm-define (similar-to lab)
+  (:require (focus-is-zcite?))
+  (list 'zcite 'zbibliography))
 
-;;; Ok, it might not be zcite; it might be everything. Tried with a \strong text block and got the same error.  Fails when there's
-;;; only 1 \paragraph, but works when there's 2, but trying to go past last one gives same error.  I think this used to work, but
-;;; now it does not. I can't fix it today.
-
-;; (tm-define (similar-to lab)
-;;   (:require (focus-is-zcite?))
-;;   (list 'zcite))
-
-;; (tm-define (similar-to lab)
-;;   (:require (focus-is-zbibliography?))
-;;   (list 'zbibliography))
+(tm-define (similar-to lab)
+  (:require (focus-is-zbibliography?))
+  (list 'zcite 'zbibliography))
 
 
 
@@ -2082,9 +2075,9 @@
   (tm-zotero-set-message (string-append "Setting zt-debug-trace? to " val "."))
   (set! zt-debug-trace? (== val "on")))
 
-
 (define-preferences
   ("zt-debug-trace?" "off" zt-notify-debug-trace))
+
 
 ;;; these need to be per-document preferences, not TeXmacs-wide ones.
   ;; ("zt-pref-in-text-hrefs-as-footnotes"         "on"  ignore)
@@ -4393,7 +4386,7 @@
                                   zhd-ls-key
                                   '()))
          (ref-labels-ls (map the-ref-label-of zhd-ls)))
-    (tm-zotero-format-debug "tm-zotero-ext:_BOLD_get-ztbibItemRefsList:_RESET_ _GREEN_ref-labels-ls_RESET_ => ~s" ref-labels-ls)
+    (tm-zotero-format-debug "_BOLD__RED_tm-zotero-ext:get-ztbibItemRefsList:_RESET_ _GREEN_ref-labels-ls_RESET_ => ~s" ref-labels-ls)
     (if (null? ref-labels-ls)
         ""
         `(concat ,(tree->stree left-t) (zt-ref-sep ,@ref-labels-ls) ,(tree->stree right-t)))))
@@ -6658,10 +6651,10 @@ styles. doi: forms are short, so they don't need to be put on their own line."
          ;;
          ;; Category heading dummy entries. Replaces the entire line!
          ;;
-         (("(^.*ztbibItemText.*(000000000@#)?(.ztbib[A-Za-z]+\\{[^}]+}).*\\.?}+%?)"); ,regexp/newline)
-          pre 3 post)
-         (("(^.*ztbibItemText.*(000000000@#)?<(ztbib[A-Za-z]+)>(.*)</\\3>.*\\.?}%?)")
-          pre "\\" 3 "{" 4 "}" post)
+         (("(^.+ztbibItemText.*(ztbib[A-Za-z]+)\\{(.+)\\}.*\\}\\}\\.\\}%$)" ,regexp/newline)
+          pre "\\" 2 "{" 3 "}" post)
+         (("(^.*ztbibItemText.*<(ztbib[A-Za-z]+)>(.+)</\\2>.*\\}\\}\\.\\}%$)" ,regexp/newline)
+          pre "\\" 2 "{" 3 "}" post)
          ;;
          ;; Unless you use UTF-8 encoded fonts (TeX Gyre are very good UTF-8 encoded fonts; the standard TeX fonts are Cork
          ;; encoded) these characters won't work right for some reason. The macros I'm replacing them with below expand to the same
@@ -6724,22 +6717,22 @@ styles. doi: forms are short, so they don't need to be put on their own line."
          ;;  pre 2 4 post) ;; Never mind. Don't use it.
          ;;
          ;; use \abbr{v.} to make the space after the period be a small sized one.
-         ((" (v\\.?s?\\.?) ")
-          pre " \\abbr{v.} " post)
-         (("(U\\.?S\\.?C\\.?)")
-          pre "\\abbr{U.S.C.}" post)
-         (("(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)")
-          pre "\\abbr{" 1 "}" post)
-         (("(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Cir\\.|Sup\\.|Ct\\.|App\\.|U\\.|Const\\.)")
-          pre "\\abbr{" 1 "}" post)
-         (("([Aa]rt\\.|[Ss]ec\\.|[Cc]h\\.|[Pp]ara\\.|[Nn]o\\.|[Rr]ev\\.|[Ee]d\\.)")
-          pre "\\abbr{" 1 "}" post)
-         (("(Cal\\.|Kan\\.|Mass\\.)")
-          pre "\\abbr{" 1 "}" post)
-         (("(Envtl\\.|Loy\\.)")
-          pre "\\abbr{" 1 "}" post)
-         (("([A-Z]\\.)([  ])")
-          pre "\\abbr{" 1 "}" 2 post)
+         (("([  ])(v\\.?s?\\.?)([  ])")
+          pre 1 "\\abbr{v.}" 3 post)
+         (("([^A-Za-z0-9])(U\\.?S\\.?C\\.?)([  ])?")
+          pre 1 "\\abbr{U.S.C.}" 3 post)
+         (("([^A-Za-z0-9])(Jan\\.|Feb\\.|Mar\\.|Apr\\.|May\\.|Jun\\.|Jul\\.|Aug\\.|Sep\\.|Sept\\.|Oct\\.|Nov\\.|Dec\\.)([  ])?")
+          pre 1 "\\abbr{" 2 "}" 3 post)
+         (("([^A-Za-z0-9])(Dr\\.|Mr\\.|Mrs\\.|Jr\\.|PhD\\.|Jd\\.|Md\\.|Inc\\.|Cir\\.|Sup\\.|Ct\\.|App\\.|U\\.|Const\\.)([  ])?")
+          pre 1 "\\abbr{" 2 "}" 3 post)
+         (("([^A-Za-z0-9])([Aa]rt\\.|[Ss]ec\\.|[Cc]h\\.|[Pp]ara\\.|[Nn]o\\.|[Rr]ev\\.|[Ee]d\\.)([  ])?")
+          pre 1 "\\abbr{" 2 "}" 3 post)
+         (("([^A-Za-z0-9])(Cal\\.|Kan\\.|Mass\\.)([  ])?")
+          pre 1 "\\abbr{" 2 "}" 3 post)
+         (("([^A-Za-z0-9])(Envtl\\.|Loy\\.|Libr\\.)([  ])?")
+          pre 1 "\\abbr{" 2 "}" 3 post)
+         (("([^A-Za-z0-9])([A-Z]\\.)([  ])?")
+          pre 1 "\\abbr{" 2 "}" 3 post)
          )))
 
 
@@ -6752,16 +6745,18 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 
 
 (define (tm-zotero-regex-transform str_text)
-  ;;(tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_called_RESET_, str_text => ~s" str_text)
-  (let ((text str_text))
-    (do ((rc tm-zotero-regex-replace-clauses (cdr rc)))
-        ((null? rc)
-         ;;(tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_returning_RESET_, text => ~s" text)
-         text)
-      ;; each is applied in turn, so later ones can modify results of earlier
-      ;; ones if you like.
-      ;;(tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:  _GREEN_during_WHITE_:  _GREEN_text_RESET_: ~s" text)
-      (set! text (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc)))))))
+  (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_called_RESET_, str_text => ~s" str_text)
+  (if (> (string-length str_text) 0)
+      (let ((text str_text))
+        (do ((rc tm-zotero-regex-replace-clauses (cdr rc)))
+            ((null? rc)
+             (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:_GREEN_returning_RESET_, text => ~s" text)
+             text)
+          ;; each is applied in turn, so later ones can modify results of earlier
+          ;; ones if you like.
+          ;; (tm-zotero-format-debug "_BOLD__RED_tm-zotero-regex-transform_WHITE_:  _GREEN_during_WHITE_:  _GREEN_text_RESET_: ~s" text)
+          (set! text (apply regexp-substitute/global `(#f ,(caar rc) ,text ,@(cdar rc))))))
+      str_text))
 
 
 ;; (define (tm-zotero-regex-transform str_text)

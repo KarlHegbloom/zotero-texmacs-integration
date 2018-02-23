@@ -1,4 +1,4 @@
-<TeXmacs|1.99.5>
+<TeXmacs|1.99.6>
 
 <style|<tuple|source|std-symbol>>
 
@@ -98,6 +98,13 @@
   <assign|ztnbhyp|<macro|<no-break>-<no-break>>>
 
   <assign|ztnobreak|<macro|<no-break>>>
+
+  \;
+
+  <assign|uldash|<macro|body|<with|color|dark red|<flag|Auto-refresh
+  Disabled|dark red><arg|body>>>>
+
+  <assign|ulclear|<macro|body|<arg|body>>>
 
   <\active*>
     <\src-comment>
@@ -573,7 +580,11 @@
 
   <inactive|<drd-props|Xzcite|disable-writability|0|unaccessible|0|disable-writability|1|unaccessible|1|enable-writability|2|accessible|2>>
 
-  \;
+  <inactive|<drd-props|Xzcite|unaccessible|all|disable-writability|all>>
+
+  <inactive|<drd-props|Xzcite|unaccessible|0|disable-writability|0|unaccessible|1|disable-writability|1|accessible|2|syntax|<macro|fieldID|fieldCode|fieldText|<arg|fieldText>>>>
+
+  <inactive|<drd-props|Xzcite|hidden|0|hidden|1>>
 
   <\active*>
     <\src-comment>

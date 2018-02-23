@@ -1,0 +1,14 @@
+{
+  "moz": true,
+  "esnext": true,
+  "globals": {},
+  "globalstrict": false,
+  "quotmark": true,
+  "smarttabs": true,
+  "trailing": true,
+  "undef": true,
+  "unused": true,
+  "maxerr": 10000,
+  "devel": true,
+  "predef" : [ "require", "exports" ]
+}

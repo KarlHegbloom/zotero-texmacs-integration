@@ -40,7 +40,12 @@
 
 
 ;; The tm-zotero.ts will load the zotero.scm module.
-(menu-bind texmacs-extra-menu
+(tm-menu (texmacs-extra-menu)
   (:mode in-tm-zotero-style?)
+  (former)
   (link tm-zotero-menu))
+
+;; (menu-bind texmacs-extra-menu
+;;   (:mode in-tm-zotero-style?)
+;;   (link tm-zotero-menu))
 ;;  (former))
