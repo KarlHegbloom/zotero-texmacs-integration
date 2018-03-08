@@ -101,8 +101,9 @@
 
   \;
 
-  <assign|uldash|<macro|body|<with|color|dark red|<flag|Auto-refresh
-  Disabled|dark red><arg|body>>>>
+  <assign|uldash|<macro|body|<with|color|dark red|locus-color|dark
+  red|visited-color|dark-red|<flag|Auto-refresh Disabled|dark
+  red><arg|body>>>>
 
   <assign|ulclear|<macro|body|<arg|body>>>
 
