@@ -2195,74 +2195,224 @@
 
 ;;}}}
 
-(define (get-env-zoteroDocumentData)
+
+(define (get-env-zoteroDocumentData documentID)
+  ;; Can *not* call `go-to-buffer' like this everywhere! It resulted in a
+  ;; warning:
+  ;;
+  ;;    Invalid situation (38) in edit_interface_rep::handle_repaint
+  ;;
+  ;; In editor.hpp, 38 == 32 + 4 + 2 THE_DECORATIONS | THE_TREE | THE_FOCUS.
+  ;;
+  ;; At the same time as this, sometimes the TeXmacs display of the tags from
+  ;; the tm-zotero.ts would glitch, and they would temorarily be rendered as
+  ;; red tags (undefined macros are displayed as red tags). That happened while
+  ;; an error or warning notification message dialog was posted. After pressing
+  ;; the button to close the message box, the red tags would jump back to being
+  ;; rendered as defined tags.
+  ;;
+  ;; ;; (go-to-buffer (document-buffer documentID))
+  ;;
+  ;; But I want to carry the context of which documentID it is and thus which
+  ;; editor buffer... in case for some reason it's handling more than one
+  ;; document at the same time in the same instance of TeXmacs---perhaps in two
+  ;; separate frames... How can I ensure that the code that's running is
+  ;; associated with a particular document tree context? I will look into
+  ;; "Promises" and "Async" in ECMAScript, and then at ways to do that in
+  ;; TeXmacs/Guile. So a factory can make an `this' object that is lexically
+  ;; visible for it's methods. That object can carry the necessary context.
+  ;;
+  ;;   I think that if I am always working on a TeXmacs tree object, which can
+  ;;   be carried in that context object, and not with any functions that
+  ;;   change what document tree's editor is visible in the GUI frame's
+  ;;   window... that the above warning message would not happen.
+  ;;
+  ;;     The <zfield-data> objects contain each a tree-pointer to the actual
+  ;;     zfield-t and so that's the context it needs, I think, as long as the
+  ;;     code makes no assumptions regarding what the "current document" is.
+  ;;
   (get-env "zoteroDocumentData"))
 
-(define (set-env-zoteroDocumentData! str_dataString)
+(define (set-env-zoteroDocumentData! documentID str_dataString)
+  ;; (go-to-buffer (document-buffer documentID))
+  (tm-zotero-format-debug "_GREEN_set-env-zoteroDocumentData!_RESET_: str_dataString => ~s" str_dataString)
   (set-init-env "zoteroDocumentData" str_dataString)
-  (set-init-env-for-zotero-document-prefs str_dataString))
+  (cond
+    ((string-prefix? "<" str_dataString)
+     (set-init-env-for-zotero-document-prefs-from-xml-string documentID str_dataString)
+     ;; (set-prefsData-ht-from-init-env! documentID) ; upgrades to dataVersion 4
+     )
+    (else
+      (let* ((dd              (get-<document-data> documentID))
+             (newPrefsData-ht (safe-json-string->scm str_dataString)))
+        ;; <document-data> documentPrefsData #:slot-set method sets init-env.
+        (set! (documentPrefsData dd) newPrefsData-ht)))))
 
+;; the following is called from #:slot-set of the virtual slot documentPrefsData.
+(define (set-init-env-for-zotero-document-prefs-from-prefsData-ht! documentID prefsData-ht)
+  ;; (go-to-buffer (document-buffer documentID))
+  (tm-zotero-format-debug "_GREEN_set-init0-env-for-zotero-document-prefs-from-prefsData-ht_RESET_: called.")
+  (let ((session-id    (hash-ref prefsData-ht "sessionID"))
+        (zoteroVersion (hash-ref prefsData-ht "zoteroVersion"))
+        (dataVersion   (hash-ref prefsData-ht "dataVersion"))
+        (style-ht      (hash-ref prefsData-ht "style"))
+        (prefs-ht      (hash-ref prefsData-ht "prefs"))
+        ;; (names '())
+        )
+    (set-init-env "zotero-session-id"         session-id)
+    ;; (set! x 'names (cons "zotero-session-id" names))
+    (set-init-env "zotero-data-zoteroVersion" zoteroVersion)
+    ;; (set! 'names (cons "zotero-data-zoteroVersion" names))
+    (set-init-env "zotero-data-dataVersion"   dataVersion)
+    ;; (set! 'names (cons "zotero-data-dataVersion" names))
+    (let ((styleID (hash-ref style-ht "styleID"))
+          (pds (get-csl-style-citation-layout-prefix-delimiter-suffix styleID)))
+      (set-init-env "zotero-style-id" styleID)
+      ;; (set! 'names (cons "zotero-style-id" names))
+      (set-init-env "zotero-style-citation-layout-prefix"    (car pds))
+      ;; (set! %zotero-style-citation-layout-prefix (car pds))
+      (set-init-env "zotero-style-citation-layout-delimiter" (cadr pds))
+      ;; (set! %zotero-style-citation-layout-delimiter (cadr pds))
+      (set-init-env "zotero-style-citation-layout-suffix"    (caddr pds))
+      ;; (set! %zotero-style-citation-layout-suffix (caddr pds))
+      )
+    (set-init-env "zotero-style-locale" (hash-ref style-ht "locale"))
+    ;; (set! 'names (cons "zotero-style-locale" names))
+    (set-init-env "zotero-style-hasBibliography" (if (hash-ref style-ht "hasBibliography")
+                                                     "true"
+                                                     "false"))
+    ;; (set! 'names (cons "zotero-style-hasBibliography" names))
+    (set-init-env "zotero-style-bibliographyStyleHasBeenSet" (if (hash-ref style-ht "bibliographyStyleHasBeenSet")
+                                                                 "true"
+                                                                 "false"))
+    ;; (set! 'names (cons "zotero-style-bibliographyStyleHasBeenSet" names))
+    (set-init-env "zotero-pref-noteType"  "0")
+    (set-init-env "zotero-pref-noteType0" "true")  ;; in-text
+    (set-init-env "zotero-pref-noteType1" "false") ;; footnotes
+    (set-init-env "zotero-pref-noteType2" "false") ;; endnotes
+    (hash-for-each (lambda (key val)
+                     (let ((val (cond
+                                  ((eq? val #t) "true")
+                                  ((eq? val #f) "false")
+                                  (else val))))
+                       (if (string=? key "noteType")
+                           (begin
+                             (set-init-env "zotero-pref-noteType" val)
+                             (set-init-env "zotero-pref-noteType0" "false")
+                             (set-init-env (string-append "zotero-pref-noteType" val) "true")
+                             ;; (set! 'names (cons (string-append "zotero-pref-noteType" val) names))
+                             )
+                           (begin
+                             (set-init-env (string-append "zotero-pref-" key) val)
+                             ;; (set! 'names (string-append "zotero-pref-" key) names)
+                             ))))
+                   prefs-ht)
+    ;; (set! (documentPrefsNames (get-<document-data> documentID)) names)
+    ))
 
-(define (set-init-env-for-zotero-document-prefs str_dataString)
-  (let ((set-init-env-for-zotero-document-prefs-sub
+;; (define (set-prefsData-ht-from-init-env! documentID)
+;;   (go-to-buffer (document-buffer documentID))
+;;   (let* ((dd           (get-<document-data> documentID))
+;;          (prefsData-ht (documentPrefsData dd))
+;;          (style-ht (hash-ref prefsData-ht "style"))
+;;          (prefs-ht (hash-ref prefsData-ht "prefs")))
+;;     (hash-set! prefsData-ht "sessionID" (get-env "zotero-session-id"))
+;;     (hash-set! prefsData-ht "zoteroVersion" (get-env "zotero-data-zoteroVersion"))
+;;     (hash-set! prefsData-ht "dataVersion" 4)
+;;     (hash-set! style-ht "styleID" (get-env "zotero-style-id"))
+;;     (hash-set! style-ht "locale" (get-env "zotero-style-locale"))
+;;     (hash-set! style-ht "hasBibliography" (get-env "zotero-style-hasBibliography"))
+;;     (hash-set! style-ht "bibliographyStyleHasBeenSet" (get-env "zotero-style-bibliographyStyleHasBeenSet"))
+;;     (hash-set! prefs-ht "noteType" (cond
+;;                                      ((== (get-env "zotero-pref-noteType0") "true") "0")
+;;                                      ((== (get-env "zotero-pref-noteType1") "true") "1")
+;;                                      ((== (get-env "zotero-pref-noteType2") "true") "2")))
+;;     (let loop ((names (documentPrefsNames dd)))
+;;          (unless (null? names)
+;;            (cond
+;;              ((string-prefix? "zotero-pref-noteType" name)
+;;               (loop (cdr names)))
+;;              ((string-prefix? "zotero-pref-" name)
+;;               (hash-set! prefs-ht (substring name 12) (get-env name))
+;;               (loop (cdr names)))
+;;              (else
+;;                (loop (cdr names))))))))
+
+(define (set-init-env-for-zotero-document-prefs-from-xml-string documentID str_dataString)
+  ;; (go-to-buffer (document-buffer documentID))
+  (let ((dd (get-<document-data> documentID))
+        ;; (names '())
+        (set-init-env-for-zotero-document-prefs-sub
          (lambda (prefix attr-list)
            (let loop ((attr-list attr-list))
-             (cond
-               ((null? attr-list) #t)
-               (else
-                 (let ((var (symbol->string (caar attr-list))))
-                   (set-init-env (string-append prefix var)
-                                 (cadar attr-list))
-                   (when (and (== prefix "zotero-style-")
-                              (== var "id"))
-                     (let ((psd (tm-zotero-get-citation-layout-prefix-delimiter-suffix (cadar attr-list))))
-                       (unless (string? (car psd))
-                         (set! (car psd) ""))
-                       (set-init-env (string-append prefix "citation-layout-prefix") (car psd))
-                       (set! %zotero-style-citation-layout-prefix (car psd))
-                       (unless (string? (cadr psd))
-                         (set! (cadr psd) ""))
-                       (set-init-env (string-append prefix "citation-layout-delimiter") (cadr psd))
-                       (set! %zotero-style-citation-layout-delimiter (cadr psd))
-                       (unless (string? (caddr psd))
-                         (set! (caddr psd) ""))
-                       (set-init-env (string-append prefix "citation-layout-suffix") (caddr psd))
-                       (set! %zotero-style-citation-layout-suffix (caddr psd))))
-                   (loop (cdr attr-list)))))))))
+                (cond
+                  ((null? attr-list) #t)
+                  (else
+                    (let ((var (symbol->string (caar attr-list))))
+                      (set-init-env (string-append prefix var)
+                                    (cadar attr-list))
+                      ;; (set! 'names (cons (string-append prefix var) names))
+                      (when (and (== prefix "zotero-style-")
+                                 (== var "id"))
+                        (let ((psd (tm-zotero-get-citation-layout-prefix-delimiter-suffix (cadar attr-list))))
+                          (unless (string? (car psd))
+                            (set! (car psd) ""))
+                          (set-init-env (string-append prefix "citation-layout-prefix") (car psd))
+                          (set! %zotero-style-citation-layout-prefix (car psd))
+                          (unless (string? (cadr psd))
+                            (set! (cadr psd) ""))
+                          (set-init-env (string-append prefix "citation-layout-delimiter") (cadr psd))
+                          (set! %zotero-style-citation-layout-delimiter (cadr psd))
+                          (unless (string? (caddr psd))
+                            (set! (caddr psd) ""))
+                          (set-init-env (string-append prefix "citation-layout-suffix") (caddr psd))
+                          (set! %zotero-style-citation-layout-suffix (caddr psd))))
+                      (loop (cdr attr-list)))))))))
     (let loop ((sxml (cdr (parse-xml str_dataString))))
-      (cond
-        ((null? sxml) #t)
-        ((eq? 'data (sxml-name (car sxml)))
-         (set-init-env-for-zotero-document-prefs-sub "zotero-data-" (sxml-attr-list
-                                                                     (car sxml)))
-         (loop (sxml-content (car sxml))))
-        ((eq? 'session (sxml-name (car sxml)))
-         (set-init-env-for-zotero-document-prefs-sub "zotero-session-" (sxml-attr-list
+         (cond
+           ((null? sxml) #t)
+           ((eq? 'data (sxml-name (car sxml)))
+            (set-init-env-for-zotero-document-prefs-sub "zotero-data-" (sxml-attr-list
                                                                         (car sxml)))
-         (loop (cdr sxml)))
-        ((eq? 'style (sxml-name (car sxml)))
-         (set-init-env-for-zotero-document-prefs-sub "zotero-style-" (sxml-attr-list
-                                                                      (car sxml)))
-         (loop (cdr sxml)))
-        ((eq? 'prefs (sxml-name (car sxml)))
-         (loop (sxml-content (car sxml))))
-        ((eq? 'pref (sxml-name (car sxml)))
-         (set-init-env (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
-                       (sxml-attr (car sxml) 'value))
-         (when (string=? "noteType" (sxml-attr (car sxml) 'name))
-           ;;;
-           ;; The TeXmacs style language case statements can not test an
-           ;; environment variable that is a string against any other
-           ;; string... the string it's set to has to be "true" or "false"
-           ;; to make boolean tests work. It can not check for "equals 0",
-           ;; "equals 1", etc.
-           ;;;
-           (set-init-env "zotero-pref-noteType0" "false")
-           (set-init-env "zotero-pref-noteType1" "false")
-           (set-init-env "zotero-pref-noteType2" "false")
-           (set-init-env (string-append "zotero-pref-noteType"
-                                        (sxml-attr (car sxml) 'value)) "true"))
-         (loop (cdr sxml)))))))
+            (loop (sxml-content (car sxml))))
+           ((eq? 'session (sxml-name (car sxml)))
+            (set-init-env-for-zotero-document-prefs-sub "zotero-session-" (sxml-attr-list
+                                                                           (car sxml)))
+            (loop (cdr sxml)))
+           ((eq? 'style (sxml-name (car sxml)))
+            (set-init-env-for-zotero-document-prefs-sub "zotero-style-" (sxml-attr-list
+                                                                         (car sxml)))
+            (loop (cdr sxml)))
+           ((eq? 'prefs (sxml-name (car sxml)))
+            (loop (sxml-content (car sxml))))
+           ((eq? 'pref (sxml-name (car sxml)))
+            (set-init-env (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
+                          (sxml-attr (car sxml) 'value))
+            ;; (set! 'names (cons (string-append "zotero-pref-" (sxml-attr (car sxml) 'name))
+            ;;                   names))
+            (set-init-env "zotero-pref-noteType"  "0")
+            (set-init-env "zotero-pref-noteType0" "true")
+            (set-init-env "zotero-pref-noteType1" "false")
+            (set-init-env "zotero-pref-noteType2" "false")
+            (when (string=? "noteType" (sxml-attr (car sxml) 'name))
+              ;;
+              ;; The TeXmacs style language case statements can not test an
+              ;; environment variable that is a string against any other
+              ;; string... the string it's set to has to be "true" or "false"
+              ;; to make boolean tests work. It can not check for "equals 0",
+              ;; "equals 1", etc.
+              ;;
+              (set-init-env "zotero-pref-noteType0" "false")
+              (set-init-env "zotero-pref-noteType" (sxml-attr (car sxml) 'value))
+              (set-init-env (string-append "zotero-pref-noteType"
+                                           (sxml-attr (car sxml) 'value)) "true")
+              ;; (set! 'names (cons (string-append "zotero-pref-noteType"
+              ;;                                  (sxml-attr (car sxml) 'value))
+              ;;                   names))
+              )
+            (loop (cdr sxml)))))
+    ;; (set! (documentPrefsNames dd) names)
+    ))
 
 
 ;; zotero-style-id => "http://juris-m.github.io/styles/jm-indigobook-in-text"
@@ -3541,8 +3691,75 @@
 ;;}}}
 ;;{{{ define-class for <document-data>
 
+(define (construct-default-documentPrefsData-ht)
+  (let ((ht (make-hash-table))
+        (style-ht (make-hash-table))
+        (prefs-ht (make-hash-table))
+        )
+    (hash-set! ht "style" style-ht)
+    (hash-set! ht "prefs" prefs-ht)
+    (hash-set! ht "dataVersion" 4)
+    (hash-set! prefs-ht "outputFormat" "tmzoterolatex")
+    (hash-set! prefs-ht "storeReferences" #t)
+    (hash-set! prefs-ht "suppressTrailingPunctuation" #f)
+    (hash-set! prefs-ht "dontAskDelayCitationUpdates" #f)
+    (hash-set! prefs-ht "delayCitationUpdates" #f)
+    ht))
+
+(define (format-default-documentPrefsData-xml)
+  "<data data-version=\"3\" zotero-version=\"5.0.35.m4\">
+    <prefs>
+        <pref name=\"outputFormat\" value=\"tmzoterolatex\"/>
+        <pref name=\"storeReferences\" value=\"true\"/>
+        <pref name=\"suppressTrailingPunctuation\" value=\"false\"/>
+        <pref name=\"dontAskDelayCitationUpdates\" value=\"false\"/>
+        <pref name=\"delayCitationUpdates\" value=\"false\"/>
+    </prefs>
+</data>
+")
+
+;;     "\
+;; <data data-version=\"3\" zotero-version=\"5.0.35.m4\">
+;;     <session id=\"nVQz4DWD\"/>
+;;     <style id=\"http://juris-m.github.io/styles/jm-indigobook-catsort-bib\" locale=\"en-US\" hasBibliography=\"1\" bibliographyStyleHasBeenSet=\"1\"/>
+;;     <prefs>
+;;         <pref name=\"citationTransliteration\" value=\"en\"/>
+;;         <pref name=\"citationTranslation\" value=\"en\"/>
+;;         <pref name=\"citationSort\" value=\"en\"/>
+;;         <pref name=\"citationLangPrefsPersons\" value=\"orig\"/>
+;;         <pref name=\"citationLangPrefsInstitutions\" value=\"orig\"/>
+;;         <pref name=\"citationLangPrefsTitles\" value=\"orig\"/>
+;;         <pref name=\"citationLangPrefsJournals\" value=\"orig\"/>
+;;         <pref name=\"citationLangPrefsPublishers\" value=\"orig\"/>
+;;         <pref name=\"citationLangPrefsPlaces\" value=\"orig\"/>
+;;         <pref name=\"citationAffixes\" value=\"\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\|\"/>
+;;         <pref name=\"extractingLibraryName\" value=\"No group selected\"/>
+;;         <pref name=\"fieldType\" value=\"ReferenceMark\"/>
+;;         <pref name=\"automaticJournalAbbreviations\" value=\"true\"/>
+;;         <pref name=\"delayCitationUpdates\" value=\"true\"/>
+;;     </prefs>
+;; </data>
+;; "
 (define-class-with-accessors-keywords <document-data> ()
   (documentID #:init-value #f)
+  ;; integration dataVersion 4 JSON->scm hashtable
+  (%documentPrefsData
+   #:init-thunk (lambda ()
+                  (construct-default-documentPrefsData-ht)))
+  (documentPrefsData
+   #:allocation #:virtual
+   #:slot-ref (lambda (dd)
+                (or (slot-ref dd '%documentPrefsData)
+                    (let ((ht (construct-default-documentPrefsData-ht)))
+                      (slot-set! dd '%documentPrefsData ht)
+                      ;; (set-prefsData-ht-from-init-env! (slot-ref dd 'documentID))
+                      ht)))
+   #:slot-set! (lambda (dd ht)
+                 (slot-set! dd '%documentPrefsData ht)
+                 (set-init-env-for-zotero-document-prefs-from-prefsData-ht!
+                  (slot-ref dd 'documentID) ht))
+   )
+  (documentPrefsNames #:init-value #f)
   ;;
   ;; TODO This undo marking thing needs to be looked over because in
   ;;      zotero/chrome/content/zotero/xpcom/integration.js inside of
@@ -4923,7 +5140,7 @@
 
 (define (tm-zotero-listen cmd)
   ;; cmd is only used for set-message and debug display.
-  (tm-zotero-format-debug "tm-zotero-listen:called:cmd => ~a" cmd)
+  (tm-zotero-format-debug "_BOLD__RED_tm-zotero-listen_WHITE_:_GREEN_called:cmd => ~a" cmd)
   (let* ((documentID (get-documentID))
          (mark-nr (get-document-active-mark-nr documentID)))
     (tm-zotero-set-message
@@ -5186,12 +5403,17 @@
 ;;;
 ;;; ["Application_getActiveDocument", [int_protocolVersion]] -> [int_protocolVersion, documentID]
 ;;;
-;;; For now it ignores the protocol version.
-;;;
 (define (tm-zotero-Application_getActiveDocument tid pv)
   (tm-zotero-set-message "Processing command: Application_getActiveDocument...")
   ;;(tm-zotero-format-debug "zotero-Application_getActiveDocument:called...")
-  (tm-zotero-write tid (safe-scm->json-string (list pv (get-documentID)))))
+  (let* ((documentID   (get-documentID))
+         ;; (dd           (and documentID (get-<document-data> documentID)))
+         ;; (prefsData-ht (and dd (documentPrefsData dd)))
+         ;; (pv           (and prefsData-ht
+         ;;                    (or (hash-ref prefsData-ht "dataVersion" #f)
+         ;;                        pv)))
+         )
+    (tm-zotero-write tid (safe-scm->json-string (list pv documentID)))))
 
 ;;}}}
 
@@ -5256,8 +5478,8 @@
 ;;;
 ;;; ["Document_displayAlert", [documentID, str_dialogText, int_icon, int_buttons]] -> int_button_pressed
 ;;;
-(define (tm-zotero-Document_displayAlert tid documentID str_dialogText int_icon
-                                         int_buttons)
+(define (tm-zotero-Document_displayAlert tid documentID str_dialogText int_icon int_buttons)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_displayAlert...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_displayAlert:called...")
   (let ((stree_dialogText (tree->stree
@@ -5276,6 +5498,7 @@
 ;;; ["Document_activate", [documentID]] -> null
 ;;;
 (define (tm-zotero-Document_activate tid documentID)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_activate...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_activate:called...")
   (wait-update-current-buffer)
@@ -5289,6 +5512,7 @@
 ;;; ["Document_canInsertField", [documentID, str_fieldType]] -> boolean
 ;;;
 (define (tm-zotero-Document_canInsertField tid documentID str_fieldType)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_canInsertField...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_canInsertField:called...")
   (let ((ret (not
@@ -5316,9 +5540,22 @@
 ;;; ["Document_getDocumentData", [documentID]] -> str_dataString
 ;;;
 (define (tm-zotero-Document_getDocumentData tid documentID)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_getDocumentData...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_getDocumentData:called...")
-  (tm-zotero-write tid (safe-scm->json-string (get-env-zoteroDocumentData))))
+  ;; (let ((prefsData-ht (documentPrefsData (get-<document-data> documentID))))
+  ;;   (if (== 4 (hash-ref prefsData-ht "dataVersion" 3))
+  ;;       (tm-zotero-write tid (safe-scm->json-string prefsData-ht))
+  ;;       (let ((prefsDataString (get-env-zoteroDocumentData documentID)))
+  ;;         (if (== "" prefsDataString)
+  ;;             (tm-zotero-write tid
+  ;;                              (safe-scm->json-string
+  ;;                               (construct-default-documentPrefsData-ht)))
+  ;;             (tm-zotero-write tid (safe-scm->json-string prefsDataString))))))
+  (let ((prefsDataString (get-env-zoteroDocumentData documentID)))
+    (if (== "" prefsDataString)
+        (tm-zotero-write tid (safe-scm->json-string (format-default-documentPrefsData-xml)))
+        (tm-zotero-write tid (safe-scm->json-string prefsDataString)))))
 
 ;;}}}
 ;;{{{ Document_setDocumentData
@@ -5329,9 +5566,10 @@
 ;;; ["Document_setDocumentData", [documentID, str_dataString]] -> null
 ;;;
 (define (tm-zotero-Document_setDocumentData tid documentID str_dataString)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_setDocumentData...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_setDocumentData:called...")
-  (set-env-zoteroDocumentData! str_dataString)
+  (set-env-zoteroDocumentData! documentID str_dataString)
   (tm-zotero-write tid (safe-scm->json-string '())))
 
 ;;}}}
@@ -5353,6 +5591,7 @@
 ;;;   str_fieldType is ignored for now.
 ;;;
 (define (tm-zotero-Document_cursorInField tid documentID str_fieldType)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_cursorInField...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_cursorInField:called...")
   (let ((ret (if (focus-is-zfield?)
@@ -5412,6 +5651,7 @@
 (define (tm-zotero-Document_insertField tid documentID
                                         str_fieldType
                                         int_noteType)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_insertField...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_insertField:called...")
   (let* ((dd             (get-<document-data> documentID))
@@ -5470,6 +5710,7 @@
 ;;;  that the BIBL field is also sent as one of the fields in this list.
 ;;;
 (define (tm-zotero-Document_getFields tid documentID str_fieldType)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_getFields...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_getFields:called...")
   (let ((ret
@@ -5520,6 +5761,7 @@
 ;;; TeXmacs?  Better to make a new flag; and just ignore this one?
 ;;;
 (define (tm-zotero-Document_convert tid . args)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_convert...")
   ;; (tm-zotero-format-debug "tm-zotero-Document_convert:called...")
   (tm-zotero-write tid (safe-scm->json-string '())))
@@ -5945,6 +6187,7 @@
          tid documentID
          firstLineIndent bodyIndent lineSpacing entrySpacing
          arrayList tabStopCount)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_setBibliographyStyle...")
   ;;(tm-zotero-format-debug "tm-zotero-Document_setBibliographyStyle:called...")
   (set-init-env "zotero-BibliographyStyle_firstLineIndent"
@@ -5969,6 +6212,7 @@
 ;;; connector. It appears to do nothing there either.
 ;;;
 (define (tm-zotero-Document_cleanup tid documentID)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message "Processing command: Document_cleanup...")
   (tm-zotero-format-debug "STUB:tm-zotero-Document_cleanup: ~s" documentID)
   (tm-zotero-write tid (safe-scm->json-string '())))
@@ -6005,6 +6249,7 @@
 ;;; ["Field_delete", [documentID, fieldID]] -> null
 ;;;
 (define (tm-zotero-Field_delete tid documentID zfieldID)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message
    (string-append "Processing command: Field_delete " zfieldID "..."))
   ;;(tm-zotero-format-debug "tm-zotero-Field_delete:called...")
@@ -6020,7 +6265,7 @@
         (hash-remove! documentID+zfieldID-><zfield-data>-ht zfd-key)
         (set! (document-zfield-zfd-ls dd)
               (remove-<*-data>-ls! (document-zfield-zfd-ls dd) zfd)))
-      (when (and zfd zfield (is-zbibliography? zfield))
+      (when (and zfield (is-zbibliography? zfield)) ;; (and zfd zfield (is-zbibliography? zfield))
         (set! (document-zbibliography-zfd-ls dd)
               (remove-<*-data>-ls! (document-zbibliography-zfd-ls dd) zfd)))
       (when zfd
@@ -6036,25 +6281,23 @@
 ;;;
 ;;; ["Field_select", [documentID, fieldID]] -> null
 ;;;
-;;; I think that whether or not this works as expected depends on settings made
-;;; by the drd-props macro. I think that I want the cursor to be inside of it's
-;;; light blue box, after it.... (writing this comment prior to testing. FLW.)
-;;;
 (define (tm-zotero-Field_select tid documentID zfieldID)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message
    (string-append "Processing command: Field_select " zfieldID "..."))
   ;;(tm-zotero-format-debug "tm-zotero-Field_select:called...")
-  (let* (;;(dd     (get-<document-data> documentID))
-         ;;(zfd-ht (document-zfield-zfd-ht dd))
-         ;;(zfd    (hash-ref zfd-ht zfieldID))
-         (zfd (hash-ref documentID+zfieldID-><zfield-data>-ht
+  (let* ((zfd (hash-ref documentID+zfieldID-><zfield-data>-ht
                         (string-append documentID zfieldID)
                         #f)))
     (if zfd
         (begin
           (tree-go-to (zfd-tree zfd) 1)
           (tm-zotero-write tid (safe-scm->json-string '())))
-        (tm-zotero-write tid (safe-scm->json-string "ERR: Field_select failed, zfield was not interned.")))))
+        (tm-zotero-write tid (safe-scm->json-string
+                              (format
+                               #f
+                               "ERR: Field_select failed. zfield not interned? documentID: ~s zfieldID: ~s"
+                               documentID zfieldID))))))
 
 ;;}}}
 ;;{{{ Field_removeCode
@@ -6062,22 +6305,24 @@
 ;;; ["Field_removeCode", [documentID, fieldID]] -> null
 ;;;
 (define (tm-zotero-Field_removeCode tid documentID zfieldID)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message
    (string-append "Processing command: Field_removeCode " zfieldID "..."))
   ;;(tm-zotero-format-debug "tm-zotero-Field_removeCode:called...")
-  (let* (;; (dd     (get-<document-data> documentID))
-         ;; (zfd-ht (document-zfield-zfd-ht dd))
-         ;; (zfd    (hash-ref zfd-ht zfieldID))
-         (zfd (hash-ref documentID+zfieldID-><zfield-data>-ht
+  (let* ((zfd (hash-ref documentID+zfieldID-><zfield-data>-ht
                         (string-append documentID zfieldID)
                         #f))
          (zfield (and zfd (zfd-tree zfd))))
-    (if (and zfd zfield)
+    (if zfield ;; (and zfd zfield)
         (begin
           (set! (zfield-Code-code zfield) "")
           (set! (%zfd-Code-code-ht zfd) #f)
           (tm-zotero-write tid (safe-scm->json-string '())))
-        (tm-zotero-write tid (safe-scm->json-string "ERR: Field_removeCode zfield not interned?")))))
+        (tm-zotero-write tid (safe-scm->json-string
+                              (format
+                               #f
+                               "ERR: Field_removeCode failed. zfield not interned? documentID: ~s zfieldID: ~s"
+                               documentID zfieldID))))))
 
 ;;}}}
 ;;{{{ Field_setText
@@ -7042,15 +7287,16 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;; Let's assume that for this, it's always "isRich", so ignore that arg.
 ;;;
 (define (tm-zotero-Field_setText tid documentID zfieldID str_text isRich)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message
    (string-append "Processing command: Field_setText " zfieldID "..."))
   ;;(tm-zotero-format-debug "tm-zotero-Field_setText:called...")
   (let* ((zfd (hash-ref documentID+zfieldID-><zfield-data>-ht
                         (string-append documentID zfieldID)
                         #f))
-         (zfield   (and zfd (zfd-tree zfd)))
+         (zfield   (and zfd    (zfd-tree zfd)))
          (is-note? (and zfield (zfield-IsNote? zfield)))
-         (is-bib?  (and zfield (zfield-IsBib? zfield)))
+         (is-bib?  (and zfield (zfield-IsBib?  zfield)))
          (tmtext
           (tm-zotero-UTF-8-str_text->texmacs str_text is-note? is-bib?)))
     (if zfield
@@ -7063,7 +7309,11 @@ styles. doi: forms are short, so they don't need to be put on their own line."
             (set! (zfield-Text-t zfield) tmtext)
             (set! (zfield-Code-is-modified?-flag zfield) "false"))
           (tm-zotero-write tid (safe-scm->json-string '())))
-        (tm-zotero-write tid (safe-scm->json-string "ERR: Field_setText zfield not interned?")))))
+        (tm-zotero-write tid (safe-scm->json-string
+                              (format
+                               #f
+                               "ERR: Field_setText failed. zfield not interned? documentID: ~s zfieldID: ~s"
+                               documentID zfieldID))))))
 
 
 ;;}}}
@@ -7074,6 +7324,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;; ["Field_getText", [documentID, fieldID]] -> str_text
 ;;;
 (define (tm-zotero-Field_getText tid documentID zfieldID)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message
    (string-append "Processing command: Field_getText " zfieldID "..."))
   ;; (tm-zotero-format-debug "tm-zotero-Field_getText:called...")
@@ -7088,7 +7339,11 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                                           "Cork"
                                           "UTF-8")))
         (tm-zotero-write tid
-                         (safe-scm->json-string "ERR: Field_getText zfield not interned?")))))
+                         (safe-scm->json-string
+                          (format
+                           #f
+                           "ERR: Field_getText failed. zfield not interned? documentID: ~s zfieldID: ~s"
+                           documentID zfieldID))))))
 
 ;;}}}
 ;;{{{ Field_setCode
@@ -7098,6 +7353,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;; ["Field_setCode", [documentID, fieldID, str_code]] -> null
 ;;;
 (define (tm-zotero-Field_setCode tid documentID zfieldID str_code)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message
    (string-append "Processing command: Field_setCode " zfieldID "..."))
   ;; (tm-zotero-format-debug "tm-zotero-Field_setCode:called...")
@@ -7106,13 +7362,17 @@ styles. doi: forms are short, so they don't need to be put on their own line."
                            #f))
          (zfield (and zfd (zfd-tree zfd)))
          (scm    (zfield-Code-code->scm str_code)))
-    (if (and zfd zfield)
+    (if zfield ;; (and zfd zfield)
         (begin
           (set! (zfield-Code-code zfield) str_code)
           (set! (%zfd-Code-code-ht zfd) scm)
           ;;(tm-zotero-format-debug "_GREEN_tm-zotero-Field_setCode_RESET_: scm =>\n~s\n" (safe-scm->json-string scm #:pretty #t))
           (tm-zotero-write tid (safe-scm->json-string '())))
-        (tm-zotero-write tid (safe-scm->json-string "ERR: Field_setCode zfield not interned?")))))
+        (tm-zotero-write tid (safe-scm->json-string
+                              (format
+                               #f
+                               "ERR: Field_setCode failed. zfield not interned? documentID: ~s zfieldID: ~s"
+                               documentID zfieldID))))))
 
 ;;}}}
 ;;{{{ Field_getCode
@@ -7122,6 +7382,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;; ["Field_getCode", [documentID, fieldID]] -> str_code
 ;;;
 (define (tm-zotero-Field_getCode tid documentID zfieldID)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message
    (string-append "Processing command: Field_getCode " zfieldID "..."))
   ;; (tm-zotero-format-debug "tm-zotero-Field_getCode:called...")
@@ -7131,7 +7392,11 @@ styles. doi: forms are short, so they don't need to be put on their own line."
          (zfield (and zfd (zfd-tree zfd))))
     (if zfield
         (tm-zotero-write tid (safe-scm->json-string (zfield-Code-code zfield)))
-        (tm-zotero-write tid (safe-scm->json-string "ERR: Field_getCode zfield not interned?")))))
+        (tm-zotero-write tid (safe-scm->json-string
+                              (format
+                               #f
+                               "ERR: Field_getCode failed. zfield not interned? documentID: ~s zfieldID: ~s"
+                               documentID zfieldID))))))
 
 ;;}}}
 ;;{{{ Field_convert
@@ -7143,6 +7408,7 @@ styles. doi: forms are short, so they don't need to be put on their own line."
 ;;;
 (define (tm-zotero-Field_convert tid documentID
                                  zfieldID str_fieldType int_noteType)
+  ;; (go-to-buffer (document-buffer documentID))
   (tm-zotero-set-message
    (string-append "Processing command: Field_convert " zfieldID "..."))
   (tm-zotero-format-debug "STUB:zotero-Field_convert: ~s ~s ~s ~s"
