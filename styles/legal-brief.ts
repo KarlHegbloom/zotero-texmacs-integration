@@ -1,4 +1,4 @@
-<TeXmacs|1.99.9>
+<TeXmacs|1.99.6>
 
 <style|source>
 
@@ -31,7 +31,7 @@
     </src-comment>
   </active*>
 
-  <use-package|english|std|env|title-generic|header-generic|header-article|header-letter|section-article|tm-zotero>
+  <use-package|english|std|env|title-generic|header-generic|header-article|section-article|tm-zotero>
 
   <use-module|(legal-brief)>
 
@@ -575,6 +575,7 @@
 <\initial>
   <\collection>
     <associate|font|TeX Gyre Termes>
+    <associate|font-base-size|12>
     <associate|page-type|letter>
     <associate|preamble|true>
     <associate|src-style|angular>
