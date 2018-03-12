@@ -1,13 +1,16 @@
 # Zotero - TeXmacs integration plugin and citation styles. #
 
-__This branch is the active (Α) development branch of this program. It is ready to use with Juris-M / Zotero 5.0 now.__
+__This branch is the active (Α) development branch of this program. It is ready to use with Juris-M 5.0 now.__
 
-__It is ready to try! I need beta testers. Please report both success and failure to this [issue tracker](https://github.com/KarlHegbloom/zotero-texmacs-integration/issues)!__
+__I need beta testers. Please report both success and failure to this [issue tracker](https://github.com/KarlHegbloom/zotero-texmacs-integration/issues)!__
+
+__In particular, I have not yet tested this with Zotero 5.0, since I work primarily with Juris-M 5.0. Testing this is on my todo list.__
 
 ## News ##
 
-  * Update to the latest [propachi-texmacs](https://github.com/KarlHegbloom/propachi-texmacs/releases) is necessary! v1.1.180beta6 is for Juris-M / Zotero 5.0 standalone.
-  * We are working on having a MacOS package of TeXmacs that contains the necessary support for this plugin.
+  * Update to the latest [propachi-texmacs](https://github.com/KarlHegbloom/propachi-texmacs/releases)! It is necessary for Juris-M 5.0 standalone.
+  * You no longer need to disable the propachi-texmacs addin when you want to use Juris-M with OpenOffice or Word. That is because the setting of the outputFormat is moved into the document prefs, defaulting to RTF when the editor plugin does not specify otherwise. That means it works with both OpenOffice / Word (RTF outputFormat) as well as with the zotero-texmacs-integration (tmzoterolatex outputFormat). You can have both on the screen using Juris-M at the same time if you like.
+  * We are working on having installable software bundle packages of TeXmacs for MacOS and Windows that contains the necessary support for this plugin.
   * Key bindings changed: In the `zcite` context, `Tab` now calls `affirmCitation` and `Ctrl-Enter` calls `editCitation`. In the `zbibliography` context, `Tab` and `Ctrl-Enter` both call `editBibliography`.
   * `clipboard-copy`, `clipboard-cut`, and `clipboard-paste` now operate on new `zcite` sub-dividing tags, `zciteLayoutPrefix`, `zciteLayoutDelimiter`, `zciteLayoutSuffix`, and `zsubCite`. So when a `zcite` is disactivated via `Backspace` or the focus toolbar button, you have access to selection of a region for `clipboard-copy` or `clipboard-cut`, and when that region consists only of complete `zsubCite` and any of the `zciteLayout*` tags, then those `zsubCite`'s will get put onto the clipboard wrapped inside of a full `zcite`, ready to be pasted into the document's main text. Any clipping that is of just one `zcite` can be pasted into a disactivated `zcite` as well, as long as the cursor is *between* the `zsubCite` and `zciteLayout*` tags!
 
@@ -42,7 +45,8 @@ to the top directory of a clone of the source from github, *e.g.,*
     cd ~;
     mkdir --parents ~/src/Juris-M || true;
     cd ~/src/Juris-M;
-    git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
+    git clone https://github.com/KarlHegbloom/zotero-texmacs-integration;
+    cd zotero-texmacs-integration;
     git checkout master;
     cd ~;
     mkdir --parents ~/.TeXmacs/plugins || true;
@@ -50,6 +54,13 @@ to the top directory of a clone of the source from github, *e.g.,*
     [[ -L "legal-brief" -a -L "zotero" -a $(realpath "legal-brief") = $(realpath "zotero" ]] && rm legal-brief zotero;
     [[ -L "zotero" ]] && rm zotero;
     ln -s ~/src/Juris-M/zotero-texmacs-integration tm-zotero;
+
+You do not need to clone the submodules unless you are curious or plan to help
+develop this program. The are only required for development or bugfix work, not
+for normal use of this plugin. Everything that TeXmacs needs to run this plugin
+is already in the toplevel git project. The citeproc-js and propachi-texmacs
+submodules are the source to the propachi-texmacs XPI that is required to be
+installed in Juris-M for this plugin to function properly.
 
 
 ## How to get this up and running: ##
@@ -75,19 +86,25 @@ to the top directory of a clone of the source from github, *e.g.,*
 
     * This works with Juris-M standalone. The last tested version is
 
-      [v4.0.29.12m98](https://github.com/Juris-M/zotero-standalone-build/releases/download/v4.0.29.12m98/jurism-for-linux-64bit-4.0.29.12m98.tar.bz2)
+      [v5.0.37m10](https://our.law.nagoya-u.ac.jp/download/client/Jurism-5.0.37m10_linux-x86_64.tar.bz2)
 
-  * Install the OpenOffice plugin via Preferences > Cite > Word Processors.
+  * [Should be optional] Install the OpenOffice plugin via Preferences > Cite > Word Processors.
 
-  * Install the propachi-texmacs xpi from:
+  * Install the latest propachi-texmacs xpi from:
 
     https://github.com/KarlHegbloom/propachi-texmacs/releases
+    
+    Download the XPI file, then from inside of Juris-M, select Tools ->
+    Add-ins..., and from there, use the drop-down from the gear icon on the
+    upper-right of the add-in's dialog to select "Install add-in from file...",
+    find the downloaded XPI, and install it.
 
     This monkey-patch loads a citeproc into Juris-M that has the right
     outputFormat defined for the TeXmacs integration. It also ensures that the
-    integration uses that outputFormat by monkey-patching it. You can disable
-    propachi-texmacs and restart Juris-M when you want to use the OpenOffice
-    plugin instead of TeXmacs... (as if, right?)
+    integration uses that outputFormat by monkey-patching it so that it
+    defaults to RTF as before, but when the document prefs carry an
+    outputFormat setting for a particular document (set by the editor plugin),
+    it uses that.
 
     Check there for updates or "watch" the github repository to get email when
     I update it. I will try to get automatic updates to function when I have
@@ -101,7 +118,8 @@ to the top directory of a clone of the source from github, *e.g.,*
         cd ~;
         mkdir --parents ~/src/Juris-M || true;
         cd ~/src/Juris-M;
-        git clone --recursive https://github.com/KarlHegbloom/zotero-texmacs-integration;
+        git clone https://github.com/KarlHegbloom/zotero-texmacs-integration;
+        cd zotero-texmacs-integration;
         git checkout master;
         cd ~;
         mkdir --parents ~/.TeXmacs/plugins || true;
