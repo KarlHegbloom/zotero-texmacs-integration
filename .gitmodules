@@ -10,3 +10,9 @@
         path = zotero
         url = https://github.com/Juris-M/zotero.git
         branch = jurism-5.0
+[submodule "zotero-build"]
+	path = zotero-build
+	url = git@github.com:KarlHegbloom/zotero-build.git
+[submodule "zotero-standalone-build"]
+	path = zotero-standalone-build
+	url = git@github.com:KarlHegbloom/zotero-standalone-build.git
